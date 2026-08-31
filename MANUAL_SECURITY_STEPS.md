@@ -34,7 +34,7 @@ openssl rand -base64 24   # For passwords
 
 ### 2. Rotate the Google Maps API Key
 
-The key `AIzaSyA9wzTz5MiDhYBdY1vHJQtOnw9uikwauBk` was hardcoded in Dockerfiles and is now public in git history.
+The Maps key previously hardcoded in Dockerfiles (prefix `AIzaSyA9wz…`, full value **REDACTED_ROTATE_IN_GCP**) is public in git history (commit `753a7bb2`).
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
 2. Delete or regenerate the existing key

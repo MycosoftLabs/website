@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { fetchMindexWithAuthRetry, mindexUpstreamHeaders } from "@/lib/mindex-bff-auth"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 /**
@@ -24,7 +25,6 @@ import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
  */
 
 const MINDEX_URL = resolveMindexServerBaseUrl()
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY?.trim() || ""
 const INATURALIST_API = "https://api.inaturalist.org/v1"
 const GBIF_API = "https://api.gbif.org/v1"
 const configuredMindexTimeout = Number(process.env.CREP_MINDEX_PROXY_TIMEOUT_MS)
@@ -57,9 +57,7 @@ type SpeciesBounds = { lat_min: string; lat_max: string; lng_min: string; lng_ma
 const proxyResponseCache = new Map<string, ProxyCacheEntry>()
 
 function mindexHeaders(): HeadersInit {
-  const h: Record<string, string> = { Accept: "application/json" }
-  if (MINDEX_API_KEY) h["X-API-Key"] = MINDEX_API_KEY
-  return h
+  return mindexUpstreamHeaders()
 }
 
 /** Map source names to MINDEX earth/map/bbox layer names */
@@ -835,7 +833,7 @@ export async function GET(
     // Primary: Query MINDEX earth/map/bbox endpoint (PostGIS spatial query + Redis cache)
     const mindexUrl = `${MINDEX_URL}/api/mindex/earth/map/bbox?layer=${mindexLayer}&lat_min=${bounds.lat_min}&lat_max=${bounds.lat_max}&lng_min=${bounds.lng_min}&lng_max=${bounds.lng_max}&limit=${limit}`
 
-    const res = await fetch(mindexUrl, {
+    const res = await fetchMindexWithAuthRetry(mindexUrl, {
       cache: "no-store",
       signal: AbortSignal.timeout(MINDEX_PROXY_TIMEOUT_MS),
       headers: mindexHeaders(),
@@ -1052,11 +1050,9 @@ export async function POST(
   const valid = entities.filter(e => e.lat != null && e.lng != null)
 
   try {
-    const ingestHeaders: Record<string, string> = { "Content-Type": "application/json" }
-    if (MINDEX_API_KEY) ingestHeaders["X-API-Key"] = MINDEX_API_KEY
-    const res = await fetch(`${MINDEX_URL}/api/mindex/earth/ingest`, {
+    const res = await fetchMindexWithAuthRetry(`${MINDEX_URL}/api/mindex/earth/ingest`, {
       method: "POST",
-      headers: ingestHeaders,
+      headers: mindexUpstreamHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         source,
         layer: mindexLayer,

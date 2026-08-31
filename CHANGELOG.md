@@ -407,6 +407,27 @@ All notable changes to this project will be documented in this file.
 - *(tablet)* Enable Earth Sim satellites and 3D terrain on iPad
 - *(devices)* AutoplayVideo pointerClass crash on touch devices
 - Play hero videos on phone and tablet, not poster-only
+- *(mycobrain)* Remove duplicate isLocalPsathyrellaSerialTarget (TS2440)
+- *(earth-sim)* Show MINDEX FIRMS toggle + fix mapRef crash
+- *(earth-sim)* Dedupe air-quality to one marker per station
+- *(earth-sim)* Restore air-quality BFF (prev commit dropped it via untracked-file diff)
+- *(earth-sim)* HTML-escape MINDEX popup data — DOM XSS (PR #230 security review)
+- *(earth-sim)* Restore MINDEX popup layers with XSS escaping (prev commit deleted them)
+- *(earth-sim)* Robust global data-center fetch (force-cache race dropped the 4,156 set)
+- *(ci)* Commit missing CREP v3 geo shims and widen UnifiedLimits
+- *(psathyrella)* Permissions-Policy camera=(self) for GCS webcam
+- *(deploy)* Sandbox MAS_API_URL defaults to 192.168.0.188 not localhost
+- *(deploy)* Sandbox MAS_API_URL defaults to 192.168.0.188 not localhost
+- *(ci)* Site monitor SMTP secrets path and deploy guardrails
+- *(security)* Don't let empty MAS compliance response shadow seeded baseline
+- *(psathyrella)* Add missing PointCloudView and WiFiSenseView for production build
+- *(reports)* Fall through LLM providers when Perplexity unset/fails
+- *(cmmc)* Re-peg endpoint-gated dates to PROV (laptops not yet provisioned)
+- *(mas)* Replace retired/quota-blocked Gemini model IDs (fixes 100% GenerateContent errors)
+- *(oei)* Submarine-cables BFF proxy with real geometry
+- *(mindex)* Proxy internal token + parse entities for cell towers
+- *(deploy)* Pass MINDEX_INTERNAL_TOKEN from credentials on sandbox rebuild
+- *(ci)* Site monitor SMTP secrets path and deploy guardrails
 
 ### CREP
 
@@ -664,6 +685,15 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- *(psathyrella)* Update backend status after Jun 26 Cursor handoff
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- *(cmmc)* Drop-in spec for Perplexity's weight table + L3/supply-chain pull
+- Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -893,6 +923,31 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Emergency popup starts tucked, pill blinks on new info
 - *(earth-sim)* Auto-open emergency popup only when user is IN the warning + looking at it
 - *(earth-sim)* Radar auto-refresh + emergency popup arms radar/lightning
+- *(earth-sim)* Arraylake "Nature & Climate" animated fields — framework + data plane + 3D module
+- *(earth-sim)* Live MINDEX FIRMS wildfire layer (additive, default-off)
+- *(earth-sim)* MINDEX air/weather layers + Worldview registry + investor BFF
+- *(earth-sim)* Render FIRMS as a density heatmap, not dots
+- *(earth-sim)* Production-readiness — aircraft off, denser sats, lighter orbits, freeze fix
+- *(earth-sim)* MINDEX air + weather as heatmaps with distinct ramps (like FIRMS)
+- *(earth-sim)* Surface infra + borders at continent zoom + lift satellites
+- *(earth-sim)* No flat-sat phase + weather radar/lightning on at boot
+- *(nlm)* Wire /myca/nlm stats to live NLM engine metrics API
+- *(psathyrella)* Buoy GCS console, telemetry contract, globe map, iPad full-bleed
+- *(security)* Honest current/target CMMC posture from Perplexity overlay + /trust
+- *(security)* Honest current-vs-target context banner on compliance dashboard
+- *(security)* Proactive per-control remediation workbook
+- *(security)* Wire cited CMMC reference (weights/POA&M/guidance) into workbook, flagged unverified
+- *(security)* L3, statutory/supply-chain, CUI reference + BOM checker + boundary check
+- *(security)* Gated SPRS scoring engine (dormant until weights verified)
+- *(security)* Integrate authoritative Perplexity reference + flip WEIGHTS_VERIFIED
+- *(security)* Integrate MycoForge suppliers into supply-chain compliance tab
+- *(security)* Real Psathyrella BOM + Buy American Act dimension; fix instrument table; local-test guidance
+- *(reports)* Real MYCA reports agent — LLM-authored gov-standard PDF reports from live data
+- *(reports)* Per-report-type reasoning model + hard no-invention rule (Perplexity guidance)
+- *(psathyrella)* GCS pipeline protect, edge-health, and ops panels
+- *(reports)* Compliance remediation engine — auto-classify + auto-document all 110 controls
+- *(reports)* CMMC L2 policy + procedure generator (Batch B) — all 14 policies + supporting docs
+- *(security)* Add self-serve policy pack generator to Reports tab
 
 ### Fix
 
@@ -970,6 +1025,10 @@ All notable changes to this project will be documented in this file.
 - Add no_cache instant deploy and Earth Sim prod verification
 - Free GH runner disk before no_cache instant deploy builds
 - Free GH runner disk before no_cache instant deploy builds
+- *(legal)* Proprietary LICENSE, NOTICE, README export-control sections
+- *(cmmc)* Fail-closed ingest+verify script for hydrated control JSON
+- *(cmmc)* Ingest hydrated 110-control reference (MD5 abca7ab1, 110/110 verbatim v2.13 guidance)
+- Proprietary license + NOTICE + SECURITY policy
 
 ### Performance
 
@@ -1006,11 +1065,17 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Gate vessels at pump too + turn off plane trajectory trails
 - *(earth-sim)* Gate vessels' 2nd writer + minzoom; hide sat orbit rings <4
 - *(earth-sim)* Remove FpsAutoGovernor from the tree (dev tool only)
+- *(earth-sim)* Drop military perimeters from per-click box-pick (micro-opt)
+- *(earth-sim)* Cap satellite render pipeline (supply fix exposed a too-high 1600 cap)
 
 ### Refactor
 
 - Remove Web Speech API - Moshi handles all STT, MAS gets async memory clone
 - *(crep)* Scrub external-link anti-pattern from 4 more widgets
+
+### Release
+
+- Psathyrella GCS + Earth Sim + CREP shims Jun 26
 
 ### Search
 
@@ -1034,6 +1099,10 @@ All notable changes to this project will be documented in this file.
 
 - All 223+ agents active 24/7 in AI Studio
 - Hyphae 1 updates, device pages, APIs, and public assets
+
+### Audit
+
+- *(cui-security)* Lane A findings — codebase, GitHub, Supabase, public surface
 
 ### Checkpoint
 
@@ -1143,6 +1212,8 @@ All notable changes to this project will be documented in this file.
 - *(deps)* Clear the @vitessce/uuid chain + postcss — 109->14 vulns, 0 critical/high
 - Placeholder MINDEX key in docs
 - Remove MINDEX default key fallbacks
+- *(psathyrella)* Gate GCS page + all APIs to owner (morgan@mycosoft.org) only
+- *(cui)* Scrub Maps/Firebase keys, temp junk, Supabase migration drafts
 
 ### Sidebar
 

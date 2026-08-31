@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { NLMTechnicalArchitecture } from "@/components/myca/NLMTechnicalArchitecture"
 import { LiveTranslationDemo } from "@/components/myca/LiveTranslationDemo"
+import { NLMStatsPanel } from "@/components/myca/NLMStatsPanel"
 import { NeuromorphicProvider, NeuCard, NeuCardContent } from "@/components/ui/neuromorphic"
 import {
   Brain,
@@ -121,25 +122,8 @@ export default function NLMPage() {
         </section>
 
         <div className="container max-w-6xl mx-auto px-4 md:px-6 py-12 space-y-16">
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card className="bg-purple-500/10 border-purple-500/20">
-              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Brain className="h-4 w-4" /> Model Status</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-bold text-purple-600 dark:text-purple-400">Training</div><p className="text-sm text-muted-foreground">NLM-Funga Phase 0</p></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Translation Accuracy</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-bold text-green-600 dark:text-green-500">96.2%</div><Progress value={96.2} className="h-2 mt-2" /></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Training Data</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-bold">3.1M</div><p className="text-sm text-muted-foreground">Signal samples</p></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Overall Progress</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-bold">62%</div><Progress value={62} className="h-2 mt-2" /></CardContent>
-            </Card>
-          </div>
+          {/* Live stats from NLM engine — /api/myca/nlm/metrics */}
+          <NLMStatsPanel />
 
           {/* NLM in Frontier AI */}
           <section>

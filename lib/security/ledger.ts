@@ -65,6 +65,8 @@ export class IncidentBlock {
 export class SecurityLedger {
   private chain: IncidentBlock[];
   private ledgerPath: string;
+  /** When container FS is read-only, keep chain in memory only (never crash /api/security). */
+  private persistEnabled = true;
 
   constructor() {
     this.chain = [];
@@ -73,30 +75,40 @@ export class SecurityLedger {
   }
 
   private initializeLedger() {
-    const dataDir = path.dirname(this.ledgerPath);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-
-    if (fs.existsSync(this.ledgerPath)) {
-      try {
-        const fileData = fs.readFileSync(this.ledgerPath, 'utf8');
-        const parsedData = JSON.parse(fileData);
-        // Reconstruct classes
-        this.chain = parsedData.map((b: any) => {
-          const block = new IncidentBlock(b.index, b.timestamp, b.encryptedData, b.previousHash);
-          block.hash = b.hash;
-          block.signature = b.signature;
-          return block;
-        });
-      } catch (err) {
-        console.error('CRITICAL: Failed to parse existing incident ledger.', err);
-        this.chain = [this.createGenesisBlock()];
+    try {
+      const dataDir = path.dirname(this.ledgerPath);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
       }
-    } else {
-      const genesis = this.createGenesisBlock();
-      this.chain = [genesis];
-      this.saveLedger(genesis);
+
+      if (fs.existsSync(this.ledgerPath)) {
+        try {
+          const fileData = fs.readFileSync(this.ledgerPath, 'utf8');
+          const parsedData = JSON.parse(fileData);
+          // Reconstruct classes
+          this.chain = parsedData.map((b: any) => {
+            const block = new IncidentBlock(b.index, b.timestamp, b.encryptedData, b.previousHash);
+            block.hash = b.hash;
+            block.signature = b.signature;
+            return block;
+          });
+        } catch (err) {
+          console.error('CRITICAL: Failed to parse existing incident ledger.', err);
+          this.chain = [this.createGenesisBlock()];
+        }
+      } else {
+        const genesis = this.createGenesisBlock();
+        this.chain = [genesis];
+        this.saveLedger(genesis);
+      }
+    } catch (err) {
+      // Docker/sandbox images are often read-only outside /tmp — never take down the SOC API.
+      console.warn(
+        '[SecurityLedger] Persistent ledger unavailable; using in-memory chain only:',
+        err instanceof Error ? err.message : err
+      );
+      this.persistEnabled = false;
+      this.chain = [this.createGenesisBlock()];
     }
   }
 
@@ -119,8 +131,18 @@ export class SecurityLedger {
   }
 
   private saveLedger(newBlock?: IncidentBlock) {
-    fs.writeFileSync(this.ledgerPath, JSON.stringify(this.chain, null, 2));
-    
+    if (this.persistEnabled) {
+      try {
+        fs.writeFileSync(this.ledgerPath, JSON.stringify(this.chain, null, 2));
+      } catch (err) {
+        console.warn(
+          '[SecurityLedger] write failed; disabling persistence:',
+          err instanceof Error ? err.message : err
+        );
+        this.persistEnabled = false;
+      }
+    }
+
     // In a real environment, trigger MAS synchronization and MINDEX durable storage:
     this.syncToMindex(newBlock);
   }

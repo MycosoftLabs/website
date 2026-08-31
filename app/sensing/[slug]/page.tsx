@@ -51,7 +51,7 @@ type SensingPageConfig = {
     cta: string
   }
   metrics: { label: string; value: string }[]
-  pillars: { title: string; body: string; icon: typeof Cpu }[]
+  pillars: { title: string; body: string; icon: typeof Cpu; bg?: string }[]
   workflow: string[]
   dataProducts: string[]
   useCases: string[]
@@ -177,6 +177,8 @@ const sensingPages = {
       {
         title: "Multi-camera perception",
         icon: Camera,
+        // Live Psathyrella GCS camera view — captured from the running app.
+        bg: "/assets/bluesite/multicam-gcs.png",
         body:
           "BlueSight supports 8K 360-degree visual context for scene awareness and 4K directional inspection for targeted observation. The stack is built for field devices that need both wide situational awareness and high-resolution evidence capture.",
       },
@@ -189,18 +191,24 @@ const sensingPages = {
       {
         title: "Depth and geometry",
         icon: ScanLine,
+        // LiDAR point cloud — structural scan plate.
+        bg: "/assets/bluesite/lidar-structure.png",
         body:
           "LiDAR and structured spatial readings add geometry: surface shape, canopy structure, growth forms, obstacles, device surroundings, and physical changes that a flat image alone cannot prove.",
       },
       {
         title: "Motion and presence",
         icon: Radio,
+        // LiDAR street scene — motion/presence plate.
+        bg: "/assets/bluesite/lidar-street.png",
         body:
           "Radar and WiFiSense add motion, range, and presence signals. This lets MYCA distinguish visual anomalies from movement, occupancy, vibration, weather, or occlusion.",
       },
       {
         title: "Edge visual AI",
         icon: Brain,
+        // Aerial LiDAR map — wide-area perception plate.
+        bg: "/assets/bluesite/lidar-aerial.png",
         body:
           "On-device classifiers can segment colonies, detect growth edges, spot contamination, read device scenes, classify organisms, detect smoke or dust, and prepare model-ready observations before bandwidth is wasted.",
       },
@@ -614,14 +622,39 @@ export default async function SensingPage({ params }: { params: Promise<{ slug: 
           </div>
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {page.pillars.map((pillar) => (
-              <NeuCard key={pillar.title} className="h-full">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/35 bg-white/25 backdrop-blur-xl dark:border-white/15 dark:bg-white/10">
-                    <pillar.icon className="h-5 w-5" />
+              <NeuCard key={pillar.title} className={`h-full ${pillar.bg ? "relative overflow-hidden" : ""}`}>
+                {/* Optional sensing plate behind the glass: real capture art
+                    (GCS camera / LiDAR point clouds). CSS background — a
+                    missing asset renders an unchanged card, never a broken
+                    image. Dark artwork, so white type needs the scrim in both
+                    themes. */}
+                {pillar.bg && (
+                  <>
+                    {/* Inline position/inset: the neuromorphic sheet forces
+                        `position: relative` onto card children, which strips
+                        Tailwind's absolute/inset-0 and collapses these layers
+                        to zero height. Inline styles outrank it. */}
+                    <div
+                      aria-hidden="true"
+                      className="bg-cover bg-center"
+                      style={{ backgroundImage: `url('${pillar.bg}')`, position: 'absolute', inset: 0 }}
+                    />
+                    <div
+                      aria-hidden="true"
+                      className="bg-gradient-to-b from-slate-950/78 via-slate-950/42 to-slate-950/30"
+                      style={{ position: 'absolute', inset: 0 }}
+                    />
+                  </>
+                )}
+                <div className={pillar.bg ? "relative" : undefined}>
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/35 bg-white/25 backdrop-blur-xl dark:border-white/15 dark:bg-white/10">
+                      <pillar.icon className="h-5 w-5" />
+                    </div>
+                    <h3 className={`text-lg font-semibold ${pillar.bg ? "text-white" : ""}`}>{pillar.title}</h3>
                   </div>
-                  <h3 className="text-lg font-semibold">{pillar.title}</h3>
+                  <p className={`text-sm leading-relaxed ${pillar.bg ? "text-white/85" : "text-slate-700 dark:text-white/72"}`}>{pillar.body}</p>
                 </div>
-                <p className="text-sm leading-relaxed text-slate-700 dark:text-white/72">{pillar.body}</p>
               </NeuCard>
             ))}
           </div>

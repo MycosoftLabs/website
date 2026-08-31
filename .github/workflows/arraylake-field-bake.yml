@@ -1,0 +1,92 @@
+# Earth Simulator — Arraylake field bake (data plane)
+# Re-bakes live cubes on a schedule; static cubes can be run manually once.
+name: Arraylake field bake
+
+on:
+  schedule:
+    # Every 3 hours — live weather/carbon/imagery cubes
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      dataset:
+        description: "Optional dataset id (e.g. era5). Empty = all live cubes."
+        required: false
+        default: ""
+      variable:
+        description: "Optional variable key (requires dataset)."
+        required: false
+        default: ""
+
+jobs:
+  bake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      ARRAYLAKE_TOKEN: ${{ secrets.ARRAYLAKE_TOKEN }}
+      ARRAYLAKE_FIELD_OUT: ${{ vars.ARRAYLAKE_FIELD_OUT || 'fields_out' }}
+      ARRAYLAKE_CATALOG_URL: ${{ vars.ARRAYLAKE_CATALOG_URL || 'https://mycosoft.com/api/crep/field/_catalog' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install bake dependencies
+        run: |
+          pip install "arraylake" "zarr>=3" "icechunk" "xarray>=2024.9" "numpy" "pillow" "rioxarray" "pyproj"
+
+      - name: Introspect cubes (schema audit)
+        run: python scripts/arraylake/introspect.py
+
+      - name: Bake live field cubes
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.dataset }}" ]; then
+            ARGS="${{ github.event.inputs.dataset }}"
+            if [ -n "${{ github.event.inputs.variable }}" ]; then
+              ARGS="$ARGS ${{ github.event.inputs.variable }}"
+            fi
+            python scripts/arraylake/bake_field.py $ARGS
+          else
+            for ds in era5 hrrr helios alive sentinel2 geo-stereo-wind mrms; do
+              python scripts/arraylake/bake_field.py "$ds" || true
+            done
+          fi
+
+      # CRITICAL: publish the baked frames to the production asset mount, otherwise the
+      # bake writes to the ephemeral runner and the data never reaches the website. The
+      # field BFF reads ARRAYLAKE_FIELD_BASE = https://mycosoft.com/assets/fields, which
+      # is the NAS mount /opt/mycosoft/media/website/assets (mounted read-only into the
+      # container at /app/public/assets → served at /assets). Reuses the same
+      # Cloudflare-tunnel SSH the prod blue/green deploy uses (ci-cd.yml).
+      - name: Setup SSH via Cloudflare Tunnel
+        if: github.ref == 'refs/heads/main'
+        uses: ./.github/actions/setup-ssh
+        with:
+          ssh-key: ${{ secrets.SSH_KEY }}
+          ssh-key-b64: ${{ secrets.SSH_KEY_B64 }}
+          production-host: ${{ secrets.PRODUCTION_HOST }}
+          ssh-user: ${{ secrets.SSH_USER }}
+          cf-access-client-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          cf-access-client-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          require-cloudflare-access: true
+
+      - name: Publish baked fields to production asset mount
+        if: github.ref == 'refs/heads/main'
+        run: |
+          if [ ! -d "${ARRAYLAKE_FIELD_OUT}" ] || [ -z "$(ls -A "${ARRAYLAKE_FIELD_OUT}" 2>/dev/null)" ]; then
+            echo "::warning::no baked output in ${ARRAYLAKE_FIELD_OUT} — nothing to publish (auth/introspect likely failed)"
+            exit 0
+          fi
+          ssh-retry production 'mkdir -p /opt/mycosoft/media/website/assets/fields'
+          rsync -avz -e ssh "${ARRAYLAKE_FIELD_OUT}/" production:/opt/mycosoft/media/website/assets/fields/
+          echo "Published $(find "${ARRAYLAKE_FIELD_OUT}" -name manifest.json | wc -l) manifest(s) to /opt/mycosoft/media/website/assets/fields"
+
+      - name: Upload bake artifact (debug)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arraylake-fields-manifest-snapshot
+          path: fields_out/**/manifest.json
+          if-no-files-found: ignore

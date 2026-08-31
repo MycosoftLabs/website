@@ -113,12 +113,12 @@ export async function POST(request: NextRequest) {
       .single()
     
     const email = user.email || ''
-    const isAdmin = profile?.role === 'admin' || 
-                    profile?.role === 'security_admin' || 
+    const isAdmin = profile?.role === 'admin' ||
+                    profile?.role === 'security_admin' ||
                     profile?.role === 'super_admin' ||
                     email === 'morgan@mycosoft.org' ||
                     email === 'admin@mycosoft.org' ||
-                    email === 'garret@mycosoft.org'
+                    email === 'rj@mycosoft.org'
     
     if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })

@@ -4,9 +4,12 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { AlertTriangle, Shield, Activity, Globe, Users, Eye, Lock, Server, RefreshCw, Search, Network, ArrowRight, HelpCircle } from "lucide-react";
 import { SecurityTour, WelcomeModal, useSecurityTour, socDashboardTour, TourTriggerButton } from "@/components/security/tour";
+import type { OperationalState } from "@/lib/security/soc/operational-state";
+import { SourceState, ProvenanceFooter, UnavailableCard } from "@/components/security/soc/provenance";
 
 interface SecurityStatus {
   status: string;
+  monitoring_state?: "active" | "degraded" | "unavailable";
   threat_level: string;
   monitoring_enabled: boolean;
   last_check: string;
@@ -15,7 +18,19 @@ interface SecurityStatus {
   critical_events: number;
   high_events: number;
   unique_ips: number;
-  uptime_seconds: number;
+  agents_registered?: number | null;
+  agents_fresh?: number | null;
+  agents_stale?: number | null;
+}
+
+// Composed SOC overview read-model (BFF action=soc-overview). Each field is an
+// OperationalState envelope — the UI renders from `.state`, never from a zero.
+interface AgentLiveness { registered: number; stale: number; fresh: number; stale_after_seconds: number | null }
+interface SocOverview {
+  monitoring: OperationalState<{ state: "active" | "degraded" | "unavailable" }>;
+  agents: OperationalState<AgentLiveness>;
+  guardian: OperationalState<{ status?: string; halted?: boolean; developmental_stage?: string; operational_mode?: string }>;
+  incidents: OperationalState<{ count: number; by_state: Record<string, number> }>;
 }
 
 interface AuthorizedUser {
@@ -114,18 +129,20 @@ export default function SecurityPage() {
   const [geoResult, setGeoResult] = useState<GeoIpResult | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [socTiles, setSocTiles] = useState<SocDashboardTiles | null>(null);
+  const [overview, setOverview] = useState<SocOverview | null>(null);
   const [threatPoints, setThreatPoints] = useState<ThreatMapPoint[]>([]);
   const [threatMapMeta, setThreatMapMeta] = useState<{ data_source?: string; error?: string }>({});
 
   const fetchData = async () => {
     try {
-      const [statusRes, usersRes, eventsRes, agentsRes, tilesRes, mapRes] = await Promise.all([
+      const [statusRes, usersRes, eventsRes, agentsRes, tilesRes, mapRes, overviewRes] = await Promise.all([
         fetch("/api/security?action=status"),
         fetch("/api/security?action=users"),
         fetch("/api/security?action=events"),
         fetch("/api/security/agents?action=mas_agents"),
         fetch("/api/security?action=soc-dashboard-tiles"),
         fetch("/api/security?action=threat-map"),
+        fetch("/api/security?action=soc-overview"),
       ]);
 
       if (!statusRes.ok || !usersRes.ok || !eventsRes.ok) {
@@ -142,6 +159,7 @@ export default function SecurityPage() {
       setEvents(eventsData.events || []);
       setSecurityAgents(agentsData.agents || []);
       setMasConnected(!agentsData.error && agentsData.agents?.length > 0);
+      setOverview(overviewRes.ok ? ((await overviewRes.json()) as SocOverview) : null);
 
       if (tilesRes.ok) {
         setSocTiles((await tilesRes.json()) as SocDashboardTiles);
@@ -232,7 +250,7 @@ export default function SecurityPage() {
               <Shield className="text-emerald-400" size={32} />
               <h1 className="text-3xl font-bold text-white font-mono">Security Operations Center</h1>
             </div>
-            <p className="text-slate-400 font-mono text-sm">Mycosoft Network Security Monitoring | 24/7 Active Protection</p>
+            <p className="text-slate-400 font-mono text-sm">Mycosoft Network Security Monitoring · status derived live from MAS 188</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {/* Staff Tour Button */}
@@ -280,52 +298,79 @@ export default function SecurityPage() {
         </div>
       )}
 
-      {/* Status Grid */}
+      {/* Status Grid — every tile derived from live MAS signals, no fabricated zeros */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" data-tour="metrics-panel">
-        {/* Threat Level */}
+        {/* Monitoring Status — derived from posture + guardian + agent freshness */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6" data-tour="threat-status">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-slate-400 font-mono text-sm">Threat Level</span>
-            <AlertTriangle className={`${getThreatColor(status?.threat_level || "low").split(" ")[0]}`} size={20} />
-          </div>
-          <div className={`text-2xl font-bold font-mono uppercase px-3 py-1 rounded-lg inline-block ${getThreatColor(status?.threat_level || "low")}`}>
-            {status?.threat_level || "UNKNOWN"}
-          </div>
-        </div>
-
-        {/* Monitoring Status */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-slate-400 font-mono text-sm">Monitoring</span>
+            <span className="text-slate-400 font-mono text-sm">Monitoring (MAS 188)</span>
             <Activity className="text-emerald-400" size={20} />
           </div>
-          <div className={`text-2xl font-bold font-mono ${status?.monitoring_enabled ? "text-emerald-400" : "text-red-400"}`}>
-            {status?.monitoring_enabled ? "ACTIVE" : "DISABLED"}
+          {(() => {
+            const ms = status?.monitoring_state ?? (status?.status as SecurityStatus["monitoring_state"]);
+            const label = ms === "active" ? "ACTIVE" : ms === "degraded" ? "DEGRADED" : ms === "unavailable" ? "UNAVAILABLE" : "UNKNOWN";
+            const cls = ms === "active" ? "text-emerald-400" : ms === "degraded" ? "text-amber-400" : "text-red-400";
+            return (
+              <>
+                <div className={`text-2xl font-bold font-mono ${cls}`}>{label}</div>
+                <div className="mt-1 text-[11px] text-slate-500 font-mono">
+                  {ms === "active" ? "guardian active · posture ok · agents fresh"
+                    : ms === "degraded" ? "one or more SOC workers not healthy"
+                    : ms === "unavailable" ? "no SOC worker signal reachable"
+                    : "awaiting MAS status"}
+                </div>
+              </>
+            );
+          })()}
+        </div>
+
+        {/* Threat Level — UNKNOWN when MAS status is unavailable, never defaulted low */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-slate-400 font-mono text-sm">Threat Level</span>
+            <AlertTriangle className={`${getThreatColor(status?.threat_level || "unknown").split(" ")[0]}`} size={20} />
+          </div>
+          <div className={`text-2xl font-bold font-mono uppercase px-3 py-1 rounded-lg inline-block ${getThreatColor(status?.threat_level || "unknown")}`}>
+            {status?.status === "unavailable" ? "UNKNOWN" : (status?.threat_level || "UNKNOWN")}
           </div>
         </div>
 
-        {/* Events Today */}
+        {/* Agent liveness — the honest headline: registered vs actually fresh */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-slate-400 font-mono text-sm">MAS agents</span>
+            {overview?.agents && <SourceState state={overview.agents.state} />}
+          </div>
+          {overview?.agents && (overview.agents.state === "healthy" || overview.agents.state === "degraded" || overview.agents.state === "stale") && overview.agents.data ? (
+            <>
+              <div className={`text-2xl font-bold font-mono ${overview.agents.data.fresh > 0 ? "text-emerald-400" : "text-amber-400"}`}>
+                {overview.agents.data.fresh}<span className="text-slate-500 text-lg"> / {overview.agents.data.registered}</span>
+                <span className="text-sm text-slate-500 ml-2 font-normal">fresh</span>
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500 font-mono">
+                {overview.agents.data.stale} stale
+                {overview.agents.data.stale_after_seconds ? ` (>${Math.round(overview.agents.data.stale_after_seconds / 3600)}h)` : ""}
+              </div>
+            </>
+          ) : (
+            <div className="text-2xl font-bold font-mono text-slate-600">—</div>
+          )}
+        </div>
+
+        {/* Events (24h) — em-dash when status unavailable, never zero-fill */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <span className="text-slate-400 font-mono text-sm">Events (24h)</span>
             <Eye className="text-blue-400" size={20} />
           </div>
           <div className="text-2xl font-bold font-mono text-white">
-            {status?.events_last_day || 0}
-            <span className="text-sm text-slate-500 ml-2">
-              ({status?.critical_events || 0} critical)
-            </span>
+            {status && status.status !== "unavailable" ? status.events_last_day : "—"}
+            {status && status.status !== "unavailable" && (
+              <span className="text-sm text-slate-500 ml-2">({status.critical_events} critical)</span>
+            )}
           </div>
-        </div>
-
-        {/* Unique IPs */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-slate-400 font-mono text-sm">Unique IPs</span>
-            <Globe className="text-purple-400" size={20} />
-          </div>
-          <div className="text-2xl font-bold font-mono text-white">
-            {status?.unique_ips || 0}
+          <div className="mt-1 text-[11px] text-slate-500 font-mono">
+            {status?.unique_ips != null && status.status !== "unavailable" ? `${status.unique_ips} unique source IPs` : "source unavailable"}
           </div>
         </div>
       </div>
@@ -431,8 +476,17 @@ export default function SecurityPage() {
           {events.length === 0 ? (
             <div className="text-center py-8 text-slate-500 font-mono">
               <Lock className="mx-auto mb-2" size={24} />
-              <p>No security events</p>
-              <p className="text-xs">All systems normal</p>
+              {status?.status === "unavailable" ? (
+                <>
+                  <p className="text-red-300">Event collection unavailable</p>
+                  <p className="text-xs">MAS incident source is not reachable — this is not a clean state.</p>
+                </>
+              ) : (
+                <>
+                  <p>No incidents returned by MAS</p>
+                  <p className="text-xs">Collection succeeded · 0 incidents in the recent window.</p>
+                </>
+              )}
             </div>
           ) : (
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
@@ -459,16 +513,24 @@ export default function SecurityPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         {/* Security Agents - Real data from MAS */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h2 className="text-lg font-bold text-white font-mono mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-white font-mono mb-2 flex items-center gap-2 flex-wrap">
             <Server className="text-purple-400" size={20} />
             Security Agents
-            {masConnected && (
-              <span className="ml-2 px-2 py-0.5 text-xs bg-emerald-500/20 text-emerald-400 rounded-full">MAS Connected</span>
-            )}
-            {!masConnected && securityAgents.length === 0 && (
-              <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-500/20 text-yellow-400 rounded-full">MAS Offline</span>
-            )}
+            {overview?.agents && <SourceState state={overview.agents.state} />}
           </h2>
+          {/* Honest agent liveness from the MAS heartbeat summary — registered is
+              not the same as running. All-stale reads as amber, never green. */}
+          {overview?.agents && overview.agents.data ? (
+            <p className="text-xs font-mono text-slate-400 mb-4">
+              <span className={overview.agents.data.fresh > 0 ? "text-emerald-400" : "text-amber-400"}>
+                {overview.agents.data.fresh} fresh
+              </span>{" "}
+              / {overview.agents.data.registered} registered · {overview.agents.data.stale} stale
+              {overview.agents.data.stale_after_seconds ? ` (heartbeat older than ${Math.round(overview.agents.data.stale_after_seconds / 3600)}h)` : ""}
+            </p>
+          ) : (
+            <p className="text-xs font-mono text-red-300 mb-4">Agent heartbeat summary unavailable from MAS.</p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             {securityAgents.length > 0 ? (
               securityAgents.map((agent) => (
@@ -615,10 +677,10 @@ export default function SecurityPage() {
         )}
       </div>
 
-      {/* Last Update Info */}
+      {/* Last Update Info — website poll time only; not a claim about MAS uptime */}
       <div className="mt-8 text-center text-slate-500 font-mono text-xs">
-        <p>Last Updated: {status?.last_check ? new Date(status.last_check).toLocaleString() : "Unknown"}</p>
-        <p>Uptime: {status?.uptime_seconds ? Math.floor(status.uptime_seconds / 60) : 0} minutes</p>
+        <p>Last polled: {status?.last_check ? new Date(status.last_check).toLocaleString() : "Unknown"}</p>
+        <p>Source of record: MAS 188 / MINDEX 189 · this page is authenticated UI only</p>
       </div>
       </div>
     </div>

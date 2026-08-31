@@ -75,7 +75,7 @@
 
 ### CRIT-07: Hardcoded Google Maps API Key in Dockerfiles
 - **Files:** `Dockerfile:44` and `Dockerfile.container:23`
-- **Key:** `AIzaSyA9wzTz5MiDhYBdY1vHJQtOnw9uikwauBk`
+- **Key:** `AIzaSyA9wz…` (**REDACTED_ROTATE_IN_GCP** — do not restore plaintext)
 - **Impact:** Billable API key — anyone can generate charges to your Google Cloud account
 - **Fix:** Remove default from ARG. Rotate key immediately. Apply HTTP referrer restrictions in Google Cloud Console.
 

@@ -23,9 +23,11 @@ const SUPER_ADMIN_EMAILS = [
   'admin@mycosoft.org'
 ]
 
-// Security admin emails - have access to compliance/security tools but not super admin privileges
+// Security admin emails - have access to compliance/security tools but not super
+// admin privileges. Former staff (Garret) removed 2026-07-22; RJ is the security
+// admin alongside Morgan (super admin above).
 const SECURITY_ADMIN_EMAILS = [
-  'garret@mycosoft.org'
+  'rj@mycosoft.org'
 ]
 
 // Get user session with access info

@@ -1,30 +1,52 @@
 "use client"
 
+// FUSARIUM — public gateway to Mycosoft's operational environmental-intelligence
+// platform. Rebuilt Aug 2026 around one hierarchy: NLM is the intelligence,
+// Earth Simulator models the world, MINDEX remembers the evidence, sensing
+// applications perceive, droids collect, CREP/FUSARIUM operationalizes, MYCA
+// coordinates, AVANI governs, Launchpad grows the ecosystem.
+//
+// Rules honored here:
+//  - Hero video asset/crop/behavior preserved exactly; only copy/CTAs changed.
+//  - Exactly five droids marketed, once each, grouped by operating domain.
+//  - Canonical sensing names: BlueSight, Eagle Eye, SINE, GANDHA, FCI.
+//  - No absolute claims ("cannot detect or evade" is gone), no unbounded
+//    compliance claims, honest availability caveats preserved.
+//  - All repeated content is configuration-driven (arrays below), not
+//    hand-duplicated cards.
+
 import Link from "next/link"
-import Image from "next/image"
-import { 
-  ArrowLeft,
+import {
   ArrowRight,
+  AlertTriangle,
   Shield,
   Radar,
-  Microscope,
   Wind,
-  AlertTriangle,
   Eye,
-  Database,
   Network,
   Cpu,
   Server,
   Radio,
   Zap,
-  Lock,
   Globe,
-  Map,
   Activity,
   CheckCircle2,
   Plane,
-  Waves
+  Waves,
+  Database,
+  Rocket,
+  Ear,
+  CloudFog,
+  FlaskConical,
+  Thermometer,
+  Layers,
+  GitBranch,
+  Lock,
+  FileText,
+  Building2,
+  Handshake,
 } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import {
   NeuButton,
   NeuCard,
@@ -34,428 +56,1055 @@ import {
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { GlassButton, GlassChip } from "@/components/ui/glass-button"
+import { deviceHeroVideoSources } from "@/lib/asset-video-sources"
 
-const fusariumComponents = [
+// ---------------------------------------------------------------------------
+// Section 05 backdrop. Large media lives on the NAS bind mount under
+// public/assets/ (gitignored) — same policy as every other hero on the site.
+// `-web` is tried first, then the full file; NEXT_PUBLIC_FUSARIUM_EARTHSIM_MP4
+// overrides the path if the NAS filename ever changes.
+// ---------------------------------------------------------------------------
+const EARTH_SIM_BAND_MP4 = "/assets/fusarium/earth simulator background.mp4"
+const EARTH_SIM_BAND_POSTER =
+  process.env.NEXT_PUBLIC_FUSARIUM_EARTHSIM_POSTER?.trim() ||
+  "/assets/fusarium/earth simulator background-poster.jpg"
+const earthSimBandSources = deviceHeroVideoSources(EARTH_SIM_BAND_MP4, {
+  envUrl: process.env.NEXT_PUBLIC_FUSARIUM_EARTHSIM_MP4,
+})
+
+// Section 11 backdrop — the colony still had an animated original; same NAS
+// policy, `-web` first. The 68 MB master stays out of git.
+const ORCHESTRATION_BAND_MP4 = "/assets/fusarium/orchestration-colony.mp4"
+const orchestrationBandSources = deviceHeroVideoSources(ORCHESTRATION_BAND_MP4, {
+  envUrl: process.env.NEXT_PUBLIC_FUSARIUM_ORCHESTRATION_MP4,
+})
+
+// ---------------------------------------------------------------------------
+// NLM six senses
+// ---------------------------------------------------------------------------
+const nlmSenses = [
+  { name: "Spectral", domain: "Wavelengths and light", examples: "Cameras, multispectral, infrared, LiDAR", icon: Eye },
+  { name: "Acoustic", domain: "Pressure waves", examples: "Microphones, hydrophones, vibration", icon: Ear },
+  { name: "Bioelectric", domain: "Biological voltage", examples: "FCI electrodes, mycelial networks", icon: Zap },
+  { name: "Thermal", domain: "Heat and gradients", examples: "Temperature arrays, thermal imaging", icon: Thermometer },
+  // Smell, not chemistry: this sense is an airborne plume reaching a sensor,
+  // so it reads as drifting vapour rather than laboratory glassware.
+  { name: "Chemical", domain: "Gases and compounds", examples: "VOCs, aerosols, gas sensors, assays", icon: CloudFog },
+  { name: "Mechanical", domain: "Pressure and deformation", examples: "IMUs, strain, seismic, tactile inputs", icon: Activity },
+]
+
+const nlmOutputs = ["Current state", "Anomaly", "Confidence", "Prediction", "Evidence", "Recommended observation"]
+
+// ---------------------------------------------------------------------------
+// Droids by operating domain — exactly five, marketed once.
+// ---------------------------------------------------------------------------
+interface DroidCard {
+  id: string
+  name: string
+  descriptor: string
+  capabilities: string[]
+  href: string
+  icon: LucideIcon
+}
+
+const operatingDomains: Array<{
+  domain: string
+  accent: string
+  note?: string
+  droids: DroidCard[]
+}> = [
   {
-    name: "Earth Simulator",
-    description: "Live 3D environmental context for assets, observations, forecast layers, and risk review.",
-    icon: Globe,
-    features: ["3D globe", "Device overlays", "Forecast context", "Risk layers"]
+    domain: "Air & Atmosphere",
+    accent: "text-sky-300",
+    droids: [
+      {
+        id: "agaric",
+        name: "Agaric",
+        descriptor: "Flying environmental-intelligence droid for aerial survey, sensing, relay, and payload deployment.",
+        capabilities: ["BlueSight", "Aerial relay", "Payload deployment", "Wide-area sensing", "Mesh extension"],
+        href: "/devices/agaric",
+        icon: Plane,
+      },
+      {
+        id: "sporebase",
+        name: "SporeBase",
+        descriptor:
+          "Ground-deployed atmospheric node: time-indexed bioaerosol and particulate sampling for physical evidence and environmental baselines.",
+        capabilities: ["Bioaerosols", "GANDHA", "Physical samples", "Atmospheric context", "Lab handoff"],
+        href: "/devices/sporebase",
+        icon: Wind,
+      },
+    ],
   },
   {
-    name: "Agaric",
-    description: "Flying Sensor Droid for aerial deployment, retrieval, relay, inspection, and sensor passes.",
-    icon: Plane,
-    features: ["Aerial relay", "Payload movement", "Level hover", "Multi-sensor flight"]
+    domain: "Water & Hydrosphere",
+    accent: "text-cyan-300",
+    droids: [
+      {
+        id: "psathyrella",
+        name: "Psathyrella",
+        descriptor:
+          "Autonomous maritime sensing buoy for passive acoustics, water state, and persistent coastal or inland-water observation.",
+        capabilities: ["SINE", "Hydrophones", "Water state", "Coastal mesh", "Edge inference"],
+        href: "/devices/psathyrella",
+        icon: Waves,
+      },
+    ],
   },
   {
-    name: "Psathyrella",
-    description: "Autonomous buoy layer for passive acoustics, water context, and littoral environmental intelligence.",
-    icon: Waves,
-    features: ["Passive acoustics", "Water context", "Mesh handoff", "Coastal awareness"]
+    // Biosphere, not infrastructure — the three domains are named for the
+    // parts of the Earth system they sense (atmosphere, hydrosphere,
+    // biosphere), not for what happens to be installed there.
+    domain: "Land & Biosphere",
+    accent: "text-emerald-300",
+    droids: [
+      {
+        id: "mushroom-1",
+        name: "Mushroom 1",
+        descriptor: "Walking ground-intelligence droid for mobile field sensing, inspection, mapping, and FCI deployment.",
+        capabilities: ["Mobile sensing", "FCI", "Terrain mapping", "Sensor placement", "DIRTNet node"],
+        href: "/devices/mushroom-1",
+        icon: Radar,
+      },
+      {
+        id: "hyphae-1",
+        name: "Hyphae 1",
+        descriptor:
+          "Modular edge data center and field gateway: sensor fusion, local inference, mesh aggregation, and mission communications.",
+        capabilities: ["Edge AI", "Mesh gateway", "Local storage", "Sensor fusion", "Backhaul"],
+        href: "/devices/hyphae-1",
+        icon: Server,
+      },
+      {
+        id: "myconode",
+        name: "MycoNode",
+        descriptor:
+          "Distributed sensing and mesh-relay node for persistent installed coverage across a site or perimeter.",
+        capabilities: ["Mycorrhizae mesh", "Distributed sensing", "Relay hop", "Low power", "Site coverage"],
+        href: "/devices",
+        icon: Network,
+      },
+      {
+        id: "alarm",
+        name: "Alarm",
+        descriptor:
+          "Installed alerting and local annunciation node that turns NLM detections into on-site warning and response.",
+        capabilities: ["Local annunciation", "Threshold alerts", "NLM-triggered", "Site notification", "Mesh-linked"],
+        href: "/devices/alarm",
+        icon: AlertTriangle,
+      },
+    ],
   },
+]
+
+// ---------------------------------------------------------------------------
+// Sensing applications — canonical names.
+// ---------------------------------------------------------------------------
+interface SensingApplication {
+  id: string
+  name: string
+  tagline: string
+  inputs: string[]
+  outputs: string[]
+  nlmSenses: string[]
+  statusNote?: string
+  href: string
+  icon: LucideIcon
+}
+
+const sensingSystems: SensingApplication[] = [
   {
-    name: "SporeBase",
-    description: "Time-indexed bioaerosol collection for atmospheric sampling, baseline building, and lab-ready analysis.",
-    icon: Wind,
-    features: ["15-min cadence", "Sealed cassette", "Lab-ready samples", "Bioaerosol baselines"]
-  },
-  {
-    name: "FUSARIUM + CREP",
-    description: "Defense command surface for Operational Environmental Intelligence, alerts, layers, and field-device context.",
-    icon: Shield,
-    features: ["Threat picture", "Eagle Eye layers", "Mission review", "Decision support"]
-  },
-  {
-    name: "Eagle Eye",
-    description:
-      "Dual-plane video intelligence inside CREP: registry-backed cameras plus connector-sourced feeds. Enable Eagle Eye in the CREP layer panel. Coverage depends on MINDEX seeding and public connectors—not every map marker guarantees a playable live stream.",
+    id: "bluesight",
+    name: "BlueSight",
+    tagline: "Visual and spatial intelligence",
+    inputs: ["Cameras", "Multispectral", "LiDAR", "Radar", "WiFiSense"],
+    outputs: ["Scene state", "Detection and change", "Geometry", "Evidence frames"],
+    nlmSenses: ["Spectral", "Mechanical"],
+    statusNote: "Detection and geometry track the sensor, lighting, and range available at capture — every observation is published with the frame and conditions behind it.",
+    href: "/sensing/bluesight",
     icon: Eye,
-    features: ["MINDEX-backed sources when seeded", "Live connector fan-out when cache is cold", "Honest UX: stream availability varies by source"]
   },
   {
-    name: "Mushroom 1",
-    description: "Ground mobility for field deployment, mapping, local inspection, and sensor placement.",
+    id: "eagle-eye",
+    name: "Eagle Eye",
+    tagline: "Live visual-source intelligence",
+    inputs: ["Registry-backed cameras", "Connector-sourced feeds", "Recorded video"],
+    outputs: ["Map-linked visual evidence", "Source registry", "Availability state"],
+    nlmSenses: ["Spectral"],
+    statusNote: "Stream availability varies by source — not every map marker guarantees a playable live feed.",
+    href: "/dashboard/crep",
+    icon: Globe,
+  },
+  {
+    id: "sine",
+    name: "SINE",
+    tagline: "Acoustic intelligence and signal analysis",
+    inputs: ["Hydrophones", "Microphones", "Vibration", "Air, land, underwater recordings"],
+    outputs: ["Waveforms", "Spectrograms", "Events", "Model-gated interpretations"],
+    nlmSenses: ["Acoustic"],
+    statusNote: "Semantic interpretation is model-gated: claims unlock only when a validated model artifact supports them.",
+    href: "/sensing/sine",
+    icon: Ear,
+  },
+  {
+    id: "gandha",
+    name: "GANDHA",
+    tagline: "Chemical and particle intelligence",
+    inputs: ["VOCs", "Gas channels", "Particulates", "Humidity, temperature, pressure"],
+    outputs: ["Chemical fingerprints", "Drift-aware readings", "Alerts", "Environmental signatures"],
+    nlmSenses: ["Chemical"],
+    statusNote: "Readings are drift-corrected and reported against calibrated baselines — GANDHA publishes chemical signatures and change, not absolute compound identifications.",
+    href: "/sensing/gandha",
+    icon: CloudFog,
+  },
+  {
+    id: "fci",
+    name: "FCI",
+    tagline: "Bioelectric perception",
+    inputs: ["Living fungal tissue", "Electrode arrays", "Controlled stimuli", "Environmental context"],
+    outputs: ["Filtered biological signals", "Response profiles", "Anomalies", "NLM-ready evidence"],
+    nlmSenses: ["Bioelectric"],
+    statusNote: "FCI measures bioelectric activity and response patterns for controlled interpretation by NLM.",
+    href: "/natureos/fci",
+    icon: Zap,
+  },
+  {
+    // The sixth sense: expression. Five senses perceive; this one carries what
+    // was perceived — between organisms, droids, MINDEX, the Earth Simulator,
+    // and the operator — and speaks it back in natural language.
+    id: "mycorrhizae",
+    name: "Mycorrhizae + MYCA Speak",
+    tagline: "Communication — the mouth of the system",
+    inputs: [
+      "All five machine senses",
+      "Droid + sensor telemetry",
+      "MINDEX evidence",
+      "Earth Simulator live state",
+      "Operator speech",
+    ],
+    outputs: [
+      "Bidirectional organism ↔ MAS messaging",
+      "Full-duplex voice conversation",
+      "Cross-domain situational narration",
+      "Tasking and response",
+    ],
+    nlmSenses: ["All six — expression layer"],
+    statusNote:
+      "The Mycorrhizae Protocol carries every other sense into MYCA over the Nature Learning Model; MYCA Speak is the full-duplex conversational layer, so an operator can hold a real-time conversation while the system keeps sensing, tasking droids, and reading MINDEX and the Earth Simulator.",
+    href: "/myca",
+    icon: Radio,
+  },
+]
+
+// ---------------------------------------------------------------------------
+// Dashboard — the four official operational views.
+// ---------------------------------------------------------------------------
+const dashboardViews = [
+  {
+    name: "Situational Awareness",
+    icon: Globe,
+    items: ["CREP globe", "Active sensors", "Environmental overlays", "Alerts", "Mission area", "Device health"],
+  },
+  {
+    name: "Threat Assessment",
+    icon: Shield,
+    items: ["Ranked anomalies", "Cross-source correlation", "Entity detail", "Confidence and evidence", "AVANI gate state"],
+  },
+  {
+    name: "Data Fusion",
+    icon: Layers,
+    items: ["Modality coverage", "Source registry", "Model readiness", "MINDEX provenance", "Cross-domain correlation"],
+  },
+  {
+    name: "Command & Control",
+    icon: Radio,
+    items: ["Mission creation", "Device tasking", "Alert routing", "Intelligence products", "Compliance and audit state"],
+  },
+]
+
+const appChips = ["Earth Simulator", "BlueSight", "Eagle Eye", "SINE", "GANDHA", "FCI"]
+
+// ---------------------------------------------------------------------------
+// Launchpad — four stages (the ten modules live on the dedicated route).
+// ---------------------------------------------------------------------------
+const launchpadStages = [
+  {
+    name: "Establish",
+    icon: Building2,
+    items: ["Corporate prerequisites", "SAM.gov, UEI, CAGE", "Portal registrations", "Opportunity profiles"],
+  },
+  {
+    name: "Prepare",
+    icon: FileText,
+    items: ["Automated self assessment", "Readiness workflows", "Policy drafting", "Evidence Index", "POA&M organization"],
+  },
+  {
+    name: "Compete",
     icon: Radar,
-    features: ["Field mobility", "Sensor deployment", "Terrain mapping", "Tactical mesh"]
+    items: ["Contract Radar", "Eligibility screening", "Proposal Workspace", "Submission checklists", "Operating calendar"],
   },
   {
-    name: "Hyphae 1",
-    description: "Exterior edge datacenter that fuses sensing, compute, backhaul, and local command at the mission edge.",
-    icon: Server,
-    features: ["Edge AI", "Sensor fusion", "Mesh gateway", "Rugged deployment"]
-  },
-  {
-    name: "MYCA + MINDEX",
-    description: "AI orchestration and tamper-evident mission memory for device events, sensor frames, and intelligence products.",
-    icon: Cpu,
-    features: ["Mission planning", "Anomaly detection", "Chain of custody", "Automated reporting"]
+    name: "Integrate",
+    icon: Network,
+    items: ["Origin Graph", "Domestic sourcing", "Local Assurance Agent", "Enclave Bridge", "Optional Partner Mesh"],
   },
 ]
 
-const crepFeatures = [
-  { title: "Threat Visualization", description: "3D globe with environmental threat overlay" },
-  { title: "Sensor Network Status", description: "Real-time health of all deployed sensors" },
-  { title: "Intelligence Products", description: "ETA, ESI, BAR, RER, EEW in standardized formats" },
-  { title: "Alert Management", description: "Prioritized alerts with acknowledgment tracking" },
-  { title: "Mission Integration", description: "Overlay environmental data on operational plans" },
-  { title: "Historical Analysis", description: "Trend analysis and pattern detection over time" },
-]
-
-const fieldHardware = [
-  {
-    name: "Agaric",
-    role: "Aerial deployment, retrieval, relay, and inspection",
-    href: "/devices/agaric",
-    icon: Plane,
-    points: ["Flying Sensor Droid", "Multi-sensor payloads", "Hard-to-reach terrain", "Mycosoft device support"]
-  },
-  {
-    name: "SporeBase",
-    role: "Time-indexed bioaerosol collection",
-    href: "/devices/sporebase",
-    icon: Wind,
-    points: ["Sealed cassette", "15-minute cadence", "Physical samples", "Bioaerosol baselines"]
-  },
-  {
-    name: "Hyphae 1",
-    role: "Exterior edge datacenter and sensor fusion node",
-    href: "/devices/hyphae-1",
-    icon: Server,
-    points: ["MycoBrain + Jetson", "Radar / LiDAR / RF", "Mesh gateway", "Local AI"]
-  },
-  {
-    name: "Psathyrella",
-    role: "Autonomous maritime and littoral sensing buoy",
-    href: "/devices/psathyrella",
-    icon: Waves,
-    points: ["Passive acoustics", "Water context", "Coastal mesh", "CREP integration"]
-  },
+// ---------------------------------------------------------------------------
+// Orchestration / governance layer
+// ---------------------------------------------------------------------------
+const operatingLayer = [
+  { name: "MYCA", role: "Coordinates agents, tools, workflows, analysis, device tasks, and human interaction.", icon: Cpu },
+  { name: "MAS", role: "Executes specialized workflows and connects the platform to models, services, devices, and external systems.", icon: Network },
+  { name: "AVANI", role: "Applies governance, policy, restraint, auditability, and reversibility to system actions.", icon: Shield },
+  { name: "DIRTNet", role: "Connects autonomous sensing and compute nodes across intermittent or degraded networks.", icon: GitBranch },
+  { name: "Mycorrhizae Protocol", role: "Routes normalized environmental and biological information between devices, edge compute, MINDEX, NLM, and applications.", icon: Radio },
+  { name: "MycoBrain Device Protocol", role: "Handles deterministic communication between device controllers, sensors, edge processors, and gateways.", icon: Server },
+  { name: "HPL", role: "Provides a programming abstraction for fungal and biological computing experiments.", icon: FlaskConical },
 ]
 
 export default function FusariumPage() {
   return (
     <NeuromorphicProvider>
-    <div className="min-h-dvh">
-      {/* Header */}
-      <div className="border-b border-border/50">
-        <div className="container max-w-7xl mx-auto px-4 py-4">
-          <Link 
-            href="/defense" 
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Defense Portal
-          </Link>
-        </div>
-      </div>
+      {/* House glass/neumorphic template (same as About, Apps, Devices, NatureOS) */}
+      <div className="launchpad-glass-page min-h-dvh">
+        {/* ================= 02 · HERO — video preserved exactly ================= */}
+        <section className="relative min-h-[82vh] overflow-hidden py-24 flex items-center" data-over-video>
+          <AutoplayVideo
+            src="/assets/fusarium/fusarium-hero-2026-web.mp4"
+            sources={["/assets/fusarium/fusarium-hero-2026-web.mp4"]}
+            preload="auto"
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ filter: "brightness(0.72) contrast(1.08) saturate(1.06)" }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/12 via-black/20 to-background/82" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#fff2_1px,transparent_1px),linear-gradient(to_bottom,#fff2_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.06] pointer-events-none" />
 
-      {/* Hero */}
-      <section className="relative min-h-[82vh] overflow-hidden py-24 flex items-center" data-over-video>
-        <AutoplayVideo
-          src="/assets/fusarium/fusarium-hero-2026-web.mp4"
-          sources={["/assets/fusarium/fusarium-hero-2026-web.mp4"]}
-          preload="auto"
-          className="absolute inset-0 h-full w-full object-cover"
-          style={{ filter: "brightness(0.72) contrast(1.08) saturate(1.06)" }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/12 via-black/20 to-background/82" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#fff2_1px,transparent_1px),linear-gradient(to_bottom,#fff2_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.06] pointer-events-none" />
-        
-        <div className="container max-w-7xl mx-auto px-4 relative z-10">
-          <div className="max-w-4xl mx-auto text-center">
-            <NeuBadge variant="default" className="mb-4 border-destructive/30 text-destructive">
-              DEFENSE SYSTEM
-            </NeuBadge>
-            <h1 className="text-6xl md:text-8xl font-bold mb-6 tracking-tight text-white">
-              FUSARIUM
-            </h1>
-            <p className="text-xl text-white/82 max-w-3xl mx-auto mb-4">
-              Named after one of Earth&apos;s most dangerous fungal organisms - a pathogen that embeds 
-              itself in hosts and adapts to any environment.
-            </p>
-            <p className="text-lg text-white/70 max-w-2xl mx-auto mb-8">
-              Like its namesake, our defense system embeds into the operational environment, 
-              providing persistent awareness that adversaries cannot detect or evade.
-            </p>
-            
-            <div className="flex flex-wrap gap-4 justify-center">
-              <Link href="/defense/request-briefing">
-                <NeuButton variant="primary" className="text-base px-6 py-3">
-                  Request Briefing
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </NeuButton>
-              </Link>
-              <Link href="/dashboard/crep">
-                <NeuButton variant="default" className="text-base px-6 py-3">
-                  Access CREP Dashboard
-                </NeuButton>
+          <div className="container max-w-7xl mx-auto px-4 relative z-10">
+            <div className="max-w-4xl mx-auto text-center">
+              <GlassChip className="mb-4">OPERATIONAL ENVIRONMENTAL INTELLIGENCE</GlassChip>
+              <h1 className="text-6xl md:text-8xl font-bold mb-6 tracking-tight text-white">FUSARIUM</h1>
+              <p className="text-2xl md:text-3xl font-semibold text-white mb-4">
+                Intelligence grounded in the physical world.
+              </p>
+              <p className="text-lg text-white/75 max-w-3xl mx-auto mb-8">
+                FUSARIUM combines the Nature Learning Model, Earth Simulator, MINDEX, sensing applications, and
+                autonomous droids to produce a unified understanding of air, water, land, living systems, and
+                infrastructure.
+              </p>
+
+              <div className="flex flex-wrap gap-4 justify-center">
+                <a href="#nlm" data-analytics="fusarium_hero_explore_click">
+                  <NeuButton variant="primary" className="text-base px-6 py-3">
+                    Explore the Platform
+                    <ArrowRight className="ml-2 h-5 w-5 text-current" />
+                  </NeuButton>
+                </a>
+                <Link href="/defense/request-briefing" data-analytics="fusarium_hero_briefing_click">
+                  <NeuButton variant="default" className="text-base px-6 py-3">
+                    Request a Briefing
+                  </NeuButton>
+                </Link>
+              </div>
+
+              {/* Launchpad gateway pill — conspicuous, subordinate, separate audience */}
+              <Link
+                href="/fusarium/launchpad"
+                data-analytics="fusarium_hero_launchpad_click"
+                className="group inline-flex flex-col items-center gap-1 mt-8 px-5 py-3 rounded-full border border-emerald-500/40 bg-black/40 backdrop-blur-sm hover:bg-emerald-500/10 transition-colors"
+              >
+                <span className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-300">
+                  <Rocket className="h-4 w-4" />
+                  Building technology for the DoD? Enter FUSARIUM Launchpad
+                  <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform text-current" />
+                </span>
+                <span className="text-[11px] text-white/55">
+                  Readiness, opportunity discovery, evidence organization, and contractor operations for technical startups.
+                </span>
               </Link>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Why Fusarium */}
-      <section className="py-16">
-        <div className="container max-w-7xl mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div>
-              <NeuBadge variant="default" className="mb-4 text-destructive">The Name</NeuBadge>
-              <h2 className="text-4xl font-bold mb-6">Why Fusarium?</h2>
-              <div className="space-y-4 text-lg text-muted-foreground">
-                <p>
-                  <strong className="text-foreground">Fusarium</strong> is a genus of fungi that represents 
-                  one of the most significant threats to agriculture, infrastructure, and even human health worldwide.
-                </p>
-                <p>
-                  It&apos;s also a major concern for the United States military - capable of contaminating 
-                  food supplies, degrading equipment, and creating biological hazards in operational environments.
-                </p>
-                <p>
-                  We chose this name deliberately: <em>to defeat Fusarium, you must think like Fusarium.</em>
-                </p>
-                <p>
-                  Our defense system embeds into the environment with the same persistence, 
-                  providing the awareness needed to protect forces and infrastructure from all environmental threats - 
-                  including Fusarium itself.
-                </p>
+        {/* ================= 03 · AUDIENCE PATH BAR ================= */}
+        <section className="py-12 border-b border-border/40">
+          <div className="container max-w-7xl mx-auto px-4">
+            <div className="grid md:grid-cols-3 gap-6">
+              {[
+                {
+                  audience: "Mission Customers",
+                  head: "Deploy environmental intelligence",
+                  copy: "For defense, government, critical infrastructure, and mission operators.",
+                  cta: "Request a Briefing",
+                  href: "/defense/request-briefing",
+                  icon: Shield,
+                },
+                {
+                  audience: "Defense Startups",
+                  head: "Become contractor-ready",
+                  copy: "For founders building robotics, AI, hardware, sensing, software, and dual-use technologies.",
+                  cta: "Enter Launchpad",
+                  href: "/fusarium/launchpad",
+                  icon: Rocket,
+                },
+                {
+                  audience: "Technology Partners",
+                  head: "Connect to the platform",
+                  copy: "For companies whose devices, models, data, or applications should interoperate with FUSARIUM.",
+                  cta: "Join Partner Mesh",
+                  href: "#partner-mesh",
+                  icon: Handshake,
+                },
+              ].map((p) => (
+                <NeuCard key={p.audience} className="transition-all hover:scale-[1.01]">
+                  <NeuCardContent className="pt-6">
+                    <div className="flex items-start gap-3">
+                      <div className="myco-glass-tile p-2.5 shrink-0">
+                        <p.icon className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">{p.audience}</div>
+                        <h3 className="font-semibold mb-1">{p.head}</h3>
+                        <p className="text-sm text-muted-foreground mb-3">{p.copy}</p>
+                        <Link href={p.href} className="text-sm font-medium text-primary inline-flex items-center gap-1 hover:gap-2 transition-all">
+                          {p.cta} <ArrowRight className="h-4 w-4 text-current" />
+                        </Link>
+                      </div>
+                    </div>
+                  </NeuCardContent>
+                </NeuCard>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ================= 04 · NATURE LEARNING MODEL ================= */}
+        <section id="nlm" className="py-24 lp-media-band scroll-mt-16">
+          {/* Intelligence-core artwork: sits behind every surface in this band,
+              slightly blurred, so the frosted cards and buttons read THROUGH to
+              the colour. Same treatment in light and dark. */}
+          <div className="lp-media-bg">
+            {/* eslint-disable-next-line @next/next/no-img-element -- decorative background layer */}
+            <img
+              src="/assets/fusarium/nlm-intelligence-core.jpg"
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+          <div className="lp-media-scrim" aria-hidden="true" />
+
+          <div className="container max-w-7xl mx-auto px-4">
+            <div className="text-center mb-14">
+              {/* Section label uses the same frosted-glass treatment as the
+                  hero CTAs — one button language across the page. */}
+              <GlassChip className="mb-4">THE INTELLIGENCE CORE</GlassChip>
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">Nature Learning Model</h2>
+              <p className="text-2xl text-white/85 font-medium mb-4 max-w-3xl mx-auto">
+                Large Language Models begin with words. The Nature Learning Model begins with the world.
+              </p>
+              <p className="text-lg text-white/65 max-w-3xl mx-auto">
+                The physical world does not communicate in paragraphs. It communicates through wavelengths, waveforms,
+                voltages, gases, heat, pressure, vibration, movement, and biological response. NLM learns from those
+                signals directly — estimating environmental state, identifying anomalies, predicting what may happen
+                next, and exposing the evidence and uncertainty behind each conclusion.
+              </p>
+              <p className="text-base font-semibold text-emerald-400 mt-4 tracking-wide">
+                Language is optional. Grounding is mandatory.
+              </p>
+            </div>
+
+            {/* Six senses feeding the model */}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
+              {nlmSenses.map((s) => (
+                <div key={s.name} className="rounded-xl border border-white/10 bg-white/5 p-5 hover:border-emerald-500/40 transition-colors">
+                  <div className="flex items-center gap-3 mb-2">
+                    <s.icon className="h-5 w-5 text-emerald-400" />
+                    <span className="font-semibold text-white">{s.name}</span>
+                  </div>
+                  <div className="text-sm text-white/70">{s.domain}</div>
+                  <div className="text-xs text-white/45 mt-1">{s.examples}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Signal → state outputs */}
+            <div className="text-center mb-10">
+              <div className="text-xs uppercase tracking-widest text-white/45 mb-3">Every signal path resolves into</div>
+              <div className="flex flex-wrap justify-center gap-2">
+                {nlmOutputs.map((o) => (
+                  <span key={o} className="text-sm px-3 py-1.5 rounded-full border border-white/15 bg-white/5 text-white/80">
+                    {o}
+                  </span>
+                ))}
               </div>
             </div>
-            <div className="relative">
-              <NeuCard className="overflow-hidden p-0">
-                <div className="relative aspect-[16/10] min-h-[320px]">
-                  <Image
-                    src="/assets/fusarium/mold-fusarium-mycotoxin-amphotericin-scaled.jpg"
-                    alt="Fusarium mold growth macro image"
-                    fill
-                    sizes="(min-width: 1024px) 50vw, 100vw"
-                    className="object-cover"
-                    priority={false}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-6">
-                    <p className="text-lg font-semibold text-white">
-                      Embed. Adapt. Persist.
-                    </p>
-                    <p className="mt-2 text-sm text-white/70">
-                      The biological namesake behind the defense system.
-                    </p>
-                  </div>
-                </div>
-              </NeuCard>
+
+            <div className="text-center">
+              {/* inline-block so the button centers instead of stretching left */}
+              <GlassButton href="/myca/nlm" dataAnalytics="fusarium_nlm_detail_click">
+                Explore the Nature Learning Model
+                <ArrowRight className="ml-2 h-5 w-5 text-current" />
+              </GlassButton>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* System Components */}
-      <section className="py-24">
-        <div className="container max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4">System Components</NeuBadge>
-            <h2 className="text-4xl font-bold mb-4">The Fusarium Stack</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              An integrated suite of hardware, software, and AI designed for defense applications.
-            </p>
+        {/* ================= 05 · EARTH SIMULATOR + MINDEX ================= */}
+        {/* The world model gets the world behind it: the Earth Simulator clip
+            plays full-bleed under the same frosted glass used by the NLM band.
+            Video lives on the NAS mount (/assets/…, gitignored), never in git. */}
+        <section className="py-24 lp-media-band lp-media-band--motion">
+          <div className="lp-media-bg">
+            <AutoplayVideo
+              sources={earthSimBandSources}
+              poster={EARTH_SIM_BAND_POSTER}
+              preload="none"
+              lazyRootMargin="300px"
+              pauseWhenOutsideViewport
+              smoothLoop
+              pointerEventsNone
+              className="absolute inset-0 h-full w-full object-cover"
+            />
           </div>
+          <div className="lp-media-scrim lp-media-scrim--strong" aria-hidden="true" />
 
-          <div className="grid md:grid-cols-2 gap-8">
-            {fusariumComponents.map((component) => (
-              <NeuCard key={component.name} className="transition-all hover:scale-[1.01]">
-                <NeuCardHeader className="flex flex-row items-start gap-4 space-y-0 pb-2">
-                  <div className="p-3 rounded-xl bg-primary/10">
-                    <component.icon className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">{component.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">{component.description}</p>
+          <div className="container max-w-7xl mx-auto px-4">
+            <div className="text-center mb-14">
+              <h2 className="text-4xl md:text-5xl font-bold mb-3 text-white">A world model and an evidence memory</h2>
+              <p className="text-lg text-white/70 max-w-2xl mx-auto">
+                NLM reasons inside a representation of the world and on top of durable, traceable evidence.
+              </p>
+            </div>
+            <div className="grid lg:grid-cols-2 gap-8">
+              <NeuCard className="transition-all hover:scale-[1.005]">
+                <NeuCardHeader className="pb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="myco-glass-tile p-3">
+                      <Globe className="h-6 w-6 text-cyan-300" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">Earth Simulator</h3>
+                      <p className="text-sm text-white/60">The spatial and temporal world model</p>
+                    </div>
                   </div>
                 </NeuCardHeader>
                 <NeuCardContent>
-                  <div className="grid grid-cols-2 gap-2">
-                    {component.features.map((feature) => (
-                      <div key={feature} className="flex items-center gap-2 text-sm">
-                        <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
-                        <span>{feature}</span>
-                      </div>
-                    ))}
-                  </div>
-                </NeuCardContent>
-              </NeuCard>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Field Hardware */}
-      <section className="py-24">
-        <div className="container max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 text-green-500">Field Hardware</NeuBadge>
-            <h2 className="text-4xl font-bold mb-4">Current Mycosoft Defense Devices</h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Fusarium is the defense layer that brings aerial, atmospheric, terrestrial, and maritime devices into one operational picture.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8">
-            {fieldHardware.map((device) => (
-              <NeuCard key={device.name} className="transition-all hover:scale-[1.01]">
-                <NeuCardHeader className="flex flex-row items-start gap-4 space-y-0 pb-2">
-                  <div className="p-3 rounded-xl bg-primary/10">
-                    <device.icon className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">{device.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">{device.role}</p>
-                  </div>
-                </NeuCardHeader>
-                <NeuCardContent>
+                  <p className="text-sm text-white/70 mb-4">
+                    Combines live observations, environmental history, forecasts, device state, and simulated scenarios
+                    into a continuously evolving representation of the operational environment.
+                  </p>
+                  <p className="text-sm font-medium mb-4 text-white">
+                    What is happening, where is it happening, and what may happen next?
+                  </p>
                   <div className="grid grid-cols-2 gap-2 mb-5">
-                    {device.points.map((point) => (
-                      <div key={point} className="flex items-center gap-2 text-sm">
-                        <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
-                        <span>{point}</span>
+                    {["3D globe", "Environmental layers", "Device positions", "Historical playback", "Forecast context", "Mission areas"].map((f) => (
+                      <div key={f} className="flex items-center gap-2 text-sm text-white/85">
+                        <CheckCircle2 className="h-4 w-4 text-cyan-300 shrink-0" />
+                        <span>{f}</span>
                       </div>
                     ))}
                   </div>
-                  <Link href={device.href}>
-                    <NeuButton variant="default" className="text-sm px-4 py-2">
-                      View Device
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </NeuButton>
-                  </Link>
+                  <GlassButton href="/natureos/earth-simulator" dataAnalytics="fusarium_earth_simulator_open">
+                    Open Earth Simulator <ArrowRight className="ml-2 h-4 w-4 shrink-0 text-current" />
+                  </GlassButton>
                 </NeuCardContent>
               </NeuCard>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* CREP Dashboard */}
-      <section className="py-24">
-        <div className="container max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4">Command Interface</NeuBadge>
-            <h2 className="text-4xl font-bold mb-4">CREP Dashboard</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Common Relevant Environmental Picture - the tactical interface for environmental intelligence, Earth Simulator context, and device-layer operations.
-            </p>
-            <p className="text-base text-muted-foreground max-w-2xl mx-auto mt-4">
-              Eagle Eye video layers run in the same CREP dashboard: open CREP and use the layer panel to toggle Eagle Eye. Feeds are sourced from the Eagle registry and public connectors where available—availability is data-dependent, not universal live video everywhere.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            {crepFeatures.map((feature) => (
-              <NeuCard key={feature.title} className="transition-all hover:scale-[1.01]">
-                <NeuCardHeader>
-                  <h3 className="text-lg font-semibold">{feature.title}</h3>
-                  <p className="text-sm text-muted-foreground">{feature.description}</p>
+              <NeuCard className="transition-all hover:scale-[1.005]">
+                <NeuCardHeader className="pb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="myco-glass-tile p-3">
+                      <Database className="h-6 w-6 text-amber-300" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">MINDEX</h3>
+                      <p className="text-sm text-white/60">The evidence and provenance layer</p>
+                    </div>
+                  </div>
                 </NeuCardHeader>
+                <NeuCardContent>
+                  <p className="text-sm text-white/70 mb-4">
+                    Stores observations, model outputs, device state, calibration history, and provenance so an
+                    operational conclusion can be traced back to the physical evidence that produced it.
+                  </p>
+                  <p className="text-sm font-medium mb-4 text-white">What do we know, where did it come from, and can it be trusted?</p>
+                  <div className="rounded-lg border border-white/15 p-4 mb-5 overflow-x-auto">
+                    <pre className="text-xs leading-relaxed text-white/75">
+{`Sensor observation
+  → Calibration and context
+  → NLM state estimate
+  → Cross-sensor correlation
+  → FUSARIUM alert / intelligence product
+  → Cryptographic evidence reference`}
+                    </pre>
+                  </div>
+                  <GlassButton href="/mindex" dataAnalytics="fusarium_mindex_explore">
+                    Explore MINDEX <ArrowRight className="ml-2 h-4 w-4 shrink-0 text-current" />
+                  </GlassButton>
+                </NeuCardContent>
               </NeuCard>
-            ))}
-          </div>
-
-          <div className="text-center">
-            <Link href="/dashboard/crep">
-              <NeuButton variant="primary" className="text-base px-6 py-3">
-                Access CREP Dashboard
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </NeuButton>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Protocols */}
-      <section className="py-24">
-        <div className="container max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4">Protocols</NeuBadge>
-            <h2 className="text-4xl font-bold mb-4">Mycorrhizae Protocol & Hyphae Language</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Purpose-built protocols for biological computing and environmental data exchange.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <NeuCard>
-              <NeuCardHeader>
-                <div className="p-3 rounded-xl bg-primary/10 w-fit mb-2">
-                  <Network className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-lg font-semibold">Mycorrhizae Protocol</h3>
-                <p className="text-sm text-muted-foreground">
-                  Standardized data format for multi-modal environmental sensing - 
-                  optimized for low-bandwidth tactical networks.
-                </p>
-              </NeuCardHeader>
-              <NeuCardContent>
-                <div className="space-y-2">
-                  {["Efficient compression for tactical links", "Multi-modal sensor fusion", "Cryptographic integrity built-in", "Compatible with DoD data standards"].map((item) => (
-                    <div key={item} className="flex items-center gap-2 text-sm">
-                      <CheckCircle2 className="h-4 w-4 text-primary" />
-                      <span>{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </NeuCardContent>
-            </NeuCard>
-
-            <NeuCard>
-              <NeuCardHeader>
-                <div className="p-3 rounded-xl bg-purple-500/10 w-fit mb-2">
-                  <Cpu className="h-6 w-6 text-purple-500" />
-                </div>
-                <h3 className="text-lg font-semibold">Hyphae Language</h3>
-                <p className="text-sm text-muted-foreground">
-                  Domain-specific programming language for biological computing interfaces 
-                  and fungal network communication.
-                </p>
-              </NeuCardHeader>
-              <NeuCardContent>
-                <div className="space-y-2">
-                  {["Biological signal processing primitives", "Temporal pattern matching", "Environmental state machines", "Integration with NLM AI"].map((item) => (
-                    <div key={item} className="flex items-center gap-2 text-sm">
-                      <CheckCircle2 className="h-4 w-4 text-purple-500" />
-                      <span>{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </NeuCardContent>
-            </NeuCard>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-24">
-        <div className="container max-w-7xl mx-auto px-4">
-          <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-4xl font-bold mb-6">Deploy Fusarium</h2>
-            <p className="text-xl text-muted-foreground mb-8">
-              Request a briefing to learn how Fusarium can enhance your 
-              environmental intelligence capabilities.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/defense/request-briefing">
-                <NeuButton variant="primary" className="text-base px-6 py-3">
-                  Request Briefing
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </NeuButton>
-              </Link>
-              <Link href="/defense/technical-docs">
-                <NeuButton variant="default" className="text-base px-6 py-3">
-                  Technical Documentation
-                </NeuButton>
-              </Link>
             </div>
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
+
+        {/* ================= 06 · DROIDS BY OPERATING DOMAIN ================= */}
+        <section className="py-24 lp-band">
+          <div className="container max-w-7xl mx-auto px-4">
+            <div className="text-center mb-14">
+              <GlassChip className="mb-4">THE PHYSICAL NETWORK</GlassChip>
+              <h2 className="text-4xl font-bold mb-3 text-white">A body in every domain</h2>
+              <p className="text-lg text-white/65 max-w-3xl mx-auto">
+                FUSARIUM does not rely on a single sensor or platform. Mycosoft droids operate across the atmosphere,
+                hydrosphere, and terrestrial environment — collecting the physical signals that train and ground the NLM.
+              </p>
+            </div>
+
+            <div className="space-y-10">
+              {operatingDomains.map((d) => (
+                <div key={d.domain}>
+                  <h3 className={`text-sm font-semibold uppercase tracking-widest mb-4 ${d.accent}`}>{d.domain}</h3>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {d.droids.map((droid) => (
+                      <div
+                        key={droid.id}
+                        className="lp-device-card rounded-xl border border-white/10 bg-white/5 p-6 hover:border-white/25 transition-colors"
+                        data-analytics="fusarium_device_select"
+                        data-device={droid.id}
+                      >
+                        {/* The device in motion behind frosted glass — the same
+                            showcase loops the homepage tiles use, re-encoded to
+                            card size. Poster paints instantly; the clip loads
+                            only when the card is near the viewport and pauses
+                            when it leaves, so seven of these cost one decoder
+                            each at most and nothing while scrolled past. */}
+                        <div className="lp-device-media" aria-hidden="true">
+                          <AutoplayVideo
+                            src={`/assets/fusarium/devices/${droid.id}-card.mp4`}
+                            poster={`/assets/fusarium/devices/${droid.id}-card-poster.jpg`}
+                            preload="none"
+                            lazyRootMargin="400px"
+                            pauseWhenOutsideViewport
+                            pointerEventsNone
+                            disableProgressWatch
+                            className="absolute inset-0 h-full w-full object-cover"
+                          />
+                        </div>
+                        <div className="relative">
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="myco-glass-tile p-2.5">
+                                <droid.icon className={`h-5 w-5 ${d.accent}`} />
+                              </div>
+                              <h4 className="text-lg font-semibold text-white">{droid.name}</h4>
+                            </div>
+                          </div>
+                          <p className="text-sm text-white/65 mb-4">{droid.descriptor}</p>
+                          <div className="flex flex-wrap gap-1.5 mb-4">
+                            {droid.capabilities.map((c) => (
+                              <span key={c} className="text-[11px] px-2 py-0.5 rounded bg-white/10 text-white/70">{c}</span>
+                            ))}
+                          </div>
+                          <Link href={droid.href} className="text-sm font-medium text-emerald-400 inline-flex items-center gap-1 hover:gap-2 transition-all">
+                            View device <ArrowRight className="h-4 w-4 text-current" />
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Shared architecture strip */}
+            <div className="mt-12 rounded-xl border border-white/10 bg-white/5 p-5 text-center">
+              <div className="text-xs uppercase tracking-widest text-white/45 mb-2">Powered by MycoBrain</div>
+              <div className="overflow-x-auto">
+                <pre className="text-xs md:text-sm text-white/70 inline-block text-left leading-relaxed">
+{`Sensors → MycoBrain → Edge Compute → DIRTNet / Mycorrhizae → NLM → MINDEX → FUSARIUM`}
+                </pre>
+              </div>
+              <div className="mt-3">
+                <Link href="/devices" className="text-sm text-white/55 hover:text-white/85 underline underline-offset-4">
+                  View the complete hardware portfolio
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ================= 07 · THE SENSES OF FUSARIUM ================= */}
+        {/* Two artworks, one per theme — unlike the other bands, which keep a
+            single dark image and force white type. Because a light-ground
+            version exists, the section keeps NORMAL theme typography: ink on
+            the light plate, white on the dark one. Only the non-matching image
+            is hidden, so exactly one ever paints. */}
+        <section className="py-24 lp-theme-band">
+          <div className="lp-theme-band-bg" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element -- decorative background layer */}
+            <img className="lp-theme-band-light" src="/assets/fusarium/sensing-band-light.jpg" alt="" loading="lazy" decoding="async" />
+            {/* eslint-disable-next-line @next/next/no-img-element -- decorative background layer */}
+            <img className="lp-theme-band-dark" src="/assets/fusarium/sensing-band-dark.jpg" alt="" loading="lazy" decoding="async" />
+          </div>
+          <div className="lp-theme-band-scrim" aria-hidden="true" />
+          <div className="container max-w-7xl mx-auto px-4">
+            <div className="text-center mb-14">
+              <GlassChip className="mb-4">Sensing Applications</GlassChip>
+              <h2 className="text-4xl font-bold mb-3">The senses of FUSARIUM</h2>
+              <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+                Each sensing application converts a different class of physical evidence into structured observations
+                the NLM can fuse and the operational picture can display.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {sensingSystems.map((s) => (
+                <NeuCard key={s.id} className="transition-all hover:scale-[1.01]" data-analytics="fusarium_sensing_app_select" data-sensing-system={s.id}>
+                  <NeuCardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="myco-glass-tile p-2.5">
+                          <s.icon className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold">{s.name}</h3>
+                          <p className="text-xs text-muted-foreground">{s.tagline}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </NeuCardHeader>
+                  <NeuCardContent>
+                    <div className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">Input</div>
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {s.inputs.map((i) => (
+                        <span key={i} className="text-[11px] px-2 py-0.5 rounded bg-muted text-muted-foreground">{i}</span>
+                      ))}
+                    </div>
+                    <div className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">Output</div>
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {s.outputs.map((o) => (
+                        <span key={o} className="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary">{o}</span>
+                      ))}
+                    </div>
+                    <div className="text-xs text-muted-foreground mb-3">
+                      NLM senses: <span className="text-foreground font-medium">{s.nlmSenses.join(" + ")}</span>
+                    </div>
+                    {s.statusNote && <p className="text-xs text-muted-foreground italic mb-3">{s.statusNote}</p>}
+                    <Link href={s.href} className="text-sm font-medium text-primary inline-flex items-center gap-1 hover:gap-2 transition-all">
+                      Explore <ArrowRight className="h-4 w-4 text-current" />
+                    </Link>
+                  </NeuCardContent>
+                </NeuCard>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ================= 08 · ONE OPERATIONAL PICTURE ================= */}
+        <section className="py-24 lp-band">
+          <div className="container max-w-7xl mx-auto px-4">
+            <div className="text-center mb-14">
+              <GlassChip className="mb-4">One Operational Picture</GlassChip>
+              <h2 className="text-4xl font-bold mb-3 text-white">From physical signals to mission context</h2>
+              <p className="text-lg text-white/65 max-w-3xl mx-auto mb-3">
+                FUSARIUM turns device observations, external sources, model outputs, historical evidence, and operator
+                input into a unified Common Relevant Environmental Picture.
+              </p>
+              <p className="text-xs text-white/45 mt-2">
+                The public workspace shows sanitized demonstration data — never a live operational picture.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
+              {dashboardViews.map((v) => (
+                <div key={v.name} className="rounded-xl border border-white/10 bg-white/5 p-5" data-analytics="fusarium_dashboard_app_open" data-app={v.name}>
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <v.icon className="h-5 w-5 text-emerald-400" />
+                    <h3 className="font-semibold text-white text-sm">{v.name}</h3>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {v.items.map((i) => (
+                      <li key={i} className="flex items-center gap-2 text-xs text-white/60">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500/70 shrink-0" /> {i}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-center mb-8">
+              <div className="text-xs uppercase tracking-widest text-white/45 mb-3">Application layers inside the picture</div>
+              <div className="flex flex-wrap justify-center gap-2">
+                {appChips.map((c) => (
+                  <span key={c} className="text-sm px-3 py-1.5 rounded-full border border-white/15 bg-white/5 text-white/80">{c}</span>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4 justify-center">
+              <GlassButton href="/dashboard/crep" dataAnalytics="fusarium_demo_open">
+                Open demo <ArrowRight className="ml-2 h-5 w-5 shrink-0 text-current" />
+              </GlassButton>
+              <GlassButton href="/defense/request-briefing">Request Operational Access</GlassButton>
+            </div>
+          </div>
+        </section>
+
+        {/* ================= 09 · LAUNCHPAD GATEWAY ================= */}
+        {/* Shares the Launchpad hero artwork deliberately — this section is the
+            doorway into that product, so the two surfaces should look like the
+            same place. One asset, referenced twice; no duplicate file. */}
+        <section id="launchpad" className="py-24 scroll-mt-16 lp-media-band">
+          <div className="lp-media-bg">
+            {/* eslint-disable-next-line @next/next/no-img-element -- decorative background layer */}
+            <img
+              src="/assets/launchpad/launchpad-hero.jpg"
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+          <div className="lp-media-scrim lp-media-scrim--strong" aria-hidden="true" />
+
+          <div className="container max-w-7xl mx-auto px-4">
+            <div className="text-center mb-14">
+              <GlassChip className="mb-4">BUILD FOR DEFENSE · UNCLASSIFIED COMMERCIAL WORKSPACE</GlassChip>
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">From technical startup to defense-ready operator</h2>
+              <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+                FUSARIUM Launchpad guides emerging technology companies through the administrative, readiness,
+                opportunity, proposal, and supply-chain work required to compete in the U.S. defense market.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
+              {launchpadStages.map((s, n) => (
+                <NeuCard key={s.name} data-analytics="fusarium_launchpad_stage_open" data-stage={s.name.toLowerCase()}>
+                  <NeuCardContent className="pt-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="text-2xl font-bold text-primary/30">{n + 1}</div>
+                      <s.icon className="h-5 w-5 text-primary" />
+                      <h3 className="font-semibold">{s.name}</h3>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {s.items.map((i) => (
+                        <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <CheckCircle2 className="h-4 w-4 text-primary/70 shrink-0" /> {i}
+                        </li>
+                      ))}
+                    </ul>
+                  </NeuCardContent>
+                </NeuCard>
+              ))}
+            </div>
+
+            <div className="text-center mb-8">
+              <div className="flex flex-wrap gap-4 justify-center mb-3">
+                <GlassButton href="/fusarium/launchpad" dataAnalytics="fusarium_launchpad_start">
+                  Start Launchpad <ArrowRight className="ml-2 h-5 w-5 text-current" />
+                </GlassButton>
+                <GlassButton href="/fusarium/launchpad/pricing" dataAnalytics="fusarium_launchpad_pricing">
+                  View Launchpad Plans
+                </GlassButton>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                One-time and recurring plans available ·{" "}
+                <Link href="/fusarium/launchpad/trust" className="underline underline-offset-4 hover:text-foreground">
+                  Data-handling and non-CUI policy
+                </Link>
+              </p>
+            </div>
+
+            <div className="max-w-3xl mx-auto rounded-lg border border-border/60 bg-muted/30 p-5 text-sm text-muted-foreground space-y-3">
+              <p>
+                <Lock className="inline h-4 w-4 mr-1.5 text-primary" />
+                <strong className="text-foreground">Launchpad provides software, automation, drafting, evidence
+                organization, and guidance.</strong>{" "}
+                It does not certify companies, sign submissions, make legal representations on their behalf, or
+                guarantee awards. Customers remain responsible for their representations, signatures, assessments,
+                submissions, and security decisions.
+              </p>
+              <p>
+                Standard Launchpad is a commercial, <strong className="text-foreground">non-CUI workspace</strong>. Do
+                not upload CUI, classified material, credentials, private keys, clearance records, export-controlled
+                technical data, or protected government information.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ================= 10 · PARTNER MESH ================= */}
+        <section id="partner-mesh" className="py-20 border-t border-border/40 scroll-mt-16">
+          <div className="container max-w-5xl mx-auto px-4 text-center">
+            <GlassChip className="mb-4">Connect Your Technology</GlassChip>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Bring your system into the FUSARIUM ecosystem</h2>
+            <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-3">
+              Companies using Launchpad may optionally connect compatible robots, sensors, software, models, data
+              products, or mission applications to FUSARIUM.
+            </p>
+            <p className="text-sm text-muted-foreground max-w-3xl mx-auto mb-8">
+              Integration is separate, affirmative, permissioned, and opt-in. Launchpad customer data never enters the
+              operational intelligence environment merely because a company uses the readiness product.
+            </p>
+            <div className="flex flex-wrap justify-center gap-2 mb-8">
+              {["Robotics and autonomy", "Environmental sensors", "AI and analytical models", "Data sources and APIs", "Edge compute", "Mission software", "Domestic manufacturing"].map((c) => (
+                <span key={c} className="text-sm px-3 py-1.5 rounded-full border border-border bg-muted/40 text-muted-foreground">{c}</span>
+              ))}
+            </div>
+            <GlassButton href="/defense/request-briefing" dataAnalytics="fusarium_partner_mesh_apply">
+              Apply to Partner Mesh <ArrowRight className="ml-2 h-5 w-5 text-current" />
+            </GlassButton>
+          </div>
+        </section>
+
+        {/* ================= 11 · ORCHESTRATION, GOVERNANCE, NETWORKING ================= */}
+        {/* Colony artwork behind the coordination layer: competing and
+            cooperating organisms negotiating one shared surface is the literal
+            picture of what MYCA, AVANI and the mesh protocols do. Same band
+            treatment as the NLM and Earth-Simulator sections. */}
+        <section className="py-24 lp-media-band">
+          <div className="lp-media-bg">
+            <AutoplayVideo
+              sources={orchestrationBandSources}
+              poster="/assets/fusarium/orchestration-colony-poster.jpg"
+              preload="none"
+              lazyRootMargin="300px"
+              pauseWhenOutsideViewport
+              pointerEventsNone
+              smoothLoop
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          </div>
+          <div className="lp-media-scrim lp-media-scrim--strong" aria-hidden="true" />
+
+          <div className="container max-w-7xl mx-auto px-4">
+            <div className="text-center mb-14">
+              <GlassChip className="mb-4">ORCHESTRATION, GOVERNANCE, AND NETWORKING</GlassChip>
+              <h2 className="text-4xl font-bold mb-3 text-white">
+                How the system coordinates, remembers, and stays accountable
+              </h2>
+            </div>
+
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5 mb-12">
+              {operatingLayer.map((o) => (
+                <div key={o.name} className="rounded-xl border border-white/10 bg-white/5 p-5">
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <o.icon className="h-5 w-5 text-amber-400" />
+                    <h3 className="font-semibold text-white">{o.name}</h3>
+                  </div>
+                  <p className="text-sm text-white/60">{o.role}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/5 p-6 overflow-x-auto">
+              <pre className="text-xs md:text-sm text-white/70 leading-relaxed text-center">
+{`AIR · WATER · LAND · LIVING SYSTEMS
+            ↓ ↑
+       MycoBrain / Edge
+            ↓ ↑
+  MDP · Mycorrhizae · DIRTNet
+            ↓ ↑
+          MINDEX
+            ↓ ↑
+            NLM
+            ↓ ↑
+   MYCA / MAS orchestration
+            ↓ ↑
+      AVANI governance
+            ↓ ↑
+FUSARIUM · CREP · Intelligence Products`}
+              </pre>
+              <p className="text-center text-xs text-white/40 mt-3">
+                Observations flow up; commands and configuration flow down; evidence and provenance attach throughout.
+              </p>
+            </div>
+
+            <div className="text-center mt-8">
+              <GlassButton href="/defense/technical-docs" dataAnalytics="fusarium_docs_open">
+                <FileText className="mr-2 h-5 w-5 text-current" /> Documentation
+              </GlassButton>
+            </div>
+          </div>
+        </section>
+
+        {/* ================= 12 · ABOUT THE NAME (demoted accordion) ================= */}
+        {/* The genus itself, behind the paragraph explaining the name. One
+            artwork for both themes — the veil over it flips instead, so the
+            section keeps its normal typography: ink on light, light on dark. */}
+        <section className="py-14 lp-tint-band">
+          <div className="lp-tint-band-bg" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element -- decorative background layer */}
+            <img src="/assets/fusarium/name-hyphae.jpg" alt="" loading="lazy" decoding="async" />
+          </div>
+          <div className="lp-tint-band-scrim" aria-hidden="true" />
+
+          <div className="container max-w-3xl mx-auto px-4 relative">
+            <details className="group rounded-lg border border-border/60 p-5 lp-tint-panel">
+              <summary className="cursor-pointer text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors list-none flex items-center justify-between">
+                Why the name FUSARIUM?
+                <ArrowRight className="h-4 w-4 shrink-0 transition-transform duration-[420ms] ease-[cubic-bezier(0.25,1,0.5,1)] group-open:rotate-90 text-current" />
+              </summary>
+              <div className="mt-4 text-sm text-muted-foreground space-y-3">
+                <p>
+                  Fusarium is a highly adaptive fungal genus capable of embedding in complex environments and persisting
+                  under pressure. The name reflects the platform&apos;s design philosophy: distributed intelligence
+                  designed to remain present, learn from local conditions, and maintain awareness across complex
+                  environments.
+                </p>
+                <p className="font-semibold text-foreground">Embed. Adapt. Persist.</p>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        {/* ================= 13 · FINAL THREE-PATH CTA ================= */}
+        <section className="py-24 border-t border-border/40">
+          <div className="container max-w-7xl mx-auto px-4">
+            <div className="grid md:grid-cols-3 gap-6">
+              {[
+                {
+                  head: "Deploy FUSARIUM",
+                  copy: "For government, defense, infrastructure, and mission customers.",
+                  cta: "Sign up",
+                  href: "/defense/request-briefing",
+                  icon: Shield,
+                },
+                {
+                  head: "Enter Launchpad",
+                  copy: "For technical startups becoming defense-ready.",
+                  cta: "Start Launchpad",
+                  href: "/fusarium/launchpad",
+                  icon: Rocket,
+                },
+                {
+                  head: "Join Partner Mesh",
+                  copy: "For companies integrating technology or data.",
+                  cta: "Apply",
+                  href: "/defense/request-briefing",
+                  icon: Handshake,
+                },
+              ].map((c) => (
+                <NeuCard key={c.head} className="text-center transition-all hover:scale-[1.01]">
+                  <NeuCardContent className="pt-8 pb-8">
+                    <div className="myco-glass-tile p-3 w-fit mx-auto mb-4">
+                      <c.icon className="h-6 w-6 text-primary" />
+                    </div>
+                    <h3 className="text-xl font-bold mb-2">{c.head}</h3>
+                    <p className="text-sm text-muted-foreground mb-5">{c.copy}</p>
+                    <GlassButton href={c.href}>
+                      {c.cta} <ArrowRight className="ml-2 h-4 w-4 text-current" />
+                    </GlassButton>
+                  </NeuCardContent>
+                </NeuCard>
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
     </NeuromorphicProvider>
   )
 }

@@ -5,10 +5,10 @@ import { getIncidentLogChain } from '@/lib/security/database';
 
 export const dynamic = 'force-dynamic';
 
+// Authorized users: Morgan (owner) and RJ only. Former staff removed.
 const OWNER_EMAILS = new Set(['morgan@mycosoft.org']);
 const ADMIN_EMAILS = new Set([
   'morgan@mycosoft.org',
-  'garret@mycosoft.org',
   'rj@mycosoft.org',
   'admin@mycosoft.org',
 ]);

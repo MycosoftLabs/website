@@ -1360,8 +1360,6 @@ import {
   ComplianceFramework,
   ComplianceControl,
   ExostarIntegration,
-  DEFAULT_NIST_171_CONTROLS,
-  DEFAULT_CMMC_L2_CONTROLS,
   DEFAULT_NISPOM_CONTROLS,
   DEFAULT_FOCI_CONTROLS,
   DEFAULT_SBIR_CONTROLS,
@@ -1384,6 +1382,15 @@ import {
   ImpactLevel,
   NSSCategorization,
 } from './compliance-frameworks';
+
+import {
+  POSTURE_OVERLAY,
+  mapImplStateToStatus,
+  nistIdFromControlId,
+  stateFor,
+  type ImplementationState,
+  type PostureMode,
+} from './posture/nist-800-171-posture';
 
 // Re-export the ComplianceControl type for backward compatibility
 export type { 
@@ -1440,15 +1447,95 @@ const defaultNIST53Controls: ComplianceControl[] = [
   { id: 'SI-4', framework: 'NIST-800-53', family: 'SI', name: 'Information System Monitoring', description: 'Monitor the information system to detect attacks and indicators of potential attacks', status: 'compliant', evidence: ['24/7 SOC monitoring', 'IDS alerts', 'Anomaly detection'], lastAudit: new Date().toISOString().split('T')[0], lastAuditBy: 'System', priority: 'high', notes: 'Real-time monitoring via UniFi + Suricata', mappings: { 'NIST-800-171': ['3.14.6', '3.14.7'], 'CMMC-L2': ['SI.L2-3.14.6', 'SI.L2-3.14.7'] } },
 ];
 
+// Map the overlay implementation_state to the ComplianceControl.implementationStatus field.
+function implStateToImplementationStatus(
+  s: ImplementationState
+): ComplianceControl['implementationStatus'] {
+  switch (s) {
+    case 'implemented':
+      return 'implemented';
+    case 'partial':
+      return 'planned';
+    case 'not_applicable':
+      return 'alternative';
+    case 'planned':
+    default:
+      return 'not_implemented';
+  }
+}
+
+// Which posture state the seeded baseline reflects. Default is 'current' — the
+// HONEST as-of-today posture (nothing implemented yet; SPRS negative). Set
+// COMPLIANCE_SEED_MODE=target only for an explicitly-labeled projected view.
+// Live MAS data (soc_ops.compliance_controls) still overrides this baseline.
+function resolveSeedMode(): PostureMode {
+  return (process.env.COMPLIANCE_SEED_MODE || '').toLowerCase() === 'target' ? 'target' : 'current';
+}
+
+// Build the full 110-control NIST 800-171 set from the authoritative posture
+// overlay (Perplexity, mycosoft-posture-overlay-v1.json). Uses the CURRENT
+// state by default so tiles never present a projected posture as achieved.
+function buildNist171Controls(): ComplianceControl[] {
+  const mode = resolveSeedMode();
+  return POSTURE_OVERLAY.controls.map((c) => {
+    const st = stateFor(c, mode);
+    const status = mapImplStateToStatus(st.implementation_state);
+    const nistId = nistIdFromControlId(c.control_id);
+    return {
+      id: nistId,
+      framework: 'NIST-800-171',
+      family: c.family,
+      name: c.title,
+      description: `${c.family_name} — NIST SP 800-171 Rev. 2 control ${nistId} (weight ${c.weight}).`,
+      status,
+      evidence: st.evidence_uri ? [st.evidence_uri] : [],
+      lastAudit: (st.as_of || '').split('T')[0],
+      lastAuditBy: mode === 'current' ? 'self-assessment (current)' : 'self-assessment (target)',
+      priority: status === 'non_compliant' ? 'high' : status === 'partial' ? 'medium' : 'low',
+      notes: st.notes || '',
+      implementationStatus: implStateToImplementationStatus(st.implementation_state),
+      poamId: c.poam_open_after_sprint ? 'POAM-001' : undefined,
+    } satisfies ComplianceControl;
+  });
+}
+
+// CMMC Level 2 maps 1:1 to the 110 NIST 800-171 controls; reuse the same posture.
+function buildCmmcL2Controls(): ComplianceControl[] {
+  const mode = resolveSeedMode();
+  return POSTURE_OVERLAY.controls.map((c) => {
+    const st = stateFor(c, mode);
+    const status = mapImplStateToStatus(st.implementation_state);
+    const nistId = nistIdFromControlId(c.control_id);
+    return {
+      id: c.control_id,
+      framework: 'CMMC-L2',
+      family: c.family,
+      name: c.title,
+      description: `${c.family_name} — CMMC Level 2 practice ${c.control_id} (weight ${c.weight}).`,
+      status,
+      evidence: st.evidence_uri ? [st.evidence_uri] : [],
+      lastAudit: (st.as_of || '').split('T')[0],
+      lastAuditBy: mode === 'current' ? 'self-assessment (current)' : 'self-assessment (target)',
+      priority: status === 'non_compliant' ? 'high' : status === 'partial' ? 'medium' : 'low',
+      notes: st.notes || '',
+      cmmcLevel: 2,
+      cmmcPractice: c.control_id,
+      implementationStatus: implStateToImplementationStatus(st.implementation_state),
+      poamId: c.poam_open_after_sprint ? 'POAM-001' : undefined,
+      mappings: { 'NIST-800-171': [nistId] },
+    } satisfies ComplianceControl;
+  });
+}
+
 // Initialize default controls if empty - now supports all frameworks
 function ensureDefaultControls() {
   if (complianceStore.size === 0) {
     // Add NIST 800-53 controls
     defaultNIST53Controls.forEach(control => complianceStore.set(control.id, control));
-    // Add NIST 800-171 controls
-    DEFAULT_NIST_171_CONTROLS.forEach(control => complianceStore.set(control.id, control));
-    // Add CMMC Level 2 controls
-    DEFAULT_CMMC_L2_CONTROLS.forEach(control => complianceStore.set(control.id, control));
+    // Add NIST 800-171 controls (full 110-control catalog + Mycosoft posture overlay)
+    buildNist171Controls().forEach(control => complianceStore.set(control.id, control));
+    // Add CMMC Level 2 controls (1:1 with NIST 800-171, same posture)
+    buildCmmcL2Controls().forEach(control => complianceStore.set(control.id, control));
     // Add NISPOM controls (32 CFR Part 117, E.O. 12829)
     DEFAULT_NISPOM_CONTROLS.forEach(control => complianceStore.set(control.id, control));
     // Add FOCI controls
@@ -1611,9 +1698,19 @@ export async function getComplianceControls(options?: {
   const fromMas = await fetchComplianceControlsFromMas();
   let controls: ComplianceControl[];
 
-  if (fromMas !== null) {
+  // Use MAS as the source of truth only when it actually returns rows. An empty
+  // array (MAS reachable but soc_ops.compliance_controls unseeded, or MAS down and
+  // proxied to an empty response) must NOT shadow the seeded baseline — otherwise
+  // every framework tile renders 0% / 0 controls. Fall back to the seeded defaults
+  // so the page always reflects a non-zero posture even when MAS is unavailable.
+  if (fromMas !== null && fromMas.length > 0) {
     controls = fromMas;
   } else {
+    if (fromMas !== null) {
+      console.warn(
+        '[SecurityDB] MAS /api/compliance/controls returned 0 rows; falling back to seeded baseline controls'
+      );
+    }
     ensureDefaultControls();
     controls = Array.from(complianceStore.values());
   }

@@ -406,10 +406,64 @@ export const DATASETS: Dataset[] = [
       return proxyJson(`${internalOrigin}/api/mindex/proxy/earthquakes?bbox=${bbox}&limit=${params.get("limit") || 500}`, 5 * 60)
     },
   },
+  {
+    id: "crep.live.environmental.mindex-wildfires",
+    name: "Active Wildfires (MINDEX FIRMS)",
+    category: "live.environmental",
+    description: "NASA FIRMS VIIRS 375 m thermal detections from MINDEX earth.wildfires (~1,530 active).",
+    underlying_routes: ["/api/crep/environment/wildfires"],
+    response_shape: "geojson.FeatureCollection",
+    supports: { bbox: true, cursor: false, time_range: false, stream: false, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 5 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.live.environmental.mindex-wildfires",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params) || "-180,-90,180,90"
+      return proxyJson(`${internalOrigin}/api/crep/environment/wildfires?bbox=${bbox}&limit=${params.get("limit") || 2000}`, 5 * 60)
+    },
+  },
+  {
+    id: "crep.live.environmental.mindex-weather",
+    name: "Weather Observations (MINDEX)",
+    category: "live.environmental",
+    description: "Weather-station observations from MINDEX atmos.weather_observations (NASA POWER / Open-Meteo / METAR). Sparse until ETL scales.",
+    underlying_routes: ["/api/crep/environment/weather"],
+    response_shape: "geojson.FeatureCollection",
+    supports: { bbox: true, cursor: false, time_range: false, stream: false, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 10 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.live.environmental.mindex-weather",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params) || "-180,-90,180,90"
+      return proxyJson(`${internalOrigin}/api/crep/environment/weather?bbox=${bbox}&limit=${params.get("limit") || 2000}`, 10 * 60)
+    },
+  },
 
   // ============================================================
   // SENSORS — AIR QUALITY
   // ============================================================
+  {
+    id: "crep.sensors.airquality.mindex",
+    name: "Air Quality Stations (MINDEX)",
+    category: "sensors.airquality",
+    description: "OpenAQ / AirNow station readings from MINDEX atmos.air_quality. Empty until the ETL keys land on 189.",
+    underlying_routes: ["/api/crep/environment/air-quality"],
+    response_shape: "geojson.FeatureCollection",
+    supports: { bbox: true, cursor: false, time_range: false, stream: false, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 10 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.sensors.airquality.mindex",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params) || "-180,-90,180,90"
+      return proxyJson(`${internalOrigin}/api/crep/environment/air-quality?bbox=${bbox}&limit=${params.get("limit") || 2000}`, 10 * 60)
+    },
+  },
   {
     id: "crep.sensors.airquality.airnow-current",
     name: "AirNow Current AQI (nearest monitor)",

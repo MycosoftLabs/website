@@ -23,6 +23,7 @@ export const PUBLIC_ROUTES: RouteAccess[] = [
   { path: '/preview', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Preview page' },
   { path: '/apps', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Apps hub' },
   { path: '/apps/[slug]', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'App page' },
+  { path: '/fusarium/launchpad', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'FUSARIUM Launchpad marketing (commercial, non-CUI product)' },
   { path: '/devices', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Devices catalog' },
   { path: '/devices/[id]', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device product page' },
   { path: '/devices/specifications', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device specifications' },
@@ -133,6 +134,11 @@ export const AUTHENTICATED_ROUTES: RouteAccess[] = [
   { path: '/settings', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Settings' },
   { path: '/dashboard', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Dashboard' },
   { path: '/billing', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Billing' },
+  // FUSARIUM Launchpad authenticated app. Prefix-matched by AUTH_REQUIRED_PREFIXES,
+  // so every /app/launchpad/* page is login-gated at the edge. Tenant membership,
+  // roles, and the LAUNCHPAD_ENABLED flag are enforced by requireTenant() in the
+  // layout and in every BFF route — middleware only guarantees "signed in".
+  { path: '/app/launchpad', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'FUSARIUM Launchpad tenant workspace' },
 ]
 
 // Company routes - require @mycosoft.org or @mycosoft.com email
@@ -260,6 +266,27 @@ export const SUPER_ADMIN_ROUTES: RouteAccess[] = [
   { path: '/natureos/smell-training', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'Smell Training' },
 ]
 
+// Owner-only routes — locked to a single email allowlist (OWNER_ALLOWED_EMAILS), enforced in
+// middleware. The Psathyrella buoy GCS is a live vehicle-control console — Morgan only.
+//
+// IMPORTANT: these are enforced ENTIRELY by the middleware owner-email gate (pathRequiresOwner) and by
+// requireOwner() on their API routes — NOT by the client AutoGateWrapper/GateWrapper. That client gate
+// keys off profile.role === 'super_admin' (a Supabase profile role that may not be assigned, and that
+// the local-dev bench session doesn't carry), so routing these through it would (a) break the on-device
+// dev/LAN test and (b) risk locking out the owner himself if his profile role isn't literally
+// super_admin. Gating on EMAIL at the edge is the correct single-user model. That's why OWNER_ONLY_ROUTES
+// is deliberately NOT spread into ALL_ROUTES below — getRouteAccess() then resolves the parent
+// (/natureos = public) so AutoGateWrapper renders the page, while middleware still redirects every
+// non-owner before the page ever loads.
+export const OWNER_ONLY_ROUTES: RouteAccess[] = [
+  { path: '/natureos/psathyrella', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN, features: ['owner-only'] }, description: 'Psathyrella Buoy GCS (Morgan only)' },
+]
+
+// Email allowlist for OWNER_ONLY_ROUTES (checked in middleware). Mirrors OWNER_EMAILS in lib/auth/api-auth.ts.
+export const OWNER_ALLOWED_EMAILS = [
+  'morgan@mycosoft.org',
+]
+
 // All routes combined
 export const ALL_ROUTES: RouteAccess[] = [
   ...PUBLIC_ROUTES,
@@ -271,6 +298,8 @@ export const ALL_ROUTES: RouteAccess[] = [
   ...ETHICS_TRAINING_ROUTES,
   ...ADMIN_ROUTES,
   ...SUPER_ADMIN_ROUTES,
+  // NOTE: OWNER_ONLY_ROUTES is intentionally NOT included here — see its declaration above.
+  // It is enforced by the middleware owner-email gate + requireOwner() APIs, not the client GateWrapper.
 ]
 
 // Ethics training: Morgan + Michelle only (emails allowed)
@@ -337,10 +366,15 @@ const AUTH_REQUIRED_PREFIXES: string[] = [
   ...ETHICS_TRAINING_ROUTES.map(r => r.path),
   ...ADMIN_ROUTES.map(r => r.path),
   ...SUPER_ADMIN_ROUTES.map(r => r.path),
+  ...OWNER_ONLY_ROUTES.map(r => r.path),
 ].filter((p, i, a) => a.indexOf(p) === i)
 
 const COMPANY_REQUIRED_PREFIXES: string[] = [
   ...PLATFORM_ROUTES.map(r => r.path),
+].filter((p, i, a) => a.indexOf(p) === i)
+
+const OWNER_REQUIRED_PREFIXES: string[] = [
+  ...OWNER_ONLY_ROUTES.map(r => r.path),
 ].filter((p, i, a) => a.indexOf(p) === i)
 
 const MIDDLEWARE_PUBLIC_EXCEPTIONS = [
@@ -367,6 +401,13 @@ export function pathRequiresAuth(pathname: string): boolean {
 export function pathRequiresCompanyEmail(pathname: string): boolean {
   if (MIDDLEWARE_PUBLIC_EXCEPTIONS.some(p => pathname === p || pathname.startsWith(p + '/'))) return false;
   return COMPANY_REQUIRED_PREFIXES.some(
+    p => pathname === p || pathname.startsWith(p + '/')
+  )
+}
+
+/** True if path is restricted to the owner allowlist (OWNER_ALLOWED_EMAILS) — middleware use. */
+export function pathRequiresOwner(pathname: string): boolean {
+  return OWNER_REQUIRED_PREFIXES.some(
     p => pathname === p || pathname.startsWith(p + '/')
   )
 }

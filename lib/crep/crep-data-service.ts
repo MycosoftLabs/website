@@ -46,7 +46,9 @@ export const UNIFIED_DEFAULT_LIMITS = {
   events: 500,
 } as const
 
-export type UnifiedLimits = typeof UNIFIED_DEFAULT_LIMITS
+export type UnifiedLimits = {
+  [K in keyof typeof UNIFIED_DEFAULT_LIMITS]: number
+}
 
 export interface PaginatedResult<T> {
   data: T[]

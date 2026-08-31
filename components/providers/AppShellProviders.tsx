@@ -110,6 +110,12 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
     activePathname.startsWith("/search/") ||
     activePathname === "/sensing/sine/player"
 
+  // Full-bleed standalone surfaces: no site Header/Footer/chrome, no scroll —
+  // a dedicated application controller that fills the viewport (iPad-first).
+  const isFullBleed =
+    activePathname === "/natureos/psathyrella" ||
+    activePathname.startsWith("/natureos/psathyrella/")
+
   let content: React.ReactNode = children
 
   const pageContext = getPageContextForMYCA(activePathname)
@@ -118,7 +124,13 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
     : undefined
 
   // Build the page layout (MYCAFloatingButton goes inside MYCAProvider below)
-  const pageLayout = (
+  const pageLayout = isFullBleed ? (
+    <>
+      {isHydrated ? <NavigationClickRescue /> : null}
+      {children}
+      <Toaster richColors position="top-right" />
+    </>
+  ) : (
     <>
       {/* suppressHydrationWarning: Cursor IDE browser may inject attributes into the DOM */}
       <div className="min-h-dvh flex flex-col relative" suppressHydrationWarning>

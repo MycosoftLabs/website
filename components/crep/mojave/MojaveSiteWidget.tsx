@@ -290,7 +290,7 @@ function MojaveProjectInfoPanel() {
     <div className="bg-black/30 rounded-lg p-2.5 border border-teal-400/30 space-y-1.5">
       <div className="text-[9px] uppercase tracking-[0.15em] text-teal-300 font-mono">Project partners</div>
       <div className="text-[11px] text-white/80 leading-snug space-y-0.5">
-        <div>• MYCOSOFT — biz-dev vertical thesis (Garret)</div>
+        <div>• MYCOSOFT — biz-dev vertical thesis</div>
         <div>• NPS MOJA — Mojave National Preserve coordination</div>
         <div>• BLM Needles Field Office — east Mojave land admin</div>
         <div>• UC Granite Mountains Research Center — field science</div>

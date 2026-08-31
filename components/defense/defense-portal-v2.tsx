@@ -556,7 +556,8 @@ export function DefensePortalV2() {
 
   return (
     <NeuromorphicProvider>
-    <div className="defense-page min-h-dvh">
+    {/* House glass/neumorphic template (same as About, Apps, Devices, NatureOS) */}
+    <div className="defense-page launchpad-glass-page min-h-dvh">
       {/* Mission Critical Application Modal */}
       <AnimatePresence>
         {selectedMission && (
@@ -1400,12 +1401,12 @@ export function DefensePortalV2() {
       </section>
 
       {/* Intelligence Products Section - Now with Hover Tooltips */}
-      <section className="py-24 relative bg-slate-950 text-white">
+      <section className="py-24 relative lp-band">
         <IntelligenceWaves className="z-0 overflow-hidden" targetSelector="[data-intel-key]" />
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 !text-white">Intelligence Products</NeuBadge>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6 !text-white">
+            <NeuBadge variant="default" className="mb-4 text-slate-900 dark:text-white">Intelligence Products</NeuBadge>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6 text-slate-900 dark:text-white">
               Actionable Environmental Intelligence
             </h2>
             <p className="text-lg text-white/80 max-w-3xl mx-auto">
@@ -1632,7 +1633,7 @@ export function DefensePortalV2() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 relative overflow-hidden bg-slate-950 text-white">
+      <section className="py-24 relative overflow-hidden lp-band">
         <AutoplayVideo
           sources={["/assets/defense/defense-cta-background.mp4"]}
           preload="metadata"
@@ -1644,8 +1645,8 @@ export function DefensePortalV2() {
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/58 via-slate-950/24 to-slate-950/42" />
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center defense-cta-content">
-            <NeuBadge variant="default" className="mb-4 !text-white">Get Started</NeuBadge>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6 !text-white">
+            <NeuBadge variant="default" className="mb-4 text-slate-900 dark:text-white">Get Started</NeuBadge>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6 text-slate-900 dark:text-white">
               Ready to Deploy OEI?
             </h2>
             <p className="text-xl text-white/86 mb-8">

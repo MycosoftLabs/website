@@ -217,7 +217,7 @@ export const AI_MODELS: AIModel[] = [
   // GOOGLE Gemini Models
   // ============================================
   {
-    id: 'gemini-2.0-flash-exp',
+    id: 'gemini-2.0-flash',
     provider: 'google',
     name: 'Gemini 2.0 Flash',
     capabilities: ['chat', 'vision', 'code', 'function-calling', 'streaming', 'json-mode'],
@@ -229,9 +229,9 @@ export const AI_MODELS: AIModel[] = [
     speed: 'fast',
   },
   {
-    id: 'gemini-1.5-pro',
+    id: 'gemini-2.5-pro',
     provider: 'google',
-    name: 'Gemini 1.5 Pro',
+    name: 'Gemini 2.5 Pro',
     capabilities: ['chat', 'vision', 'code', 'function-calling', 'streaming', 'json-mode'],
     contextWindow: 2000000,
     maxOutputTokens: 8192,
@@ -241,9 +241,9 @@ export const AI_MODELS: AIModel[] = [
     speed: 'medium',
   },
   {
-    id: 'gemini-1.5-flash',
+    id: 'gemini-2.5-flash',
     provider: 'google',
-    name: 'Gemini 1.5 Flash',
+    name: 'Gemini 2.5 Flash',
     capabilities: ['chat', 'vision', 'code', 'function-calling', 'streaming', 'json-mode'],
     contextWindow: 1000000,
     maxOutputTokens: 8192,

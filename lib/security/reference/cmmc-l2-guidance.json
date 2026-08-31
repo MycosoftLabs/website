@@ -1,0 +1,735 @@
+{
+ "AC.L2-3.1.1": {
+  "guidance": "Enforce unique account provisioning and device enrollment before any system access is granted.",
+  "tools": [
+   "Windows Active Directory/Entra ID",
+   "Okta",
+   "PreVeil identity"
+  ]
+ },
+ "AC.L2-3.1.2": {
+  "guidance": "Map user roles to permitted transaction types; enforce via RBAC.",
+  "tools": [
+   "PreVeil roles",
+   "Entra ID Conditional Access",
+   "GPO"
+  ]
+ },
+ "AC.L2-3.1.3": {
+  "guidance": "Implement approval workflows and data-flow policies restricting CUI movement to sanctioned paths.",
+  "tools": [
+   "PreVeil approval groups",
+   "Virtru",
+   "Kiteworks"
+  ]
+ },
+ "AC.L2-3.1.4": {
+  "guidance": "Split admin and end-user roles so no single person can both execute and approve a sensitive action.",
+  "tools": [
+   "PreVeil approval groups",
+   "Google Admin roles"
+  ]
+ },
+ "AC.L2-3.1.5": {
+  "guidance": "Grant only the minimum access needed; use non-admin daily-driver accounts with escalation.",
+  "tools": [
+   "Windows UAC",
+   "Intune",
+   "JAMF"
+  ]
+ },
+ "AC.L2-3.1.6": {
+  "guidance": "Require standard user accounts for routine work; reserve admin accounts for admin tasks only.",
+  "tools": [
+   "Windows local policy",
+   "macOS standard accounts"
+  ]
+ },
+ "AC.L2-3.1.7": {
+  "guidance": "Block privilege escalation for standard users and log any escalation attempt.",
+  "tools": [
+   "Windows UAC + Event Log",
+   "sudo logging (Linux)"
+  ]
+ },
+ "AC.L2-3.1.8": {
+  "guidance": "Configure account lockout after a defined threshold of failed logons.",
+  "tools": [
+   "Windows Group Policy lockout",
+   "Entra ID smart lockout"
+  ]
+ },
+ "AC.L2-3.1.9": {
+  "guidance": "Display a DoD-approved logon banner/warning notice before authentication.",
+  "tools": [
+   "Windows LegalNoticeText GPO"
+  ]
+ },
+ "AC.L2-3.1.10": {
+  "guidance": "Enforce automatic screen lock after a short idle period.",
+  "tools": [
+   "Windows screensaver/lock policy",
+   "macOS screen lock"
+  ]
+ },
+ "AC.L2-3.1.11": {
+  "guidance": "Configure session timeout thresholds for cloud consoles and remote sessions.",
+  "tools": [
+   "PreVeil session timeout",
+   "Cloudflare Access session policy"
+  ]
+ },
+ "AC.L2-3.1.12": {
+  "guidance": "Log and actively monitor all remote administrative sessions.",
+  "tools": [
+   "AWS CloudTrail",
+   "Google Admin audit log",
+   "Cloudflare Access logs"
+  ]
+ },
+ "AC.L2-3.1.13": {
+  "guidance": "Require TLS 1.2+/VPN encryption for all remote sessions.",
+  "tools": [
+   "TLS 1.2+",
+   "WireGuard/IPsec VPN"
+  ]
+ },
+ "AC.L2-3.1.14": {
+  "guidance": "Force remote connections through a single managed gateway rather than direct exposure.",
+  "tools": [
+   "Cloudflare Access",
+   "VPN concentrator"
+  ]
+ },
+ "AC.L2-3.1.15": {
+  "guidance": "Require explicit approval before privileged remote actions are executed.",
+  "tools": [
+   "PreVeil approval group voting",
+   "PAM tooling"
+  ]
+ },
+ "AC.L2-3.1.16": {
+  "guidance": "Maintain an explicit allow-list/authorization step before wireless devices join the network.",
+  "tools": [
+   "WPA3-Enterprise",
+   "MAC filtering"
+  ]
+ },
+ "AC.L2-3.1.17": {
+  "guidance": "Use strong authentication (WPA3) and encryption for all wireless traffic.",
+  "tools": [
+   "WPA3-Personal/Enterprise"
+  ]
+ },
+ "AC.L2-3.1.18": {
+  "guidance": "Only allow enrolled, managed mobile devices to connect to CUI-adjacent systems.",
+  "tools": [
+   "Intune",
+   "JAMF",
+   "PreVeil mobile enrollment"
+  ]
+ },
+ "AC.L2-3.1.19": {
+  "guidance": "Ensure full-disk/app-level encryption on all mobile endpoints handling CUI.",
+  "tools": [
+   "iOS/Android native encryption",
+   "PreVeil mobile client"
+  ]
+ },
+ "AC.L2-3.1.20": {
+  "guidance": "Document and restrict every external system connection point (e.g., only PreVeil↔AWS GovCloud).",
+  "tools": [
+   "Network diagrams",
+   "firewall egress rules"
+  ]
+ },
+ "AC.L2-3.1.21": {
+  "guidance": "Block or tightly control USB/removable media usage, especially off managed endpoints.",
+  "tools": [
+   "GPO USB blocking",
+   "Intune device restriction"
+  ]
+ },
+ "AC.L2-3.1.22": {
+  "guidance": "Review all public-facing content for inadvertent CUI exposure on a recurring basis.",
+  "tools": [
+   "Manual content review process",
+   "Cloudflare WAF"
+  ]
+ },
+ "AT.L2-3.2.1": {
+  "guidance": "Deliver baseline security-awareness training to all personnel before system access.",
+  "tools": [
+   "CDSE eLearning",
+   "KnowBe4"
+  ]
+ },
+ "AT.L2-3.2.2": {
+  "guidance": "Provide role-specific security training (e.g., executive vs. engineer tracks).",
+  "tools": [
+   "CDSE role-based courses"
+  ]
+ },
+ "AT.L2-3.2.3": {
+  "guidance": "Deliver annual insider-threat-recognition training to all personnel.",
+  "tools": [
+   "CDSE Insider Threat Awareness course"
+  ]
+ },
+ "AU.L2-3.3.1": {
+  "guidance": "Enable centralized logging across all in-scope systems with adequate retention.",
+  "tools": [
+   "Windows Event Log",
+   "Wazuh",
+   "AWS CloudTrail"
+  ]
+ },
+ "AU.L2-3.3.2": {
+  "guidance": "Eliminate shared accounts; assign unique identities to every user.",
+  "tools": [
+   "Named-user account policy"
+  ]
+ },
+ "AU.L2-3.3.3": {
+  "guidance": "Periodically review which events are logged and adjust as risk changes.",
+  "tools": [
+   "Wazuh rule tuning",
+   "manual log review cadence"
+  ]
+ },
+ "AU.L2-3.3.4": {
+  "guidance": "Configure automated alerting when logging services stop or fail.",
+  "tools": [
+   "Wazuh \"audit process stopped\" alert rule"
+  ]
+ },
+ "AU.L2-3.3.5": {
+  "guidance": "Correlate logs across systems to detect coordinated or multi-stage activity.",
+  "tools": [
+   "Wazuh SIEM correlation rules",
+   "Splunk"
+  ]
+ },
+ "AU.L2-3.3.6": {
+  "guidance": "Support exporting/summarizing logs on demand for investigations.",
+  "tools": [
+   "Wazuh reporting",
+   "log export to CSV/pandas"
+  ]
+ },
+ "AU.L2-3.3.7": {
+  "guidance": "Sync all systems to an authoritative time source (e.g., NIST NTP).",
+  "tools": [
+   "Windows NTP → time.nist.gov"
+  ]
+ },
+ "AU.L2-3.3.8": {
+  "guidance": "Restrict ACLs on log files/tools to prevent tampering.",
+  "tools": [
+   "Windows Event Log ACLs",
+   "immutable log storage"
+  ]
+ },
+ "AU.L2-3.3.9": {
+  "guidance": "Restrict who can configure or disable logging to a small trusted group.",
+  "tools": [
+   "Admin-only Wazuh/log console access"
+  ]
+ },
+ "CM.L2-3.4.1": {
+  "guidance": "Maintain a documented baseline config and asset inventory.",
+  "tools": [
+   "PowerShell hardening scripts",
+   "Intune inventory"
+  ]
+ },
+ "CM.L2-3.4.2": {
+  "guidance": "Enforce hardened configuration baselines via policy.",
+  "tools": [
+   "Windows GPO",
+   "Intune configuration profiles"
+  ]
+ },
+ "CM.L2-3.4.3": {
+  "guidance": "Log all configuration changes and require approval for significant ones.",
+  "tools": [
+   "Change log document",
+   "ticketing system"
+  ]
+ },
+ "CM.L2-3.4.4": {
+  "guidance": "Require a security impact review before deploying changes.",
+  "tools": [
+   "Change-request review process"
+  ]
+ },
+ "CM.L2-3.4.5": {
+  "guidance": "Restrict who may modify baseline configurations.",
+  "tools": [
+   "Admin-only change rights",
+   "PreVeil admin console"
+  ]
+ },
+ "CM.L2-3.4.6": {
+  "guidance": "Disable unused services, protocols, and features.",
+  "tools": [
+   "Disable SMBv1/LLMNR/NetBIOS via GPO"
+  ]
+ },
+ "CM.L2-3.4.7": {
+  "guidance": "Apply default-deny firewall rules and disable unneeded ports/services.",
+  "tools": [
+   "Windows Firewall default-deny",
+   "pfSense"
+  ]
+ },
+ "CM.L2-3.4.8": {
+  "guidance": "Enforce an application allow-list (whitelist preferred).",
+  "tools": [
+   "Windows Defender Application Control",
+   "AppLocker"
+  ]
+ },
+ "CM.L2-3.4.9": {
+  "guidance": "Prevent standard users from installing unapproved software.",
+  "tools": [
+   "UAC + software restriction policy"
+  ]
+ },
+ "IA.L2-3.5.1": {
+  "guidance": "Assign unique identities to every user, process, and device.",
+  "tools": [
+   "PreVeil identities",
+   "Windows SIDs"
+  ]
+ },
+ "IA.L2-3.5.2": {
+  "guidance": "Require authentication before any system access is granted.",
+  "tools": [
+   "PreVeil hardware-backed keys",
+   "Windows Hello"
+  ]
+ },
+ "IA.L2-3.5.3": {
+  "guidance": "Deploy MFA broadly — full 5-point risk if absent entirely, partial 3-point risk if only partially rolled out.",
+  "tools": [
+   "YubiKey (FIDO2)",
+   "Google 2SV",
+   "Duo",
+   "Entra ID MFA"
+  ]
+ },
+ "IA.L2-3.5.4": {
+  "guidance": "Use authentication protocols resistant to replay attacks (e.g., FIDO2/WebAuthn).",
+  "tools": [
+   "FIDO2/WebAuthn",
+   "Kerberos"
+  ]
+ },
+ "IA.L2-3.5.5": {
+  "guidance": "Do not recycle usernames/IDs for a defined retention window.",
+  "tools": [
+   "Google Admin identifier policy"
+  ]
+ },
+ "IA.L2-3.5.6": {
+  "guidance": "Automatically disable dormant accounts after a set period.",
+  "tools": [
+   "Google Admin automated deprovisioning"
+  ]
+ },
+ "IA.L2-3.5.7": {
+  "guidance": "Require strong password composition rules.",
+  "tools": [
+   "Windows/PreVeil password policy"
+  ]
+ },
+ "IA.L2-3.5.8": {
+  "guidance": "Enforce password history to block reuse.",
+  "tools": [
+   "Windows 24-password history policy"
+  ]
+ },
+ "IA.L2-3.5.9": {
+  "guidance": "Force password change on first login for temporary credentials.",
+  "tools": [
+   "Windows \"must change at next logon\" flag"
+  ]
+ },
+ "IA.L2-3.5.10": {
+  "guidance": "Ensure passwords are hashed/encrypted in storage and transit.",
+  "tools": [
+   "NTLMv2/AES",
+   "argon2id (PreVeil)"
+  ]
+ },
+ "IA.L2-3.5.11": {
+  "guidance": "Mask password entry (dots/asterisks) during login.",
+  "tools": [
+   "Default OS/browser masking"
+  ]
+ },
+ "IR.L2-3.6.1": {
+  "guidance": "Maintain a documented incident-response plan with defined roles.",
+  "tools": [
+   "Written IR plan",
+   "tabletop exercises"
+  ]
+ },
+ "IR.L2-3.6.2": {
+  "guidance": "Report qualifying cyber incidents to DoD within 72 hours (DFARS 252.204-7012).",
+  "tools": [
+   "DIBNet (dibnet.dod.mil) reporting portal"
+  ]
+ },
+ "IR.L2-3.6.3": {
+  "guidance": "Run periodic tabletop exercises testing the IR plan.",
+  "tools": [
+   "Scenario-based tabletop exercises"
+  ]
+ },
+ "MA.L2-3.7.1": {
+  "guidance": "Conduct routine patching/maintenance on a defined cadence.",
+  "tools": [
+   "Windows Update",
+   "WSUS"
+  ]
+ },
+ "MA.L2-3.7.2": {
+  "guidance": "Restrict maintenance tooling to vetted, approved tools.",
+  "tools": [
+   "Approved-tool inventory list"
+  ]
+ },
+ "MA.L2-3.7.3": {
+  "guidance": "Wipe CUI from any device before it leaves the CUI boundary for repair.",
+  "tools": [
+   "NIST 800-88 sanitization procedures"
+  ]
+ },
+ "MA.L2-3.7.4": {
+  "guidance": "Scan maintenance media for malware before use.",
+  "tools": [
+   "Endpoint AV pre-scan"
+  ]
+ },
+ "MA.L2-3.7.5": {
+  "guidance": "Require MFA for any remote maintenance session, terminating promptly after use.",
+  "tools": [
+   "VPN + MFA for remote support"
+  ]
+ },
+ "MA.L2-3.7.6": {
+  "guidance": "Supervise unescorted/unauthorized maintenance personnel while they work on in-scope systems.",
+  "tools": [
+   "Escort/supervision policy"
+  ]
+ },
+ "MP.L2-3.8.1": {
+  "guidance": "Physically secure and control all media (paper/digital) containing CUI.",
+  "tools": [
+   "Locked cabinets",
+   "encrypted drives"
+  ]
+ },
+ "MP.L2-3.8.2": {
+  "guidance": "Restrict access to CUI-bearing media to named authorized users.",
+  "tools": [
+   "Access control lists on shared storage"
+  ]
+ },
+ "MP.L2-3.8.3": {
+  "guidance": "Apply NIST 800-88 clear/purge/destroy procedures before disposal or reuse.",
+  "tools": [
+   "Cross-cut shredders",
+   "NIST 800-88 SSD sanitization"
+  ]
+ },
+ "MP.L2-3.8.4": {
+  "guidance": "Apply required CUI banner/portion markings to all media.",
+  "tools": [
+   "DoDM 5200.01 Vol 4 marking guidance"
+  ]
+ },
+ "MP.L2-3.8.5": {
+  "guidance": "Track custody and control of CUI media whenever it leaves controlled areas.",
+  "tools": [
+   "Chain-of-custody logs"
+  ]
+ },
+ "MP.L2-3.8.6": {
+  "guidance": "Encrypt CUI on any digital media transported outside controlled areas.",
+  "tools": [
+   "FIPS 140-3 validated encryption"
+  ]
+ },
+ "MP.L2-3.8.7": {
+  "guidance": "Block or tightly restrict removable media (USB) use.",
+  "tools": [
+   "GPO USB-blocking policy"
+  ]
+ },
+ "MP.L2-3.8.8": {
+  "guidance": "Ban anonymous/unassigned portable storage devices.",
+  "tools": [
+   "Asset-tagging policy"
+  ]
+ },
+ "MP.L2-3.8.9": {
+  "guidance": "Encrypt and secure CUI backups at rest.",
+  "tools": [
+   "PreVeil auto-encrypted backups (AWS GovCloud)"
+  ]
+ },
+ "PS.L2-3.9.1": {
+  "guidance": "Conduct background screening before granting CUI access.",
+  "tools": [
+   "Sterling/HireRight background checks"
+  ]
+ },
+ "PS.L2-3.9.2": {
+  "guidance": "Revoke CUI access promptly on termination/role change.",
+  "tools": [
+   "Offboarding checklist",
+   "immediate deprovisioning"
+  ]
+ },
+ "PE.L2-3.10.1": {
+  "guidance": "Restrict physical facility access to authorized personnel only.",
+  "tools": [
+   "Locked office",
+   "keyed access"
+  ]
+ },
+ "PE.L2-3.10.2": {
+  "guidance": "Monitor the facility and its supporting infrastructure.",
+  "tools": [
+   "Visitor logs",
+   "alarm systems"
+  ]
+ },
+ "PE.L2-3.10.3": {
+  "guidance": "Escort all visitors and actively monitor their activity near CUI systems.",
+  "tools": [
+   "Visitor escort policy"
+  ]
+ },
+ "PE.L2-3.10.4": {
+  "guidance": "Log all physical access events to CUI-adjacent spaces.",
+  "tools": [
+   "Visitor/access log documentation"
+  ]
+ },
+ "PE.L2-3.10.5": {
+  "guidance": "Manage and control keys, badges, and access devices.",
+  "tools": [
+   "Key/badge inventory control"
+  ]
+ },
+ "PE.L2-3.10.6": {
+  "guidance": "Apply the same physical safeguards at alternate/remote work sites.",
+  "tools": [
+   "Home-office PE policy replication"
+  ]
+ },
+ "RA.L2-3.11.1": {
+  "guidance": "Conduct a periodic (at least annual) formal risk assessment.",
+  "tools": [
+   "Annual risk assessment documentation"
+  ]
+ },
+ "RA.L2-3.11.2": {
+  "guidance": "Run recurring vulnerability scans, and ad hoc scans on new CVE disclosures.",
+  "tools": [
+   "Nessus",
+   "OpenVAS",
+   "Qualys",
+   "Tenable"
+  ]
+ },
+ "RA.L2-3.11.3": {
+  "guidance": "Remediate identified vulnerabilities within risk-based SLA timeframes.",
+  "tools": [
+   "Patch management",
+   "remediation tracking log"
+  ]
+ },
+ "CA.L2-3.12.1": {
+  "guidance": "Perform recurring internal assessments of control effectiveness.",
+  "tools": [
+   "Internal self-assessment cycle"
+  ]
+ },
+ "CA.L2-3.12.2": {
+  "guidance": "Maintain a living operational plan of action for known deficiencies.",
+  "tools": [
+   "POA&M / operational plan of action document"
+  ]
+ },
+ "CA.L2-3.12.3": {
+  "guidance": "Continuously monitor controls, not just at assessment time.",
+  "tools": [
+   "Weekly log review",
+   "monthly scan cadence"
+  ]
+ },
+ "CA.L2-3.12.4": {
+  "guidance": "Maintain a current, versioned System Security Plan (SSP).",
+  "tools": [
+   "Written SSP document",
+   "version-controlled"
+  ]
+ },
+ "SC.L2-3.13.1": {
+  "guidance": "Deploy boundary firewalls/gateways monitoring all external traffic.",
+  "tools": [
+   "Firewalls",
+   "PreVeil gateway"
+  ]
+ },
+ "SC.L2-3.13.2": {
+  "guidance": "Design systems with security-by-design architecture principles.",
+  "tools": [
+   "Documented system architecture diagrams"
+  ]
+ },
+ "SC.L2-3.13.3": {
+  "guidance": "Keep admin/management functions logically separate from user-facing functions.",
+  "tools": [
+   "Separate admin vs. user accounts"
+  ]
+ },
+ "SC.L2-3.13.4": {
+  "guidance": "Ensure OS-level isolation prevents data leakage across shared resources.",
+  "tools": [
+   "OS memory/process isolation defaults"
+  ]
+ },
+ "SC.L2-3.13.5": {
+  "guidance": "Isolate public-facing systems (e.g., website) from the internal/CUI network.",
+  "tools": [
+   "DMZ",
+   "Cloudflare-fronted separate VPS"
+  ]
+ },
+ "SC.L2-3.13.6": {
+  "guidance": "Default-deny firewall posture, allowing only explicitly approved traffic.",
+  "tools": [
+   "Default-deny firewall rules"
+  ]
+ },
+ "SC.L2-3.13.7": {
+  "guidance": "Disable split tunneling; require full-tunnel VPN.",
+  "tools": [
+   "Full-tunnel VPN policy"
+  ]
+ },
+ "SC.L2-3.13.8": {
+  "guidance": "Encrypt CUI in transit (TLS/E2E encryption).",
+  "tools": [
+   "TLS 1.2+",
+   "PreVeil end-to-end encryption"
+  ]
+ },
+ "SC.L2-3.13.9": {
+  "guidance": "Auto-terminate idle network sessions after a defined timeout.",
+  "tools": [
+   "Session timeout configuration"
+  ]
+ },
+ "SC.L2-3.13.10": {
+  "guidance": "Manage cryptographic key lifecycle (generation, rotation, retirement).",
+  "tools": [
+   "AWS KMS",
+   "PreVeil key management"
+  ]
+ },
+ "SC.L2-3.13.11": {
+  "guidance": "Use FIPS 140-2/140-3 validated cryptographic modules for all CUI encryption.",
+  "tools": [
+   "PreVeil (FIPS 140-3",
+   "CMVP Cert #5145)"
+  ]
+ },
+ "SC.L2-3.13.12": {
+  "guidance": "Disable remote camera/mic activation; provide in-use indicators.",
+  "tools": [
+   "Physical webcam shutter",
+   "mic-mute defaults"
+  ]
+ },
+ "SC.L2-3.13.13": {
+  "guidance": "Restrict/monitor browser scripting and other mobile code execution.",
+  "tools": [
+   "Browser script-disable policy for CUI portals"
+  ]
+ },
+ "SC.L2-3.13.14": {
+  "guidance": "Restrict CUI-related voice communications to approved, secured channels.",
+  "tools": [
+   "PreVeil-secured channels; non-CUI VoIP separated"
+  ]
+ },
+ "SC.L2-3.13.15": {
+  "guidance": "Ensure sessions cannot be spoofed/impersonated (mutual TLS, cert validation).",
+  "tools": [
+   "TLS 1.2+ with certificate validation"
+  ]
+ },
+ "SC.L2-3.13.16": {
+  "guidance": "Encrypt CUI at rest on all storage systems.",
+  "tools": [
+   "AES-256 (PreVeil)",
+   "BitLocker"
+  ]
+ },
+ "SI.L2-3.14.1": {
+  "guidance": "Patch systems promptly upon flaw discovery.",
+  "tools": [
+   "Windows Update",
+   "vulnerability remediation log"
+  ]
+ },
+ "SI.L2-3.14.2": {
+  "guidance": "Deploy anti-malware at endpoints and network boundaries.",
+  "tools": [
+   "Windows Defender",
+   "CrowdStrike Falcon"
+  ]
+ },
+ "SI.L2-3.14.3": {
+  "guidance": "Subscribe to and act on relevant security advisories (CISA KEV, US-CERT).",
+  "tools": [
+   "CISA KEV feed",
+   "US-CERT subscriptions"
+  ]
+ },
+ "SI.L2-3.14.4": {
+  "guidance": "Keep anti-malware definitions/engines auto-updated.",
+  "tools": [
+   "Defender auto-update",
+   "CrowdStrike sensor updates"
+  ]
+ },
+ "SI.L2-3.14.5": {
+  "guidance": "Run scheduled full scans plus real-time scan-on-access.",
+  "tools": [
+   "Weekly full scan + real-time AV scanning"
+  ]
+ },
+ "SI.L2-3.14.6": {
+  "guidance": "Deploy a SIEM/monitoring capability watching inbound/outbound traffic for attack indicators.",
+  "tools": [
+   "Wazuh",
+   "Splunk",
+   "Microsoft Sentinel"
+  ]
+ },
+ "SI.L2-3.14.7": {
+  "guidance": "Detect and flag unauthorized system usage through log review.",
+  "tools": [
+   "Weekly log review",
+   "Wazuh anomaly rules"
+  ]
+ }
+}

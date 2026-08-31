@@ -10,16 +10,46 @@
  * - Exostar Integration Ready (Supply Chain Risk Management)
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import { 
   Download, FileText, FileSpreadsheet, Loader2, 
   Shield, Lock, Building2, Link2, CheckCircle2, 
   AlertTriangle, XCircle, ChevronRight, ExternalLink,
-  Settings, RefreshCw, HelpCircle, Sparkles
+  Settings, RefreshCw, HelpCircle, Sparkles, ClipboardCheck
 } from 'lucide-react';
 import { SecurityTour, useSecurityTour, complianceTour, TourTriggerButton } from '@/components/security/tour';
+import {
+  CMMC_SPRINT_META,
+  sprintDate,
+  deriveUniquePostureCounts,
+} from '@/lib/security/posture/sprint-meta';
+import ControlRemediationWorkbook, { type WorkbookControl } from '@/components/security/ControlRemediationWorkbook';
+import CmmcReferencePanel from '@/components/security/CmmcReferencePanel';
+import SupplyChainPanel from '@/components/security/SupplyChainPanel';
+import PreVeilPanel from '@/components/security/PreVeilPanel';
+import Tier1Panel from '@/components/security/Tier1Panel';
+import ClosureBoardPanel from '@/components/security/ClosureBoardPanel';
+import { ShieldCheck } from 'lucide-react';
+import { getRemediationPlan } from '@/lib/security/remediation/remediation-library';
+import { policyEvidenceForControl } from '@/lib/security/posture/policy-evidence';
+import { getReferenceFrameworkControls } from '@/lib/security/compliance-frameworks';
+
+/**
+ * Per-control remediation-step progress for the glanceable list bar.
+ * total = real remediation-plan step count; done = evidence artifacts collected
+ * (a step is "done" when its evidence exists), with a Met control counted as fully done.
+ * Honest by construction — never shows progress a control hasn't actually made.
+ */
+function controlStepProgress(control: { id: string; family: string; status: string; evidence?: string[] }): { done: number; total: number } {
+  const total = getRemediationPlan(control.id, control.family).steps.length;
+  if (total === 0 || control.status === 'not_applicable') return { done: 0, total: 0 };
+  if (control.status === 'compliant') return { done: total, total };
+  const evidenced = (control.evidence ?? []).filter((e) => e && String(e).trim() && String(e).trim().toLowerCase() !== 'null').length;
+  return { done: Math.min(evidenced, total), total };
+}
+import { BookOpen, Ban, Target } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -81,6 +111,8 @@ interface MasComplianceBundle {
   controls: Array<Record<string, unknown>>;
   errors?: Record<string, unknown | null>;
 }
+
+const POSTURE_SNAPSHOT_STORAGE_KEY = 'mycosoft.security.compliance.posture.v1';
 
 interface FrameworkInfo {
   id: ComplianceFramework;
@@ -497,13 +529,16 @@ async function generatePDFReport(
 export default function CompliancePage() {
   const [selectedFramework, setSelectedFramework] = useState<ComplianceFramework>('all');
   const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'controls' | 'audit' | 'reports' | 'exostar' | 'mas-live'>('controls');
+  const [activeTab, setActiveTab] = useState<'controls' | 'tier1' | 'closure' | 'audit' | 'reports' | 'preveil' | 'exostar' | 'mas-live' | 'reference' | 'supply-chain'>('controls');
   const [controls, setControls] = useState<ComplianceControl[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [incidents, setIncidents] = useState<Record<string, unknown>[]>([]);
   const [isExporting, setIsExporting] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLiveData, setIsLiveData] = useState(false);
+  const [postureError, setPostureError] = useState<string | null>(null);
+  const [lastKnownPostureAt, setLastKnownPostureAt] = useState<string | null>(null);
+  const lastKnownControlsRef = useRef<ComplianceControl[]>([]);
   const [expandedControl, setExpandedControl] = useState<string | null>(null);
 
   // Exostar state
@@ -525,8 +560,61 @@ export default function CompliancePage() {
   const [masBundle, setMasBundle] = useState<MasComplianceBundle | null>(null);
   const [masRegenBusy, setMasRegenBusy] = useState<string | null>(null);
 
+  // MYCA Reports Agent
+  const [reportEngine, setReportEngine] = useState<{ configured: boolean; provider: string | null; model: string | null; note: string } | null>(null);
+  const [reportBusy, setReportBusy] = useState<string | null>(null);
+  const [reportMsg, setReportMsg] = useState<string | null>(null);
+  const [policyFamily, setPolicyFamily] = useState('AC');
+
+  useEffect(() => {
+    fetch('/api/security/reports/generate')
+      .then((r) => r.json())
+      .then((d) => setReportEngine(d.llm))
+      .catch(() => setReportEngine(null));
+  }, []);
+
+  async function handleGenerateReport(reportType: string) {
+    setReportBusy(reportType);
+    setReportMsg(null);
+    try {
+      const res = await fetch('/api/security/reports/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reportType }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.html) { setReportMsg(data.error || 'Report generation failed.'); return; }
+      const w = window.open('', '_blank');
+      if (w) { w.document.write(data.html); w.document.close(); }
+      else setReportMsg('Popup blocked — allow popups to open the report.');
+      {
+        const m = data.meta ?? {};
+        const evi = typeof m.policiesOnFile === 'number'
+          ? ` · ${m.policiesOnFile} policy doc(s) on file, ${m.controlsWithEvidence ?? 0} controls evidenced`
+          : '';
+        setReportMsg(`Generated via ${m.provider ? `${m.provider} (${m.model})` : 'real data (no LLM configured)'} — SPRS current ${m.sprsCurrent}, target ${m.sprsTarget}${evi}.`);
+      }
+    } catch {
+      setReportMsg('Report generation failed.');
+    } finally {
+      setReportBusy(null);
+    }
+  }
+
   // Fetch compliance data
   useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(POSTURE_SNAPSHOT_STORAGE_KEY);
+      if (stored) {
+        const snapshot = JSON.parse(stored) as { controls?: ComplianceControl[]; savedAt?: string };
+        if (Array.isArray(snapshot.controls) && snapshot.controls.length > 0) {
+          setControls(snapshot.controls);
+          lastKnownControlsRef.current = snapshot.controls;
+          setLastKnownPostureAt(snapshot.savedAt ?? null);
+        }
+      }
+    } catch {
+      // Session storage is only a display resilience layer; a bad snapshot is ignored.
+    }
+
     const fetchData = async () => {
       setIsLoading(true);
       try {
@@ -536,10 +624,45 @@ export default function CompliancePage() {
           fetch('/api/security?action=incidents'),
         ]);
         
+        // A 401 is a session problem, not a posture problem — say so, or a
+        // signed-out local dev server reads as "compliance is broken".
+        if (controlsRes.status === 401) {
+          setIsLiveData(false);
+          setPostureError(
+            'Sign in required — this page needs an authenticated admin session. ' +
+            'On a local dev server, establish one with POST /api/auth/local-dev-session.'
+          );
+          return;
+        }
         if (controlsRes.ok) {
           const data = await controlsRes.json();
-          setControls(data.controls || []);
+          // Keep ONLY the live core frameworks (NIST-800-171 + CMMC-L2) from MAS
+          // soc_ops, then append the non-core reference-framework catalogs at an
+          // honest not-assessed baseline. When MAS is unreachable the API falls
+          // back to a seeded store that contains demo-"compliant" reference
+          // frameworks with fabricated evidence — filtering to core drops those
+          // so the reference frameworks are ALWAYS the honest (non_compliant)
+          // set, with no duplicate control ids and no false Met.
+          const core = ((data.controls || []) as ComplianceControl[]).filter(
+            (c) => c.framework === 'NIST-800-171' || c.framework === 'CMMC-L2'
+          );
+          if (data.source === 'error' || core.length === 0) {
+            throw new Error('Live compliance posture contained no core controls');
+          }
+          const refControls = getReferenceFrameworkControls() as unknown as ComplianceControl[];
+          const nextControls = [...core, ...refControls];
+          const savedAt = new Date().toISOString();
+          setControls(nextControls);
+          lastKnownControlsRef.current = nextControls;
           setIsLiveData(true);
+          setPostureError(null);
+          setLastKnownPostureAt(savedAt);
+          sessionStorage.setItem(
+            POSTURE_SNAPSHOT_STORAGE_KEY,
+            JSON.stringify({ controls: nextControls, savedAt }),
+          );
+        } else {
+          throw new Error(`Live compliance posture request failed (${controlsRes.status})`);
         }
         
         if (logsRes.ok) {
@@ -561,6 +684,12 @@ export default function CompliancePage() {
         }
       } catch (error) {
         console.error('Failed to fetch compliance data:', error);
+        setIsLiveData(false);
+        setPostureError(
+          lastKnownControlsRef.current.length > 0
+            ? 'Live posture is temporarily unavailable. Showing the last known verified snapshot.'
+            : 'Live posture is unavailable. Compliance counts are intentionally withheld.',
+        );
       } finally {
         setIsLoading(false);
       }
@@ -655,11 +784,14 @@ export default function CompliancePage() {
     const partial = fwControls.filter(c => c.status === 'partial').length;
     const nonCompliant = fwControls.filter(c => c.status === 'non_compliant').length;
     const total = fwControls.length;
-    const score = total > 0 ? Math.round(((compliant + partial * 0.5) / total) * 100) : 0;
+    // CMMC posture reports the verified Met rate, not a weighted "progress" value.
+    // Counting Partial as half completed is what inflated a 30/110 posture to ~63%.
+    const score = total > 0 ? Math.round((compliant / total) * 100) : 0;
     return { compliant, partial, nonCompliant, total, score };
   };
 
   const currentStats = getFrameworkStats(selectedFramework);
+  const hasPosture = controls.length > 0;
 
   // Get unique families for current framework
   const availableFamilies = [...new Set(
@@ -788,6 +920,24 @@ export default function CompliancePage() {
     }
   };
 
+  if (!hasPosture) {
+    return (
+      <div className="min-h-dvh bg-gradient-to-br from-slate-950 via-purple-950/10 to-slate-950 p-4 text-white sm:p-6 lg:p-8">
+        <section className="mx-auto max-w-3xl rounded-xl border border-amber-500/40 bg-amber-500/10 p-6">
+          <div className="flex items-center gap-3">
+            {isLoading ? <Loader2 className="h-6 w-6 animate-spin text-amber-300" /> : <AlertTriangle className="h-6 w-6 text-amber-300" />}
+            <div>
+              <h1 className="text-lg font-semibold">Compliance posture unavailable</h1>
+              <p className="mt-1 text-sm text-amber-100">
+                {postureError ?? 'Loading the verified posture. Counts remain hidden until a valid live or saved snapshot is available.'}
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/10 to-slate-950 text-white">
       {/* Tour for Compliance page */}
@@ -837,6 +987,12 @@ export default function CompliancePage() {
           </div>
         </div>
       </header>
+      {postureError && (
+        <div role="status" className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+          {postureError}
+          {lastKnownPostureAt && ` Last verified snapshot: ${new Date(lastKnownPostureAt).toLocaleString()}.`}
+        </div>
+      )}
 
       {/* Framework Selector */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6 overflow-x-auto" data-tour="framework-selector">
@@ -882,10 +1038,15 @@ export default function CompliancePage() {
       <div className="flex gap-2 mb-6" data-tour="compliance-tabs">
         {[
           { id: 'controls', label: 'Controls', icon: Shield, tourId: 'controls-tab' },
+          { id: 'tier1', label: 'Tier-1 Turnkey', icon: ClipboardCheck, tourId: 'tier1-tab' },
+          { id: 'closure', label: 'Closure Board', icon: Target, tourId: 'closure-tab' },
           { id: 'audit', label: 'Audit Logs', icon: FileText, tourId: 'audit-tab' },
           { id: 'reports', label: 'Reports', icon: FileSpreadsheet, tourId: 'reports-tab' },
           { id: 'mas-live', label: 'SSP / POA&M (MAS)', icon: Sparkles, tourId: 'mas-live-tab' },
-          { id: 'exostar', label: 'Exostar', icon: Link2, tourId: 'exostar-tab' },
+          { id: 'reference', label: 'Reference (L2/L3)', icon: BookOpen, tourId: 'reference-tab' },
+          { id: 'supply-chain', label: 'Supply Chain', icon: Ban, tourId: 'supply-chain-tab' },
+          { id: 'preveil', label: 'PreVeil (L2 Enclave)', icon: ShieldCheck, tourId: 'preveil-tab' },
+          { id: 'exostar', label: 'Exostar (L3)', icon: Link2, tourId: 'exostar-tab' },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -902,6 +1063,60 @@ export default function CompliancePage() {
           </button>
         ))}
       </div>
+
+      {/* Self-assessment context banner — live MAS unique Met when heatmap loads. */}
+      {(() => {
+        const live = controls.length
+          ? deriveUniquePostureCounts(controls)
+          : null;
+        const masScore = masBundle?.score as {
+          implemented?: number;
+          partial?: number;
+          total_controls?: number;
+          implementation_percent?: number;
+        } | null;
+        const uniqueMet = live?.uniqueMet ?? CMMC_SPRINT_META.currentImplemented;
+        const uniquePartial = live?.uniquePartial ?? CMMC_SPRINT_META.currentPartial;
+        const rowImpl = masScore?.implemented ?? live?.implementedRows ?? CMMC_SPRINT_META.masRowImplemented;
+        const rowPartial = masScore?.partial ?? live?.partialRows ?? CMMC_SPRINT_META.masRowPartial;
+        return (
+      <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-400" />
+          <div>
+            <span className="font-semibold">CMMC L2 self-assessment in progress.</span>{' '}
+            Current unique Met: <span className="font-semibold text-emerald-300">{uniqueMet}</span>
+            {typeof rowImpl === 'number' ? (
+              <> ({rowImpl} MAS implemented rows</>
+            ) : null}
+            {typeof rowPartial === 'number' ? (
+              <>, {rowPartial} partial rows{masScore?.total_controls ? ` of ${masScore.total_controls}` : ''})</>
+            ) : typeof rowImpl === 'number' ? (
+              <>)</>
+            ) : null}
+            , unique Partial: <span className="font-semibold text-amber-300">{uniquePartial}</span>
+            {isLiveData || masScore ? ' — live from MAS ' : ' — fallback constants; '}
+            <code className="text-amber-300">soc_ops</code>
+            {masScore?.implementation_percent != null ? (
+              <> · {masScore.implementation_percent}% implementation rows</>
+            ) : null}
+            {!isLiveData && !masScore ? ' until heatmap loads.' : '.'}{' '}
+            Target is <span className="font-semibold">{CMMC_SPRINT_META.targetImplemented}/{CMMC_SPRINT_META.totalControls}</span>,
+            with SPRS submission at <span className="font-semibold">{sprintDate(CMMC_SPRINT_META.targetSprsSubmissionDate)}</span>.
+            The two assessment laptops (Morgan + RJ) are not yet provisioned, so endpoint-gated controls{' '}
+            (<code className="text-amber-300">{CMMC_SPRINT_META.endpointGated.join(', ')}</code>) and the{' '}
+            <code className="text-amber-300">{CMMC_SPRINT_META.openPoamItem}</code> POA&amp;M item close at{' '}
+            <span className="font-semibold">{sprintDate(CMMC_SPRINT_META.poamCloseDeadline)}</span>{' '}
+            (180-day ceiling {CMMC_SPRINT_META.poamCloseCeiling}). Laptop-independent items{' '}
+            (<code className="text-amber-300">{CMMC_SPRINT_META.laptopIndependentClosable.join(', ')}</code>) can close now.
+            Projected numbers are never shown as achieved. Control weights are{' '}
+            <span className="font-semibold">verified</span> against the DoD Assessment Methodology v1.2.1
+            (Annex A); the computed SPRS score appears in the Reference → Verification flags tab.
+          </div>
+        </div>
+      </div>
+        );
+      })()}
 
       {/* Controls Tab */}
       {activeTab === 'controls' && (
@@ -985,6 +1200,37 @@ export default function CompliancePage() {
                               )}
                             </div>
                             <h4 className="font-medium mt-1">{control.name}</h4>
+                            {(() => {
+                              const { done, total } = controlStepProgress(control);
+                              if (total === 0) return null;
+                              const pct = Math.round((done / total) * 100);
+                              const barColor = done >= total ? 'bg-emerald-500' : done > 0 ? 'bg-amber-500' : 'bg-slate-600';
+                              return (
+                                <div className="flex items-center gap-2 mt-1.5" title={`${done} of ${total} remediation steps evidenced`}>
+                                  <div className="h-1.5 w-24 sm:w-32 rounded-full bg-slate-700/80 overflow-hidden">
+                                    <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <span className="text-[11px] text-slate-400 tabular-nums">{done}/{total} steps</span>
+                                </div>
+                              );
+                            })()}
+                            {(() => {
+                              const policies = policyEvidenceForControl(control);
+                              if (!policies.length) return null;
+                              return (
+                                <div className="flex flex-wrap items-center gap-1 mt-1">
+                                  {policies.map((p) => (
+                                    <span
+                                      key={p.id}
+                                      title={`${p.title} on file — advances the documentation (Examine) step. Not, by itself, a Met determination.`}
+                                      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30"
+                                    >
+                                      <FileText className="w-3 h-3" /> {p.title} on file
+                                    </span>
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -996,56 +1242,7 @@ export default function CompliancePage() {
                       </div>
                       
                       {isExpanded && (
-                        <div className="mt-4 ml-8 space-y-3">
-                          <p className="text-sm text-slate-400">{control.description}</p>
-                          
-                          <div className="flex flex-wrap gap-4 text-xs">
-                            <div>
-                              <span className="text-slate-500">Priority:</span>
-                              <span className={`ml-2 px-2 py-0.5 rounded ${
-                                control.priority === 'high' ? 'bg-red-500/20 text-red-400' :
-                                control.priority === 'medium' ? 'bg-amber-500/20 text-amber-400' :
-                                'bg-green-500/20 text-green-400'
-                              }`}>{control.priority}</span>
-                            </div>
-                            <div>
-                              <span className="text-slate-500">Last Audit:</span>
-                              <span className="ml-2 text-slate-300">{control.lastAudit}</span>
-                            </div>
-                            {control.lastAuditBy && (
-                              <div>
-                                <span className="text-slate-500">By:</span>
-                                <span className="ml-2 text-slate-300">{control.lastAuditBy}</span>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div>
-                            <span className="text-xs text-slate-500">Evidence:</span>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {control.evidence.map((e, i) => (
-                                <span key={i} className="text-xs px-2 py-1 bg-slate-700 rounded">{e}</span>
-                              ))}
-                            </div>
-                          </div>
-                          
-                          {control.mappings && Object.keys(control.mappings).length > 0 && (
-                            <div>
-                              <span className="text-xs text-slate-500">Cross-Framework Mappings:</span>
-                              <div className="flex flex-wrap gap-2 mt-1">
-                                {Object.entries(control.mappings).map(([fw, ids], idx) => (
-                                  <span key={fw || `mapping-${idx}`} className="text-xs px-2 py-1 bg-purple-500/20 text-purple-400 rounded">
-                                    {fw}: {(ids as string[]).join(', ')}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {control.notes && (
-                            <p className="text-xs text-slate-500 italic">{control.notes}</p>
-                          )}
-                        </div>
+                        <ControlRemediationWorkbook control={control as unknown as WorkbookControl} />
                       )}
                     </div>
                   );
@@ -1125,6 +1322,70 @@ export default function CompliancePage() {
       {/* Reports Tab */}
       {activeTab === 'reports' && (
         <div className="space-y-6" data-tour="reports-section">
+          {/* MYCA Reports Agent — real, data-driven, government-standard documents */}
+          <div className="rounded-xl border border-purple-500/40 bg-gradient-to-br from-purple-900/20 to-slate-900/40 p-5">
+            <div className="flex items-center gap-3 mb-1">
+              <Sparkles className="w-6 h-6 text-purple-300" />
+              <h3 className="font-bold text-white">MYCA Reports Agent</h3>
+              <span className={`text-[11px] px-2 py-0.5 rounded border ${reportEngine?.configured ? 'border-emerald-500/40 text-emerald-300' : 'border-amber-500/40 text-amber-300'}`}>
+                {reportEngine ? (reportEngine.configured ? `LLM: ${reportEngine.provider} · ${reportEngine.model}` : 'data-only (no LLM key)') : 'checking…'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 max-w-3xl mb-3">
+              Generates real, documented, CUI-marked reports from live compliance data (SPRS score, control posture, POA&amp;M, supply-chain BAA) — formatted to government standard, printable to PDF. The reports agent authors the narrative with the configured model; without a key it still produces a complete data-driven document.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: 'remediation-plan', label: 'Remediation Plan (owner-classified)' },
+                { id: 'cmmc-l2', label: 'CMMC L2 Self-Assessment Report' },
+                { id: 'sprs', label: 'SPRS Score Report' },
+                { id: 'poam', label: 'POA&M' },
+                { id: 'supply-chain', label: 'Supply-Chain / Made-in-America' },
+              ].map((rt) => (
+                <button
+                  key={rt.id}
+                  type="button"
+                  onClick={() => handleGenerateReport(rt.id)}
+                  disabled={reportBusy !== null}
+                  className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm inline-flex items-center gap-2 disabled:opacity-50"
+                >
+                  {reportBusy === rt.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                  {rt.label}
+                </button>
+              ))}
+            </div>
+            {/* Policies & procedures (Batch B) */}
+            <div className="mt-3 pt-3 border-t border-slate-700/60">
+              <div className="text-xs text-slate-400 mb-2">Policies &amp; procedures — MYCA drafts, Morgan reviews &amp; signs:</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <select value={policyFamily} onChange={(e) => setPolicyFamily(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-slate-100">
+                  {[['AC','Access Control'],['AT','Awareness & Training'],['AU','Audit & Accountability'],['CM','Configuration Mgmt'],['IA','Identification & Auth'],['IR','Incident Response'],['MA','Maintenance'],['MP','Media Protection'],['PS','Personnel Security'],['PE','Physical Protection'],['RA','Risk Assessment'],['CA','Security Assessment'],['SC','System & Comms Protection'],['SI','System & Info Integrity']].map(([k,v]) => (
+                    <option key={k} value={k}>{v} policy</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => handleGenerateReport(`policy:${policyFamily}`)} disabled={reportBusy !== null}
+                  className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm inline-flex items-center gap-2 disabled:opacity-50">
+                  {reportBusy === `policy:${policyFamily}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Generate policy
+                </button>
+                {[['ir-runbook','IR Runbook'],['access-agreement','Access Agreement'],['physical-access','Physical Access'],['visitor-log','Visitor Log']].map(([id,label]) => (
+                  <button key={id} type="button" onClick={() => handleGenerateReport(id)} disabled={reportBusy !== null}
+                    className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm inline-flex items-center gap-2 disabled:opacity-50">
+                    {reportBusy === id ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {reportMsg && <div className="text-xs text-slate-300 mt-2">{reportMsg}</div>}
+            {reportEngine && !reportEngine.configured && (
+              <div className="text-[11px] text-amber-300/80 mt-2 flex items-start gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                {reportEngine.note}
+              </div>
+            )}
+          </div>
+
           {/* Row 1: Core Compliance Reports */}
           <div className="grid grid-cols-4 gap-4">
             {/* NIST 800-171 Reports */}
@@ -1458,9 +1719,39 @@ export default function CompliancePage() {
         </div>
       )}
 
+      {/* Reference (L2/L3 + statutory + CUI) Tab */}
+      {activeTab === 'reference' && (
+        <div data-tour="reference-section">
+          <CmmcReferencePanel />
+        </div>
+      )}
+
+      {/* Supply Chain Tab */}
+      {activeTab === 'supply-chain' && (
+        <div data-tour="supply-chain-section">
+          <SupplyChainPanel />
+        </div>
+      )}
+
+      {/* PreVeil Tab — the L2 CUI enclave */}
+      {activeTab === 'tier1' && <Tier1Panel />}
+
+      {/* Closure Board — the 57 baseline Partials, live from MAS */}
+      {activeTab === 'closure' && (
+        <div data-tour="closure-section">
+          <ClosureBoardPanel />
+        </div>
+      )}
+
+      {activeTab === 'preveil' && <PreVeilPanel />}
+
       {/* Exostar Tab */}
       {activeTab === 'exostar' && (
         <div className="max-w-4xl mx-auto" data-tour="exostar-section">
+          <div className="mb-4 rounded-lg border border-slate-600 bg-slate-700/30 p-4 text-sm text-slate-300 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" />
+            <div><span className="font-semibold">Level 3 — not used at Level 2.</span> Exostar (DoD Supply Chain Risk Management) is a CMMC <span className="font-semibold">Level 3</span> concern. Mycosoft's Level 2 CUI enclave is <span className="font-semibold text-sky-300">PreVeil</span> (see the PreVeil tab). This tab stays configured but inactive until we pursue L3.</div>
+          </div>
           <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-8">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-4">
@@ -1468,7 +1759,7 @@ export default function CompliancePage() {
                   <Link2 className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold">Exostar Integration</h2>
+                  <h2 className="text-2xl font-bold">Exostar Integration <span className="text-sm font-normal text-slate-500">(Level 3)</span></h2>
                   <p className="text-slate-400">Supply Chain Risk Management Platform</p>
                 </div>
               </div>

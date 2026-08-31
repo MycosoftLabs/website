@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 /**
@@ -56,7 +55,16 @@ interface ChainStats {
   latest_hash: string;
   latest_sequence: number;
   last_merkle_anchor: string | null;
-  integrity_verified: boolean;
+  // null = unknown (no global verified-root contract on MAS); never assumed true.
+  integrity_verified: boolean | null;
+}
+
+interface AgentLiveness {
+  registered: number | null;
+  stale: number | null;
+  fresh: number | null;
+  stale_after_seconds: number | null;
+  state: 'healthy' | 'unavailable';
 }
 
 interface LiveStats {
@@ -201,7 +209,7 @@ function StatCard({
   pulse,
   tooltip,
 }: {
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string | number;
   color: string;
@@ -230,7 +238,7 @@ function StatCard({
 // CHAIN INTEGRITY BADGE
 // ═══════════════════════════════════════════════════════════════
 
-function ChainIntegrityBadge({ chainStats }: { chainStats: ChainStats | null }) {
+function ChainIntegrityBadge({ chainStats, verifyReason }: { chainStats: ChainStats | null; verifyReason?: string | null }) {
   if (!chainStats) {
     return (
       <Tooltip content="Loading cryptographic chain status. The chain ensures all incident logs are tamper-proof using SHA-256 hashing.">
@@ -242,26 +250,37 @@ function ChainIntegrityBadge({ chainStats }: { chainStats: ChainStats | null }) 
     );
   }
   
-  const isValid = chainStats.integrity_verified;
-  
+  // Four honest states, from MAS's verifier (/api/incidents/chain/verify):
+  //   verified   — MAS attested the linked chain
+  //   error      — verification FAILED with entries present (possible tampering)
+  //   nothing-to-verify — MAS says false because the ledger is empty. This is
+  //                NOT tampering, and must not raise a red alarm; treating an
+  //                empty ledger as "Chain Error" would be a false positive just
+  //                as dishonest as calling it verified.
+  //   unknown    — MAS unreachable / no boolean returned
+  const iv = chainStats.integrity_verified;
+  const emptyLedger = chainStats.total_entries === 0;
+  const kind = iv === true ? 'verified'
+    : iv === false ? (emptyLedger ? 'nothing-to-verify' : 'error')
+    : 'unknown';
+  const meta = {
+    verified: { cls: 'bg-emerald-500/10 border border-emerald-500/30', text: 'text-emerald-400', label: 'Chain Verified',
+      tip: `Chain verified by MAS: all ${chainStats.total_entries} blocks are cryptographically linked.` },
+    error: { cls: 'bg-red-500/10 border border-red-500/30', text: 'text-red-400', label: 'Chain Error',
+      tip: `MAS chain verification FAILED${verifyReason ? ` — ${verifyReason}` : ''}. Blocks may have been modified. Investigate immediately.` },
+    'nothing-to-verify': { cls: 'bg-slate-700/40 border border-slate-600', text: 'text-slate-300', label: 'No chain entries',
+      tip: `MAS reports nothing to verify${verifyReason ? ` — ${verifyReason}` : ''}. An empty ledger is not a verified ledger, and is not evidence of tampering.` },
+    unknown: { cls: 'bg-slate-700/40 border border-slate-600', text: 'text-slate-300', label: 'Integrity unknown',
+      tip: `Global chain integrity could not be read from MAS${verifyReason ? ` — ${verifyReason}` : ''}. This is not a claim of tampering.` },
+  }[kind];
+
   return (
-    <Tooltip content={
-      isValid 
-        ? `Chain verified: All ${chainStats.total_entries} blocks are cryptographically linked. No tampering detected.`
-        : 'Chain integrity error! Some blocks may have been modified. Immediate investigation required.'
-    }>
-      <div className={cn(
-        'flex items-center gap-2 px-3 py-1.5 rounded-full cursor-help',
-        isValid ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-red-500/10 border border-red-500/30'
-      )}>
-        {isValid ? (
-          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-        ) : (
-          <AlertTriangle className="h-4 w-4 text-red-400 animate-pulse" />
-        )}
-        <span className={cn('text-sm font-medium', isValid ? 'text-emerald-400' : 'text-red-400')}>
-          {isValid ? 'Chain Verified' : 'Chain Error'}
-        </span>
+    <Tooltip content={meta.tip}>
+      <div className={cn('flex items-center gap-2 px-3 py-1.5 rounded-full cursor-help', meta.cls)}>
+        {kind === 'verified' ? <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+          : kind === 'error' ? <AlertTriangle className="h-4 w-4 text-red-400 animate-pulse" />
+          : <HelpCircle className="h-4 w-4 text-slate-400" />}
+        <span className={cn('text-sm font-medium', meta.text)}>{meta.label}</span>
         <span className="text-xs text-slate-500">
           #{chainStats.latest_sequence} • {chainStats.total_entries} blocks
         </span>
@@ -274,86 +293,8 @@ function ChainIntegrityBadge({ chainStats }: { chainStats: ChainStats | null }) 
 // TEST INCIDENT GENERATOR CONTROLS (Hidden in production)
 // ═══════════════════════════════════════════════════════════════
 
-const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_TEST_MODE === 'true';
-
-function TestControls({ onGenerate, isGenerating }: { onGenerate: (count: number) => void; isGenerating: boolean }) {
-  const [autoGenerate, setAutoGenerate] = useState(false);
-  const [interval, setIntervalTime] = useState(10);
-  
-  useEffect(() => {
-    if (!autoGenerate) return;
-    
-    const id = setInterval(() => {
-      onGenerate(1);
-    }, interval * 1000);
-    
-    return () => clearInterval(id);
-  }, [autoGenerate, interval, onGenerate]);
-  
-  // Hide test controls in production
-  if (!isDevelopment) {
-    return null;
-  }
-  
-  return (
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-lg border border-slate-700">
-      <Tooltip content="Generate test incidents to see the live dashboard in action. Use batch generation or auto-generate for continuous testing.">
-        <span className="text-xs text-slate-400 flex items-center gap-1">
-          <Zap className="h-3 w-3" />
-          Dev Mode
-        </span>
-      </Tooltip>
-      
-      <div className="h-4 w-px bg-slate-700" />
-      
-      <button
-        onClick={() => onGenerate(10)}
-        disabled={isGenerating}
-        className="px-2 py-1 text-xs bg-cyan-600 hover:bg-cyan-500 text-white rounded transition-colors disabled:opacity-50"
-      >
-        +10
-      </button>
-      
-      <button
-        onClick={() => onGenerate(50)}
-        disabled={isGenerating}
-        className="px-2 py-1 text-xs bg-orange-600 hover:bg-orange-500 text-white rounded transition-colors disabled:opacity-50"
-      >
-        +50
-      </button>
-      
-      <div className="h-4 w-px bg-slate-700" />
-      
-      <button
-        onClick={() => setAutoGenerate(!autoGenerate)}
-        className={cn(
-          'flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors',
-          autoGenerate
-            ? 'bg-green-600 text-white'
-            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-        )}
-      >
-        {autoGenerate ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-        Auto ({interval}s)
-      </button>
-      
-      {autoGenerate && (
-        <select
-          value={interval}
-          onChange={(e) => setIntervalTime(Number(e.target.value))}
-          className="px-2 py-1 text-xs bg-slate-700 border border-slate-600 rounded"
-        >
-          <option value={5}>5s</option>
-          <option value={10}>10s</option>
-          <option value={30}>30s</option>
-          <option value={60}>60s</option>
-        </select>
-      )}
-      
-      {isGenerating && <Loader2 className="h-4 w-4 text-cyan-400 animate-spin" />}
-    </div>
-  );
-}
+// TestControls (synthetic incident generator) was removed — an honest SOC must
+// not carry a control that fabricates incidents into the source of record.
 
 // ═══════════════════════════════════════════════════════════════
 // VIEW MODE SELECTOR
@@ -366,7 +307,7 @@ function ViewModeSelector({
   mode: ViewMode;
   onChange: (mode: ViewMode) => void;
 }) {
-  const modes: { id: ViewMode; icon: React.ElementType; label: string; tooltip: string }[] = [
+  const modes: { id: ViewMode; icon: React.ComponentType<{ className?: string }>; label: string; tooltip: string }[] = [
     { id: 'mempool', icon: Layers, label: 'Mempool', tooltip: 'Full blockchain explorer view with treemap, blocks, and statistics' },
     { id: 'split', icon: Grid3X3, label: 'Split View', tooltip: 'Side-by-side view of incident stream and agent activity' },
     { id: 'incidents', icon: AlertTriangle, label: 'Incidents', tooltip: 'Live incident stream with real-time updates' },
@@ -402,7 +343,11 @@ function ViewModeSelector({
 
 export default function IncidentDashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>('mempool');
-  const [isGenerating, setIsGenerating] = useState(false);
+  // Source availability + real agent liveness (from MAS via the BFF). These drive
+  // the honest "unavailable vs collected-empty" and "LIVE vs stale" distinctions.
+  const [incidentsAvailable, setIncidentsAvailable] = useState<boolean | null>(null);
+  const [chainAvailable, setChainAvailable] = useState<boolean | null>(null);
+  const [agentLiveness, setAgentLiveness] = useState<AgentLiveness | null>(null);
   const [liveStats, setLiveStats] = useState<LiveStats>({
     open_incidents: 0,
     critical_count: 0,
@@ -419,19 +364,47 @@ export default function IncidentDashboard() {
   const [chainStats, setChainStats] = useState<ChainStats | null>(null);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [blocks, setBlocks] = useState<ChainBlock[]>([]);
+  // MAS's own explanation when the chain isn't verified (e.g. "no incident-chain
+  // entries are available") — shown instead of a bare unknown state.
+  const [chainVerifyReason, setChainVerifyReason] = useState<string | null>(null);
   
   // Fetch all data
   const fetchData = useCallback(async () => {
     try {
-      const [incidentsRes, chainRes] = await Promise.all([
+      const [incidentsRes, chainRes, verifyRes] = await Promise.all([
         fetch('/api/security/incidents?limit=200'),
         fetch('/api/security/incidents/chain?action=entries&limit=100'),
+        fetch('/api/security/incidents/chain?action=verify'),
       ]);
-      
+
+      // Source availability drives honest rendering — a failed fetch is NOT an
+      // empty-but-healthy state.
+      setIncidentsAvailable(incidentsRes.ok);
+      setChainAvailable(chainRes.ok);
+
+      // Global chain integrity, straight from MAS's verifier. `verified` stays
+      // null (unknown) unless MAS actually returns a boolean — an unreachable
+      // verifier or an empty ledger never becomes a green "Chain Verified".
+      let verify: { verified: boolean | null; merkle_root: string | null; reason: string | null } = {
+        verified: null, merkle_root: null, reason: null,
+      };
+      if (verifyRes.ok) {
+        const v = await verifyRes.json();
+        verify = {
+          verified: typeof v.verified === 'boolean' ? v.verified : null,
+          merkle_root: v.merkle_root ?? null,
+          reason: v.reason ?? null,
+        };
+      }
+      setChainVerifyReason(verify.reason);
+
       if (incidentsRes.ok) {
         const data = await incidentsRes.json();
         const incidentList = data.incidents || [];
         setIncidents(incidentList);
+        // Real agent liveness from MAS heartbeat (via BFF) — replaces the old
+        // `|| 8` fabrication. null when the heartbeat source is unavailable.
+        setAgentLiveness(data.agents ?? null);
         
         // Calculate stats
         const open = incidentList.filter((i: Incident) => i.status === 'open');
@@ -463,7 +436,7 @@ export default function IncidentDashboard() {
           medium_count: medium.length,
           low_count: low.length,
           resolved_count: resolved.length,
-          active_agents: data.active_agents || 8,
+          active_agents: data.agents?.fresh ?? 0,
           avg_resolution_time: avgTime,
           incidents_last_hour: lastHour.length,
           last_update: new Date().toISOString(),
@@ -474,19 +447,22 @@ export default function IncidentDashboard() {
         const data = await chainRes.json();
         setBlocks(data.entries || []);
         
+        // Chain integrity is NEVER computed here — `verify` above carries MAS's
+        // own verdict. It stays null (unknown) when MAS can't be asked, and MAS
+        // itself reports false-with-a-reason for an empty ledger.
         if (data.entries && data.entries.length > 0) {
           setChainStats({
             total_entries: data.entries.length,
-            entries_last_hour: data.entries.filter((e: ChainBlock) => 
+            entries_last_hour: data.entries.filter((e: ChainBlock) =>
               new Date(e.created_at).getTime() > Date.now() - 3600000
             ).length,
             entries_last_day: data.entries.length,
             latest_hash: data.entries[0].event_hash,
             latest_sequence: data.entries[0].sequence_number,
-            last_merkle_anchor: null,
-            integrity_verified: true,
+            last_merkle_anchor: verify.merkle_root,
+            integrity_verified: verify.verified,
           });
-          
+
           setLiveStats(prev => ({
             ...prev,
             chain_sequence: data.entries[0].sequence_number,
@@ -498,8 +474,8 @@ export default function IncidentDashboard() {
             entries_last_day: 0,
             latest_hash: '',
             latest_sequence: 0,
-            last_merkle_anchor: null,
-            integrity_verified: true,
+            last_merkle_anchor: verify.merkle_root,
+            integrity_verified: verify.verified,
           });
         }
       }
@@ -515,24 +491,19 @@ export default function IncidentDashboard() {
     return () => clearInterval(interval);
   }, [fetchData]);
   
-  // Generate test incidents
-  const generateIncidents = useCallback(async (count: number) => {
-    setIsGenerating(true);
-    try {
-      await fetch('/api/security/incidents/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ count, withChain: true }),
-      });
-      // Refresh data
-      await fetchData();
-    } catch (error) {
-      console.error('Failed to generate incidents:', error);
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [fetchData]);
-  
+  // Synthetic incident generation was removed — fabricated incidents must never
+  // enter the MAS/MINDEX source of record. The /api/security/incidents/test route
+  // is hard-disabled (410).
+
+  // A live indicator must be earned. We treat the feed as "live" only when the
+  // incident source is reachable AND MAS reports at least one fresh agent;
+  // otherwise it is degraded/stale/unavailable, never a hardcoded green LIVE.
+  const feedState: 'live' | 'degraded' | 'unavailable' =
+    incidentsAvailable === false ? 'unavailable'
+      : incidentsAvailable && (agentLiveness?.fresh ?? 0) > 0 ? 'live'
+      : incidentsAvailable ? 'degraded'
+      : 'unavailable';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Header */}
@@ -544,16 +515,21 @@ export default function IncidentDashboard() {
               <span className="font-bold text-xl text-white">Incident Management</span>
             </div>
             
-            <div className="flex items-center gap-2">
-              <Radio className="h-4 w-4 text-green-500 animate-pulse" />
-              <span className="text-sm text-green-400 font-medium">LIVE</span>
+            <div className="flex items-center gap-2" title={
+              feedState === 'live' ? 'Incident source reachable and MAS has fresh agents.'
+                : feedState === 'degraded' ? 'Incident source reachable but no fresh MAS agents — feed may lag.'
+                : 'Incident source unavailable.'
+            }>
+              <Radio className={cn('h-4 w-4', feedState === 'live' ? 'text-green-500 animate-pulse' : feedState === 'degraded' ? 'text-amber-500' : 'text-red-500')} />
+              <span className={cn('text-sm font-medium', feedState === 'live' ? 'text-green-400' : feedState === 'degraded' ? 'text-amber-400' : 'text-red-400')}>
+                {feedState === 'live' ? 'LIVE' : feedState === 'degraded' ? 'DEGRADED' : 'UNAVAILABLE'}
+              </span>
             </div>
-            
-            <ChainIntegrityBadge chainStats={chainStats} />
+
+            <ChainIntegrityBadge chainStats={chainStats} verifyReason={chainVerifyReason} />
           </div>
           
           <div className="flex items-center gap-4">
-            <TestControls onGenerate={generateIncidents} isGenerating={isGenerating} />
             <ViewModeSelector mode={viewMode} onChange={setViewMode} />
           </div>
         </div>
@@ -1352,52 +1328,37 @@ function QueueStats({ pending, investigating, contained, resolved }: {
   contained: number;
   resolved: number;
 }) {
-  const total = pending + investigating + contained + resolved;
-  const capacity = 100;
-  const utilizationPercent = (total / capacity) * 100;
-  
+  // Queue capacity and the Healthy/Busy/Overloaded label used to be derived from a
+  // hardcoded capacity of 100 — a fabricated threshold. MAS does not report a queue
+  // capacity, so we show the real active count and mark capacity as not reported
+  // rather than invent a utilization percentage.
+  const active = pending + investigating + contained;
+  const total = active + resolved;
+
   return (
     <div className="bg-slate-900/50 rounded-lg border border-slate-800 p-4">
       <h4 className="text-sm font-medium text-slate-400 mb-3 flex items-center gap-2">
         Queue Statistics
-        <Tooltip content="Shows the current state of the incident queue. The capacity bar shows how full the queue is relative to optimal capacity.">
+        <Tooltip content="Live incident counts by state from MAS. Queue capacity is not reported by MAS, so no utilization threshold is shown.">
           <HelpCircle className="h-3 w-3 text-slate-600 cursor-help" />
         </Tooltip>
       </h4>
-      
+
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-slate-500">Queue Status</span>
-          <span className={cn(
-            'px-2 py-0.5 rounded text-xs font-medium',
-            utilizationPercent < 50 ? 'bg-green-500/20 text-green-400' :
-            utilizationPercent < 80 ? 'bg-yellow-500/20 text-yellow-400' :
-            'bg-red-500/20 text-red-400'
-          )}>
-            {utilizationPercent < 50 ? 'Healthy' : utilizationPercent < 80 ? 'Busy' : 'Overloaded'}
+          <span className="text-xs text-slate-500">Active in queue</span>
+          <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-700/50 text-slate-200">
+            {active} active · {total} total
           </span>
         </div>
-        
+
         <div>
           <div className="flex justify-between text-xs mb-1">
             <span className="text-slate-500">Capacity</span>
-            <span className="text-white">{total}/{capacity}</span>
-          </div>
-          <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-            <motion.div
-              className={cn(
-                'h-full rounded-full',
-                utilizationPercent < 50 ? 'bg-emerald-500' :
-                utilizationPercent < 80 ? 'bg-yellow-500' :
-                'bg-red-500'
-              )}
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min(utilizationPercent, 100)}%` }}
-              transition={{ duration: 0.5 }}
-            />
+            <span className="text-slate-500">not reported by MAS</span>
           </div>
         </div>
-        
+
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="flex justify-between">
             <span className="text-blue-400">Pending</span>

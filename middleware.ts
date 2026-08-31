@@ -7,7 +7,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { pathRequiresAuth, pathRequiresCompanyEmail } from '@/lib/access/routes'
+import { pathRequiresAuth, pathRequiresCompanyEmail, pathRequiresOwner, OWNER_ALLOWED_EMAILS } from '@/lib/access/routes'
 import { isCompanyEmail } from '@/lib/access/types'
 
 /** Cloudflare / reverse proxies send x-forwarded-proto; force HTTPS on the public site. */
@@ -98,6 +98,14 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
+  // Owner-only consoles (Psathyrella GCS): on localhost/LAN in dev, keep them reachable so the
+  // on-device iPad bench test works BEFORE the client mints its local-dev admin cookie (chicken/egg:
+  // the page must load for the client to mint). Production is unaffected — isLocalDevHost is false for
+  // the public host and NODE_ENV is production, so the owner-email gate below is enforced there.
+  if (pathRequiresOwner(pathname) && process.env.NODE_ENV === "development" && isLocalDevHost(host)) {
+    return response
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -136,6 +144,14 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone()
       url.pathname = '/natureos'
       url.searchParams.set('error', 'company_access_required')
+      return NextResponse.redirect(url)
+    }
+    // Owner gate: single-email allowlist (the Psathyrella GCS is owner-only). A logged-in
+    // non-owner (even another @mycosoft.org employee) is bounced back to /natureos.
+    if (pathRequiresOwner(pathname) && !OWNER_ALLOWED_EMAILS.includes((user.email || '').toLowerCase())) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/natureos'
+      url.searchParams.set('error', 'owner_only')
       return NextResponse.redirect(url)
     }
   }

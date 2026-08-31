@@ -3,7 +3,7 @@
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { Search, Cloud, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Waves, Plane, Bot, Users } from "lucide-react"
+import { Search, Cloud, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Waves, Plane, Bot, Users, Rocket } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 // Dialog removed - MYCA bot icon removed from header
@@ -32,6 +32,7 @@ import { motion } from "framer-motion"
 // Navigation dropdown items configuration
 const defenseItems = [
   { title: "Fusarium", href: "/defense/fusarium", icon: Bug, description: "Operational Environment Platform" },
+  { title: "Launchpad", href: "/fusarium/launchpad", icon: Rocket, description: "Contractor Readiness & Opportunity OS" },
   { title: "OEI Capabilities", href: "/defense/oei", icon: Target, description: "Doctrine Capabilities" },
   { title: "Technical Documentation", href: "/defense/technical-docs", icon: FileText, description: "Defense systems documentation" },
 ]

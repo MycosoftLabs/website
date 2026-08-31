@@ -1,0 +1,2092 @@
+﻿{
+  "generated_from": "lib/security/reference/cmmc-l2-controls.json (MD5 abca7ab1)",
+  "evidence_dir": "docs/cmmc_evidence",
+  "tally": {
+    "blocked": 79,
+    "operator-action-required": 20,
+    "met": 10,
+    "ready-collect-now": 1
+  },
+  "controls": [
+    {
+      "control_id": "AC.L2-3.1.1",
+      "nist": "3.1.1",
+      "family": "AC",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] authorized users are identified;",
+        "[b] processes acting on behalf of authorized users are identified;",
+        "[c] devices (and other systems) authorized to connect to the system are identified;",
+        "[d] system access is limited to authorized users;",
+        "[e] system access is limited to processes acting on behalf of authorized users; and",
+        "[f] system access is limited to authorized devices (including other systems)."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.2",
+      "nist": "3.1.2",
+      "family": "AC",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the types of transactions and functions that authorized users are permitted to execute are defined; and",
+        "[b] system access is limited to the defined types of transactions and functions for authorized users."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.3",
+      "nist": "3.1.3",
+      "family": "AC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] information flow control policies are defined;",
+        "[b] methods and enforcement mechanisms for controlling the flow of CUI are defined;",
+        "[c] designated sources and destinations (e.g., networks, individuals, and devices) for CUI within the system and between interconnected systems are identified;",
+        "[d] authorizations for controlling the flow of CUI are defined; and",
+        "[e] approved authorizations for controlling the flow of CUI are enforced."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.4",
+      "nist": "3.1.4",
+      "family": "AC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the duties of individuals requiring separation are defined;",
+        "[b] responsibilities for duties that require separation are assigned to separate individuals; and",
+        "[c] access privileges that enable individuals to exercise the duties that require separation are granted to separate individuals."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.5",
+      "nist": "3.1.5",
+      "family": "AC",
+      "weight": 3,
+      "poam_eligible": false,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] privileged accounts are identified;",
+        "[b] access to privileged accounts is authorized in accordance with the principle of least privilege;",
+        "[c] security functions are identified; and",
+        "[d] access to security functions is authorized in accordance with the principle of least privilege."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.6",
+      "nist": "3.1.6",
+      "family": "AC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] nonsecurity functions are identified; and",
+        "[b] users are required to use non-privileged accounts or roles when accessing nonsecurity functions."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.7",
+      "nist": "3.1.7",
+      "family": "AC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] privileged functions are defined;",
+        "[b] non-privileged users are defined;",
+        "[c] non-privileged users are prevented from executing privileged functions; and",
+        "[d] the execution of privileged functions is captured in audit logs."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.8",
+      "nist": "3.1.8",
+      "family": "AC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the means of limiting unsuccessful logon attempts is defined; and",
+        "[b] the defined means of limiting unsuccessful logon attempts is implemented."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.9",
+      "nist": "3.1.9",
+      "family": "AC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] privacy and security notices required by CUI-specified rules are identified, consistent, and associated with the specific CUI category; and",
+        "[b] privacy and security notices are displayed."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.10",
+      "nist": "3.1.10",
+      "family": "AC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the period of inactivity after which the system initiates a session lock is defined;",
+        "[b] access to the system and viewing of data is prevented by initiating a session lock after the defined period of inactivity; and",
+        "[c] previously visible information is concealed via a pattern-hiding display after the defined period of inactivity."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.11",
+      "nist": "3.1.11",
+      "family": "AC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] conditions requiring a user session to terminate are defined; and",
+        "[b] a user session is automatically terminated after any of the defined conditions occur."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.12",
+      "nist": "3.1.12",
+      "family": "AC",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] remote access sessions are permitted;",
+        "[b] the types of permitted remote access are identified;",
+        "[c] remote access sessions are controlled; and",
+        "[d] remote access sessions are monitored."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.13",
+      "nist": "3.1.13",
+      "family": "AC",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] cryptographic mechanisms to protect the confidentiality of remote access sessions are identified; and",
+        "[b] cryptographic mechanisms to protect the confidentiality of remote access sessions are implemented."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.14",
+      "nist": "3.1.14",
+      "family": "AC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] managed access control points are identified and implemented; and",
+        "[b] remote access is routed through managed network access control points."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.15",
+      "nist": "3.1.15",
+      "family": "AC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] privileged commands authorized for remote execution are identified;",
+        "[b] security-relevant information authorized to be accessed remotely is identified;",
+        "[c] the execution of the identified privileged commands via remote access is authorized; and",
+        "[d] access to the identified security-relevant information via remote access is authorized."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.16",
+      "nist": "3.1.16",
+      "family": "AC",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] wireless access points are identified; and",
+        "[b] wireless access is authorized prior to allowing such connections."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.17",
+      "nist": "3.1.17",
+      "family": "AC",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] wireless access to the system is protected using authentication; and",
+        "[b] wireless access to the system is protected using encryption."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.18",
+      "nist": "3.1.18",
+      "family": "AC",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] mobile devices that process, store, or transmit CUI are identified;",
+        "[b] mobile device connections are authorized; and",
+        "[c] mobile device connections are monitored and logged."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.19",
+      "nist": "3.1.19",
+      "family": "AC",
+      "weight": 3,
+      "poam_eligible": false,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] mobile devices and mobile computing platforms that process, store, or transmit CUI are identified; and",
+        "[b] encryption is employed to protect CUI on identified mobile devices and mobile computing platforms."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.20",
+      "nist": "3.1.20",
+      "family": "AC",
+      "weight": 1,
+      "poam_eligible": false,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] connections to external systems are identified;",
+        "[b] the use of external systems is identified;",
+        "[c] connections to external systems are verified;",
+        "[d] the use of external systems is verified;",
+        "[e] connections to external systems are controlled/limited; and",
+        "[f] the use of external systems is controlled/limited."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.21",
+      "nist": "3.1.21",
+      "family": "AC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the use of portable storage devices containing CUI on external systems is identified and documented;",
+        "[b] limits on the use of portable storage devices containing CUI on external systems are defined; and",
+        "[c] the use of portable storage devices containing CUI on external systems is limited as defined."
+      ]
+    },
+    {
+      "control_id": "AC.L2-3.1.22",
+      "nist": "3.1.22",
+      "family": "AC",
+      "weight": 1,
+      "poam_eligible": false,
+      "collector": "endpoint-powershell + preveil-console",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/ac",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] individuals authorized to post or process information on publicly accessible systems are identified;",
+        "[b] procedures to ensure CUI is not posted or processed on publicly accessible systems are identified;",
+        "[c] a review process is in place prior to posting of any content to publicly accessible systems;",
+        "[d] content on publicly accessible systems is reviewed to ensure that it does not include CUI; and",
+        "[e] mechanisms are in place to remove and address improper posting of CUI."
+      ]
+    },
+    {
+      "control_id": "AT.L2-3.2.1",
+      "nist": "3.2.1",
+      "family": "AT",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "cdse-completion-certificate",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:cdse-training-cert",
+      "evidence_dir": "docs/cmmc_evidence/at",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] security risks associated with organizational activities involving CUI are identified;",
+        "[b] policies, standards, and procedures related to the security of the system are identified;",
+        "[c] managers, systems administrators, and users of the system are made aware of the security risks associated with their activities; and",
+        "[d] managers, systems administrators, and users of the system are made aware of the applicable policies, standards, and procedures related to the security of the system."
+      ]
+    },
+    {
+      "control_id": "AT.L2-3.2.2",
+      "nist": "3.2.2",
+      "family": "AT",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "cdse-completion-certificate",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:cdse-training-cert",
+      "evidence_dir": "docs/cmmc_evidence/at",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] information security-related duties, roles, and responsibilities are defined;",
+        "[b] information security-related duties, roles, and responsibilities are assigned to designated personnel; and",
+        "[c] personnel are adequately trained to carry out their assigned information security- related duties, roles, and responsibilities."
+      ]
+    },
+    {
+      "control_id": "AT.L2-3.2.3",
+      "nist": "3.2.3",
+      "family": "AT",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "cdse-completion-certificate",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:cdse-training-cert",
+      "evidence_dir": "docs/cmmc_evidence/at",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] potential indicators associated with insider threats are identified; and",
+        "[b] security awareness training on recognizing and reporting potential indicators of insider threat is provided to managers and employees."
+      ]
+    },
+    {
+      "control_id": "AU.L2-3.3.1",
+      "nist": "3.3.1",
+      "family": "AU",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "wazuh + preveil-audit-log",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:wazuh-agents-need-endpoints",
+      "evidence_dir": "docs/cmmc_evidence/au",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] audit logs needed (i.e., event types to be logged) to enable the monitoring, analysis, investigation, and reporting of unlawful or unauthorized system activity are specified;",
+        "[b] the content of audit records needed to support monitoring, analysis, investigation, and reporting of unlawful or unauthorized system activity is defined;",
+        "[c] audit records are created (generated);",
+        "[d] audit records, once created, contain the defined content;",
+        "[e] retention requirements for audit records are defined; and",
+        "[f] audit records are retained as defined."
+      ]
+    },
+    {
+      "control_id": "AU.L2-3.3.2",
+      "nist": "3.3.2",
+      "family": "AU",
+      "weight": 3,
+      "poam_eligible": false,
+      "collector": "wazuh + preveil-audit-log",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:wazuh-agents-need-endpoints",
+      "evidence_dir": "docs/cmmc_evidence/au",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the content of the audit records needed to support the ability to uniquely trace users to their actions is defined; and",
+        "[b] audit records, once created, contain the defined content."
+      ]
+    },
+    {
+      "control_id": "AU.L2-3.3.3",
+      "nist": "3.3.3",
+      "family": "AU",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "wazuh + preveil-audit-log",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:wazuh-agents-need-endpoints",
+      "evidence_dir": "docs/cmmc_evidence/au",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] a process for determining when to review logged events is defined;",
+        "[b] event types being logged are reviewed in accordance with the defined review process; and",
+        "[c] event types being logged are updated based on the review."
+      ]
+    },
+    {
+      "control_id": "AU.L2-3.3.4",
+      "nist": "3.3.4",
+      "family": "AU",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "wazuh audit-failure alert test (agents on endpoints)",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:wazuh-agents-need-endpoints",
+      "evidence_dir": "docs/cmmc_evidence/au",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] personnel or roles to be alerted in the event of an audit logging process failure are identified;",
+        "[b] types of audit logging process failures for which alert will be generated are defined; and",
+        "[c] identified personnel or roles are alerted in the event of an audit logging process failure."
+      ]
+    },
+    {
+      "control_id": "AU.L2-3.3.5",
+      "nist": "3.3.5",
+      "family": "AU",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "wazuh + preveil-audit-log",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:wazuh-agents-need-endpoints",
+      "evidence_dir": "docs/cmmc_evidence/au",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] audit record review, analysis, and reporting processes for investigation and response to indications of unlawful, unauthorized, suspicious, or unusual activity are defined; and",
+        "[b] defined audit record review, analysis, and reporting processes are correlated."
+      ]
+    },
+    {
+      "control_id": "AU.L2-3.3.6",
+      "nist": "3.3.6",
+      "family": "AU",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "wazuh + preveil-audit-log",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:wazuh-agents-need-endpoints",
+      "evidence_dir": "docs/cmmc_evidence/au",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] an audit record reduction capability that supports on-demand analysis is provided; and",
+        "[b] a report generation capability that supports on-demand reporting is provided."
+      ]
+    },
+    {
+      "control_id": "AU.L2-3.3.7",
+      "nist": "3.3.7",
+      "family": "AU",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "wazuh + preveil-audit-log",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:wazuh-agents-need-endpoints",
+      "evidence_dir": "docs/cmmc_evidence/au",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] internal system clocks are used to generate time stamps for audit records;",
+        "[b] an authoritative source with which to compare and synchronize internal system clocks is specified; and",
+        "[c] internal system clocks used to generate time stamps for audit records are compared to and synchronized with the specified authoritative time source."
+      ]
+    },
+    {
+      "control_id": "AU.L2-3.3.8",
+      "nist": "3.3.8",
+      "family": "AU",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "wazuh + preveil-audit-log",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:wazuh-agents-need-endpoints",
+      "evidence_dir": "docs/cmmc_evidence/au",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] audit information is protected from unauthorized access;",
+        "[b] audit information is protected from unauthorized modification;",
+        "[c] audit information is protected from unauthorized deletion;",
+        "[d] audit logging tools are protected from unauthorized access;",
+        "[e] audit logging tools are protected from unauthorized modification; and",
+        "[f] audit logging tools are protected from unauthorized deletion."
+      ]
+    },
+    {
+      "control_id": "AU.L2-3.3.9",
+      "nist": "3.3.9",
+      "family": "AU",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "wazuh + preveil-audit-log",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:wazuh-agents-need-endpoints",
+      "evidence_dir": "docs/cmmc_evidence/au",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] a subset of privileged users granted access to manage audit logging functionality is defined; and",
+        "[b] management of audit logging functionality is limited to the defined subset of privileged users."
+      ]
+    },
+    {
+      "control_id": "CM.L2-3.4.1",
+      "nist": "3.4.1",
+      "family": "CM",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "endpoint-baseline + repo-config",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/cm",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] a baseline configuration is established;",
+        "[b] the baseline configuration includes hardware, software, firmware, and documentation;",
+        "[c] the baseline configuration is maintained (reviewed and updated) throughout the system development life cycle;",
+        "[d] a system inventory is established;",
+        "[e] the system inventory includes hardware, software, firmware, and documentation; and",
+        "[f] the inventory is maintained (reviewed and updated) throughout the system development life cycle."
+      ]
+    },
+    {
+      "control_id": "CM.L2-3.4.2",
+      "nist": "3.4.2",
+      "family": "CM",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "endpoint-baseline + repo-config",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/cm",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] security configuration settings for information technology products employed in the system are established and included in the baseline configuration; and",
+        "[b] security configuration settings for information technology products employed in the system are enforced."
+      ]
+    },
+    {
+      "control_id": "CM.L2-3.4.3",
+      "nist": "3.4.3",
+      "family": "CM",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "gh branch-protection + PR-review policy",
+      "command": "gh api /repos/MycosoftLabs/website/branches/main/protection -> evidence/cm/3.4.3_branch_protection.json",
+      "owner": "cursor",
+      "blocker": "ready:collect-now",
+      "evidence_dir": "docs/cmmc_evidence/cm",
+      "evidenced": true,
+      "status": "met",
+      "assessment_objectives": [
+        "[a] changes to the system are tracked;",
+        "[b] changes to the system are reviewed;",
+        "[c] changes to the system are approved or disapproved; and",
+        "[d] changes to the system are logged."
+      ]
+    },
+    {
+      "control_id": "CM.L2-3.4.4",
+      "nist": "3.4.4",
+      "family": "CM",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "gh required-status-checks (CI) config",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "ready:collect-now",
+      "evidence_dir": "docs/cmmc_evidence/cm",
+      "evidenced": false,
+      "status": "ready-collect-now",
+      "assessment_objectives": [
+        "[a] the security impact of changes to the system is analyzed prior to implementation."
+      ]
+    },
+    {
+      "control_id": "CM.L2-3.4.5",
+      "nist": "3.4.5",
+      "family": "CM",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "endpoint-baseline + repo-config",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/cm",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] physical access restrictions associated with changes to the system are defined;",
+        "[b] physical access restrictions associated with changes to the system are documented;",
+        "[c] physical access restrictions associated with changes to the system are approved;",
+        "[d] physical access restrictions associated with changes to the system are enforced;",
+        "[e] logical access restrictions associated with changes to the system are defined;",
+        "[f] logical access restrictions associated with changes to the system are documented;",
+        "[g] logical access restrictions associated with changes to the system are approved; and",
+        "[h] logical access restrictions associated with changes to the system are enforced."
+      ]
+    },
+    {
+      "control_id": "CM.L2-3.4.6",
+      "nist": "3.4.6",
+      "family": "CM",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "endpoint-baseline + repo-config",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/cm",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] essential system capabilities are defined based on the principle of least functionality; and",
+        "[b] the system is configured to provide only the defined essential capabilities."
+      ]
+    },
+    {
+      "control_id": "CM.L2-3.4.7",
+      "nist": "3.4.7",
+      "family": "CM",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "endpoint-baseline + repo-config",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/cm",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] essential programs are defined;",
+        "[b] the use of nonessential programs is defined;",
+        "[c] the use of nonessential programs is restricted, disabled, or prevented as defined;",
+        "[d] essential functions are defined;",
+        "[e] the use of nonessential functions is defined;",
+        "[f] the use of nonessential functions is restricted, disabled, or prevented as defined;",
+        "[g] essential ports are defined;",
+        "[h] the use of nonessential ports is defined;",
+        "[i] the use of nonessential ports is restricted, disabled, or prevented as defined;",
+        "[j] essential protocols are defined;",
+        "[k] the use of nonessential protocols is defined;",
+        "[l] the use of nonessential protocols is restricted, disabled, or prevented as defined;",
+        "[m] essential services are defined;",
+        "[n] the use of nonessential services is defined; and",
+        "[o] the use of nonessential services is restricted, disabled, or prevented as defined."
+      ]
+    },
+    {
+      "control_id": "CM.L2-3.4.8",
+      "nist": "3.4.8",
+      "family": "CM",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "endpoint-baseline + repo-config",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/cm",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] a policy specifying whether whitelisting or blacklisting is to be implemented is specified;",
+        "[b] the software allowed to execute under whitelisting or denied use under blacklisting is specified; and",
+        "[c] whitelisting to allow the execution of authorized software or blacklisting to prevent the use of unauthorized software is implemented as specified."
+      ]
+    },
+    {
+      "control_id": "CM.L2-3.4.9",
+      "nist": "3.4.9",
+      "family": "CM",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "endpoint-baseline + repo-config",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/cm",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] a policy for controlling the installation of software by users is established;",
+        "[b] installation of software by users is controlled based on the established policy; and",
+        "[c] installation of software by users is monitored."
+      ]
+    },
+    {
+      "control_id": "IA.L2-3.5.1",
+      "nist": "3.5.1",
+      "family": "IA",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "preveil-mfa + endpoint-password-policy",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/ia",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] system users are identified;",
+        "[b] processes acting on behalf of users are identified; and",
+        "[c] devices accessing the system are identified."
+      ]
+    },
+    {
+      "control_id": "IA.L2-3.5.2",
+      "nist": "3.5.2",
+      "family": "IA",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "preveil-mfa + endpoint-password-policy",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/ia",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the identity of each user is authenticated or verified as a prerequisite to system access;",
+        "[b] the identity of each process acting on behalf of a user is authenticated or verified as a prerequisite to system access; and",
+        "[c] the identity of each device accessing or connecting to the system is authenticated or verified as a prerequisite to system access."
+      ]
+    },
+    {
+      "control_id": "IA.L2-3.5.3",
+      "nist": "3.5.3",
+      "family": "IA",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "preveil-mfa + endpoint-password-policy",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/ia",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] privileged accounts are identified;",
+        "[b] multifactor authentication is implemented for local access to privileged accounts;",
+        "[c] multifactor authentication is implemented for network access to privileged accounts; and",
+        "[d] multifactor authentication is implemented for network access to non-privileged accounts."
+      ]
+    },
+    {
+      "control_id": "IA.L2-3.5.4",
+      "nist": "3.5.4",
+      "family": "IA",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-mfa + endpoint-password-policy",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/ia",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] replay-resistant authentication mechanisms are implemented for network account access to privileged and non-privileged accounts."
+      ]
+    },
+    {
+      "control_id": "IA.L2-3.5.5",
+      "nist": "3.5.5",
+      "family": "IA",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-mfa + endpoint-password-policy",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/ia",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] a period within which identifiers cannot be reused is defined; and",
+        "[b] reuse of identifiers is prevented within the defined period."
+      ]
+    },
+    {
+      "control_id": "IA.L2-3.5.6",
+      "nist": "3.5.6",
+      "family": "IA",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-mfa + endpoint-password-policy",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/ia",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] a period of inactivity after which an identifier is disabled is defined; and",
+        "[b] identifiers are disabled after the defined period of inactivity."
+      ]
+    },
+    {
+      "control_id": "IA.L2-3.5.7",
+      "nist": "3.5.7",
+      "family": "IA",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-mfa + endpoint-password-policy",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/ia",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] password complexity requirements are defined;",
+        "[b] password change of character requirements are defined;",
+        "[c] minimum password complexity requirements as defined are enforced when new passwords are created; and",
+        "[d] minimum password change of character requirements as defined are enforced when new passwords are created."
+      ]
+    },
+    {
+      "control_id": "IA.L2-3.5.8",
+      "nist": "3.5.8",
+      "family": "IA",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-mfa + endpoint-password-policy",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/ia",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the number of generations during which a password cannot be reused is specified and",
+        "[b] reuse of passwords is prohibited during the specified number of generations."
+      ]
+    },
+    {
+      "control_id": "IA.L2-3.5.9",
+      "nist": "3.5.9",
+      "family": "IA",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-mfa + endpoint-password-policy",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/ia",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] an immediate change to a permanent password is required when a temporary password is used for system logon."
+      ]
+    },
+    {
+      "control_id": "IA.L2-3.5.10",
+      "nist": "3.5.10",
+      "family": "IA",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "preveil-mfa + endpoint-password-policy",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/ia",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] passwords are cryptographically protected in storage; and",
+        "[b] passwords are cryptographically protected in transit."
+      ]
+    },
+    {
+      "control_id": "IA.L2-3.5.11",
+      "nist": "3.5.11",
+      "family": "IA",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-mfa + endpoint-password-policy",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/ia",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] authentication information is obscured during the authentication process."
+      ]
+    },
+    {
+      "control_id": "IR.L2-3.6.1",
+      "nist": "3.6.1",
+      "family": "IR",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "ir-plan + tabletop-report",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:ir-tabletop",
+      "evidence_dir": "docs/cmmc_evidence/ir",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] an operational incident-handling capability is established;",
+        "[b] the operational incident-handling capability includes preparation;",
+        "[c] the operational incident-handling capability includes detection;",
+        "[d] the operational incident-handling capability includes analysis;",
+        "[e] the operational incident-handling capability includes containment;",
+        "[f] the operational incident-handling capability includes recovery; and",
+        "[g] the operational incident-handling capability includes user response activities."
+      ]
+    },
+    {
+      "control_id": "IR.L2-3.6.2",
+      "nist": "3.6.2",
+      "family": "IR",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "ir-plan + tabletop-report",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:ir-tabletop",
+      "evidence_dir": "docs/cmmc_evidence/ir",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] incidents are tracked;",
+        "[b] incidents are documented;",
+        "[c] authorities to whom incidents are to be reported are identified;",
+        "[d] organizational officials to whom incidents are to be reported are identified;",
+        "[e] identified authorities are notified of incidents; and",
+        "[f] identified organizational officials are notified of incidents."
+      ]
+    },
+    {
+      "control_id": "IR.L2-3.6.3",
+      "nist": "3.6.3",
+      "family": "IR",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "documented tabletop report (signed SAO+CFO)",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:ir-tabletop",
+      "evidence_dir": "docs/cmmc_evidence/ir",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] the incident response capability is tested."
+      ]
+    },
+    {
+      "control_id": "MA.L2-3.7.1",
+      "nist": "3.7.1",
+      "family": "MA",
+      "weight": 3,
+      "poam_eligible": false,
+      "collector": "maintenance-policy + remote-maint-controls",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:sign-policy",
+      "evidence_dir": "docs/cmmc_evidence/ma",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] system maintenance is performed."
+      ]
+    },
+    {
+      "control_id": "MA.L2-3.7.2",
+      "nist": "3.7.2",
+      "family": "MA",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "maintenance-policy + remote-maint-controls",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:sign-policy",
+      "evidence_dir": "docs/cmmc_evidence/ma",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] tools used to conduct system maintenance are controlled;",
+        "[b] techniques used to conduct system maintenance are controlled;",
+        "[c] mechanisms used to conduct system maintenance are controlled; and",
+        "[d] personnel used to conduct system maintenance are controlled."
+      ]
+    },
+    {
+      "control_id": "MA.L2-3.7.3",
+      "nist": "3.7.3",
+      "family": "MA",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "maintenance-policy + remote-maint-controls",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:sign-policy",
+      "evidence_dir": "docs/cmmc_evidence/ma",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] equipment to be removed from organizational spaces for off-site maintenance is sanitized of any CUI."
+      ]
+    },
+    {
+      "control_id": "MA.L2-3.7.4",
+      "nist": "3.7.4",
+      "family": "MA",
+      "weight": 3,
+      "poam_eligible": false,
+      "collector": "maintenance-policy + remote-maint-controls",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:sign-policy",
+      "evidence_dir": "docs/cmmc_evidence/ma",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] media containing diagnostic and test programs are checked for malicious code before being used in organizational systems that process, store, or transmit CUI."
+      ]
+    },
+    {
+      "control_id": "MA.L2-3.7.5",
+      "nist": "3.7.5",
+      "family": "MA",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "maintenance-policy + remote-maint-controls",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:sign-policy",
+      "evidence_dir": "docs/cmmc_evidence/ma",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] multifactor authentication is used to establish nonlocal maintenance sessions via external network connections; and",
+        "[b] nonlocal maintenance sessions established via external network connections are terminated when nonlocal maintenance is complete."
+      ]
+    },
+    {
+      "control_id": "MA.L2-3.7.6",
+      "nist": "3.7.6",
+      "family": "MA",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "maintenance-policy + remote-maint-controls",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:sign-policy",
+      "evidence_dir": "docs/cmmc_evidence/ma",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] maintenance personnel without required access authorization are supervised during maintenance activities."
+      ]
+    },
+    {
+      "control_id": "MP.L2-3.8.1",
+      "nist": "3.8.1",
+      "family": "MP",
+      "weight": 3,
+      "poam_eligible": false,
+      "collector": "preveil-media + physical-disposal",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/mp",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] paper media containing CUI is physically controlled;",
+        "[b] digital media containing CUI is physically controlled;",
+        "[c] paper media containing CUI is securely stored; and",
+        "[d] digital media containing CUI is securely stored."
+      ]
+    },
+    {
+      "control_id": "MP.L2-3.8.2",
+      "nist": "3.8.2",
+      "family": "MP",
+      "weight": 3,
+      "poam_eligible": false,
+      "collector": "preveil-media + physical-disposal",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/mp",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] access to CUI on system media is limited to authorized users."
+      ]
+    },
+    {
+      "control_id": "MP.L2-3.8.3",
+      "nist": "3.8.3",
+      "family": "MP",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "preveil-media + physical-disposal",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/mp",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] system media containing CUI is sanitized or destroyed before disposal; and",
+        "[b] system media containing CUI is sanitized before it is released for reuse."
+      ]
+    },
+    {
+      "control_id": "MP.L2-3.8.4",
+      "nist": "3.8.4",
+      "family": "MP",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-media + physical-disposal",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/mp",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] media containing CUI is marked with applicable CUI markings; and",
+        "[b] media containing CUI is marked with distribution limitations."
+      ]
+    },
+    {
+      "control_id": "MP.L2-3.8.5",
+      "nist": "3.8.5",
+      "family": "MP",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-media + physical-disposal",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/mp",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] access to media containing CUI is controlled; and",
+        "[b] accountability for media containing CUI is maintained during transport outside of controlled areas."
+      ]
+    },
+    {
+      "control_id": "MP.L2-3.8.6",
+      "nist": "3.8.6",
+      "family": "MP",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-media + physical-disposal",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/mp",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the confidentiality of CUI stored on digital media is protected during transport using cryptographic mechanisms or alternative physical safeguards."
+      ]
+    },
+    {
+      "control_id": "MP.L2-3.8.7",
+      "nist": "3.8.7",
+      "family": "MP",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "preveil-media + physical-disposal",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/mp",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the use of removable media on system components is controlled."
+      ]
+    },
+    {
+      "control_id": "MP.L2-3.8.8",
+      "nist": "3.8.8",
+      "family": "MP",
+      "weight": 3,
+      "poam_eligible": false,
+      "collector": "preveil-media + physical-disposal",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/mp",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the use of portable storage devices is prohibited when such devices have no identifiable owner."
+      ]
+    },
+    {
+      "control_id": "MP.L2-3.8.9",
+      "nist": "3.8.9",
+      "family": "MP",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-media + physical-disposal",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/mp",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the confidentiality of backup CUI is protected at storage locations."
+      ]
+    },
+    {
+      "control_id": "PS.L2-3.9.1",
+      "nist": "3.9.1",
+      "family": "PS",
+      "weight": 3,
+      "poam_eligible": false,
+      "collector": "Sterling/HireRight background check PDFs (Morgan+RJ)",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:background-check",
+      "evidence_dir": "docs/cmmc_evidence/ps",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] individuals are screened prior to authorizing access to organizational systems containing CUI."
+      ]
+    },
+    {
+      "control_id": "PS.L2-3.9.2",
+      "nist": "3.9.2",
+      "family": "PS",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "signed access agreement (RJ_Access_Agreement)",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:sign-policy",
+      "evidence_dir": "docs/cmmc_evidence/ps",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] a policy and/or process for terminating system access and any credentials coincident with personnel actions is established;",
+        "[b] system access and credentials are terminated consistent with personnel actions such as termination or transfer; and",
+        "[c] the system is protected during and after personnel transfer actions."
+      ]
+    },
+    {
+      "control_id": "PE.L2-3.10.1",
+      "nist": "3.10.1",
+      "family": "PE",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "physical-access + visitor-log",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:physical-home-office",
+      "evidence_dir": "docs/cmmc_evidence/pe",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] authorized individuals allowed physical access are identified;",
+        "[b] physical access to organizational systems is limited to authorized individuals;",
+        "[c] physical access to equipment is limited to authorized individuals; and",
+        "[d] physical access to operating environments is limited to authorized individuals."
+      ]
+    },
+    {
+      "control_id": "PE.L2-3.10.2",
+      "nist": "3.10.2",
+      "family": "PE",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "physical-access + visitor-log",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:physical-home-office",
+      "evidence_dir": "docs/cmmc_evidence/pe",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] the physical facility where organizational systems reside is protected;",
+        "[b] the support infrastructure for organizational systems is protected;",
+        "[c] the physical facility where organizational systems reside is monitored; and",
+        "[d] the support infrastructure for organizational systems is monitored."
+      ]
+    },
+    {
+      "control_id": "PE.L2-3.10.3",
+      "nist": "3.10.3",
+      "family": "PE",
+      "weight": 1,
+      "poam_eligible": false,
+      "collector": "physical-access + visitor-log",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:physical-home-office",
+      "evidence_dir": "docs/cmmc_evidence/pe",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] visitors are escorted; and",
+        "[b] visitor activity is monitored."
+      ]
+    },
+    {
+      "control_id": "PE.L2-3.10.4",
+      "nist": "3.10.4",
+      "family": "PE",
+      "weight": 1,
+      "poam_eligible": false,
+      "collector": "physical-access + visitor-log",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:physical-home-office",
+      "evidence_dir": "docs/cmmc_evidence/pe",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] audit logs of physical access are maintained."
+      ]
+    },
+    {
+      "control_id": "PE.L2-3.10.5",
+      "nist": "3.10.5",
+      "family": "PE",
+      "weight": 1,
+      "poam_eligible": false,
+      "collector": "physical-access + visitor-log",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:physical-home-office",
+      "evidence_dir": "docs/cmmc_evidence/pe",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] physical access devices are identified;",
+        "[b] physical access devices are controlled; and",
+        "[c] physical access devices are managed."
+      ]
+    },
+    {
+      "control_id": "PE.L2-3.10.6",
+      "nist": "3.10.6",
+      "family": "PE",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "physical-access + visitor-log",
+      "command": null,
+      "owner": "morgan",
+      "blocker": "operator:physical-home-office",
+      "evidence_dir": "docs/cmmc_evidence/pe",
+      "evidenced": false,
+      "status": "operator-action-required",
+      "assessment_objectives": [
+        "[a] safeguarding measures for CUI are defined for alternate work sites; and",
+        "[b] safeguarding measures for CUI are enforced for alternate work sites."
+      ]
+    },
+    {
+      "control_id": "RA.L2-3.11.1",
+      "nist": "3.11.1",
+      "family": "RA",
+      "weight": 3,
+      "poam_eligible": false,
+      "collector": "risk assessment (docs/audits/2026-07-15-cui-security-audit)",
+      "command": null,
+      "owner": "myca",
+      "blocker": "ready:collect-now",
+      "evidence_dir": "docs/cmmc_evidence/ra",
+      "evidenced": true,
+      "status": "met",
+      "assessment_objectives": [
+        "[a] the frequency to assess risk to organizational operations, organizational assets, and individuals is defined; and",
+        "[b] risk to organizational operations, organizational assets, and individuals resulting from the operation of an organizational system that processes, stores, or transmits CUI is assessed with the defined frequency."
+      ]
+    },
+    {
+      "control_id": "RA.L2-3.11.2",
+      "nist": "3.11.2",
+      "family": "RA",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "vuln scan: npm audit + gitleaks + supabase advisors",
+      "command": "npm audit --json + advisors -> evidence/ra/3.11.2_vuln_scan.json",
+      "owner": "cursor",
+      "blocker": "ready:collect-now",
+      "evidence_dir": "docs/cmmc_evidence/ra",
+      "evidenced": true,
+      "status": "met",
+      "assessment_objectives": [
+        "[a] the frequency to scan for vulnerabilities in organizational systems and applications is defined;",
+        "[b] vulnerability scans are performed on organizational systems with the defined frequency;",
+        "[c] vulnerability scans are performed on applications with the defined frequency;",
+        "[d] vulnerability scans are performed on organizational systems when new vulnerabilities are identified; and",
+        "[e] vulnerability scans are performed on applications when new vulnerabilities are identified."
+      ]
+    },
+    {
+      "control_id": "RA.L2-3.11.3",
+      "nist": "3.11.3",
+      "family": "RA",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "remediation record (undici fix, key restrict, RLS drafts)",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "ready:collect-now",
+      "evidence_dir": "docs/cmmc_evidence/ra",
+      "evidenced": true,
+      "status": "met",
+      "assessment_objectives": [
+        "[a] vulnerabilities are identified; and",
+        "[b] vulnerabilities are remediated in accordance with risk assessments."
+      ]
+    },
+    {
+      "control_id": "CA.L2-3.12.1",
+      "nist": "3.12.1",
+      "family": "CA",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "self-assessment report (docs/audits + report engine cmmc-l2)",
+      "command": "node scripts/... generate cmmc-l2 report -> evidence/ca/3.12.1_self_assessment.pdf",
+      "owner": "myca",
+      "blocker": "ready:collect-now",
+      "evidence_dir": "docs/cmmc_evidence/ca",
+      "evidenced": true,
+      "status": "met",
+      "assessment_objectives": [
+        "[a] the frequency of security control assessments is defined; and",
+        "[b] security controls are assessed with the defined frequency to determine if the controls are effective in their application."
+      ]
+    },
+    {
+      "control_id": "CA.L2-3.12.2",
+      "nist": "3.12.2",
+      "family": "CA",
+      "weight": 3,
+      "poam_eligible": false,
+      "collector": "POA&M export (report engine poam)",
+      "command": "POST /api/security/reports/generate {poam} -> evidence/ca/3.12.2_poam.pdf",
+      "owner": "myca",
+      "blocker": "ready:collect-now",
+      "evidence_dir": "docs/cmmc_evidence/ca",
+      "evidenced": true,
+      "status": "met",
+      "assessment_objectives": [
+        "[a] deficiencies and vulnerabilities to be addressed by the plan of action are identified;",
+        "[b] a plan of action is developed to correct identified deficiencies and reduce or eliminate identified vulnerabilities; and",
+        "[c] the plan of action is implemented to correct identified deficiencies and reduce or eliminate identified vulnerabilities."
+      ]
+    },
+    {
+      "control_id": "CA.L2-3.12.3",
+      "nist": "3.12.3",
+      "family": "CA",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "continuous monitoring log (audit + supabase advisors + npm audit cadence)",
+      "command": null,
+      "owner": "myca",
+      "blocker": "ready:collect-now",
+      "evidence_dir": "docs/cmmc_evidence/ca",
+      "evidenced": true,
+      "status": "met",
+      "assessment_objectives": [
+        "[a] security controls are monitored on an ongoing basis to ensure the continued effectiveness of those controls."
+      ]
+    },
+    {
+      "control_id": "CA.L2-3.12.4",
+      "nist": "3.12.4",
+      "family": "CA",
+      "weight": "NA",
+      "poam_eligible": false,
+      "collector": "SSP document (report engine) â€” NA-weighted but must exist",
+      "command": "report engine cmmc-l2 -> evidence/ca/3.12.4_ssp.pdf",
+      "owner": "myca",
+      "blocker": "ready:collect-now",
+      "evidence_dir": "docs/cmmc_evidence/ca",
+      "evidenced": true,
+      "status": "met",
+      "assessment_objectives": [
+        "[a] a system security plan is developed;",
+        "[b] the system boundary is described and documented in the system security plan;",
+        "[c] the system environment of operation is described and documented in the system security plan;",
+        "[d] the security requirements identified and approved by the designated authority as non-applicable are identified;",
+        "[e] the method of security requirement implementation is described and documented in the system security plan;",
+        "[f] the relationship with or connection to other systems is described and documented in the system security plan;",
+        "[g] the frequency to update the system security plan is defined; and",
+        "[h] system security plan is updated with the defined frequency."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.1",
+      "nist": "3.13.1",
+      "family": "SC",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "preveil-crypto + network-fw + web-tls",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the external system boundary is defined;",
+        "[b] key internal system boundaries are defined;",
+        "[c] communications are monitored at the external system boundary;",
+        "[d] communications are monitored at key internal boundaries;",
+        "[e] communications are controlled at the external system boundary;",
+        "[f] communications are controlled at key internal boundaries;",
+        "[g] communications are protected at the external system boundary; and",
+        "[h] communications are protected at key internal boundaries."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.2",
+      "nist": "3.13.2",
+      "family": "SC",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "preveil-crypto + network-fw + web-tls",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] architectural designs that promote effective information security are identified;",
+        "[b] software development techniques that promote effective information security are identified;",
+        "[c] systems engineering principles that promote effective information security are identified;",
+        "[d] identified architectural designs that promote effective information security are employed;",
+        "[e] identified software development techniques that promote effective information security are employed; and",
+        "[f] identified systems engineering principles that promote effective information security are employed."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.3",
+      "nist": "3.13.3",
+      "family": "SC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-crypto + network-fw + web-tls",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] user functionality is identified;",
+        "[b] system management functionality is identified; and",
+        "[c] user functionality is separated from system management functionality."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.4",
+      "nist": "3.13.4",
+      "family": "SC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-crypto + network-fw + web-tls",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] unauthorized and unintended information transfer via shared system resources is prevented."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.5",
+      "nist": "3.13.5",
+      "family": "SC",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "preveil-crypto + network-fw + web-tls",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] publicly accessible system components are identified; and",
+        "[b] subnetworks for publicly accessible system components are physically or logically separated from internal networks."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.6",
+      "nist": "3.13.6",
+      "family": "SC",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "preveil-crypto + network-fw + web-tls",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] network communications traffic is denied by default; and",
+        "[b] network communications traffic is allowed by exception."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.7",
+      "nist": "3.13.7",
+      "family": "SC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-crypto + network-fw + web-tls",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] remote devices are prevented from simultaneously establishing non-remote connections with the system and communicating via some other connection to resources in external networks (i.e., split tunneling)."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.8",
+      "nist": "3.13.8",
+      "family": "SC",
+      "weight": 3,
+      "poam_eligible": false,
+      "collector": "preveil-crypto + network-fw + web-tls",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] cryptographic mechanisms intended to prevent unauthorized disclosure of CUI are identified;",
+        "[b] alternative physical safeguards intended to prevent unauthorized disclosure of CUI are identified; and",
+        "[c] either cryptographic mechanisms or alternative physical safeguards are implemented to prevent unauthorized disclosure of CUI during transmission."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.9",
+      "nist": "3.13.9",
+      "family": "SC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-crypto + network-fw + web-tls",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] a period of inactivity to terminate network connections associated with communications sessions is defined;",
+        "[b] network connections associated with communications sessions are terminated at the end of the sessions; and",
+        "[c] network connections associated with communications sessions are terminated after the defined period of inactivity."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.10",
+      "nist": "3.13.10",
+      "family": "SC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-crypto + network-fw + web-tls",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] cryptographic keys are established whenever cryptography is employed; and",
+        "[b] cryptographic keys are managed whenever cryptography is employed."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.11",
+      "nist": "3.13.11",
+      "family": "SC",
+      "weight": 5,
+      "poam_eligible": true,
+      "collector": "preveil-crypto + network-fw + web-tls",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] FIPS-validated cryptography is employed to protect the confidentiality of CUI."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.12",
+      "nist": "3.13.12",
+      "family": "SC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-crypto + network-fw + web-tls",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] collaborative computing devices are identified;",
+        "[b] collaborative computing devices provide indication to users of devices in use; and",
+        "[c] remote activation of collaborative computing devices is prohibited."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.13",
+      "nist": "3.13.13",
+      "family": "SC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-crypto + network-fw + web-tls",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] use of mobile code is controlled; and",
+        "[b] use of mobile code is monitored."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.14",
+      "nist": "3.13.14",
+      "family": "SC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-crypto + network-fw + web-tls",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] use of Voice over Internet Protocol (VoIP) technologies is controlled; and",
+        "[b] use of Voice over Internet Protocol (VoIP) technologies is monitored."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.15",
+      "nist": "3.13.15",
+      "family": "SC",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "web session authenticity: TLS/headers (curl -I mycosoft.com)",
+      "command": "curl -sI https://mycosoft.com -> evidence/sc/3.13.15_headers.txt",
+      "owner": "cursor",
+      "blocker": "ready:collect-now",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": true,
+      "status": "met",
+      "assessment_objectives": [
+        "[a] the authenticity of communications sessions is protected."
+      ]
+    },
+    {
+      "control_id": "SC.L2-3.13.16",
+      "nist": "3.13.16",
+      "family": "SC",
+      "weight": 1,
+      "poam_eligible": true,
+      "collector": "preveil-crypto + network-fw + web-tls",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:preveil-not-provisioned",
+      "evidence_dir": "docs/cmmc_evidence/sc",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the confidentiality of CUI at rest is protected."
+      ]
+    },
+    {
+      "control_id": "SI.L2-3.14.1",
+      "nist": "3.14.1",
+      "family": "SI",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "flaw remediation: npm audit fix + Dependabot",
+      "command": "npm audit --json -> evidence/si/3.14.1_flaw_remediation.json",
+      "owner": "cursor",
+      "blocker": "ready:collect-now",
+      "evidence_dir": "docs/cmmc_evidence/si",
+      "evidenced": true,
+      "status": "met",
+      "assessment_objectives": [
+        "[a] the time within which to identify system flaws is specified;",
+        "[b] system flaws are identified within the specified time frame;",
+        "[c] the time within which to report system flaws is specified;",
+        "[d] system flaws are reported within the specified time frame;",
+        "[e] the time within which to correct system flaws is specified; and",
+        "[f] system flaws are corrected within the specified time frame."
+      ]
+    },
+    {
+      "control_id": "SI.L2-3.14.2",
+      "nist": "3.14.2",
+      "family": "SI",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "defender + wazuh + flaw-remediation-scan",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/si",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] designated locations for malicious code protection are identified; and",
+        "[b] protection from malicious code at designated locations is provided."
+      ]
+    },
+    {
+      "control_id": "SI.L2-3.14.3",
+      "nist": "3.14.3",
+      "family": "SI",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "defender + wazuh + flaw-remediation-scan",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/si",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] response actions to system security alerts and advisories are identified;",
+        "[b] system security alerts and advisories are monitored; and",
+        "[c] actions in response to system security alerts and advisories are taken."
+      ]
+    },
+    {
+      "control_id": "SI.L2-3.14.4",
+      "nist": "3.14.4",
+      "family": "SI",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "defender + wazuh + flaw-remediation-scan",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/si",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] malicious code protection mechanisms are updated when new releases are available."
+      ]
+    },
+    {
+      "control_id": "SI.L2-3.14.5",
+      "nist": "3.14.5",
+      "family": "SI",
+      "weight": 3,
+      "poam_eligible": false,
+      "collector": "defender + wazuh + flaw-remediation-scan",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/si",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the frequency for malicious code scans is defined;",
+        "[b] malicious code scans are performed with the defined frequency; and",
+        "[c] real-time malicious code scans of files from external sources as files are downloaded, opened, or executed are performed."
+      ]
+    },
+    {
+      "control_id": "SI.L2-3.14.6",
+      "nist": "3.14.6",
+      "family": "SI",
+      "weight": 5,
+      "poam_eligible": false,
+      "collector": "wazuh SIEM monitoring (agents + endpoint telemetry)",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:wazuh-agents-need-endpoints",
+      "evidence_dir": "docs/cmmc_evidence/si",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] the system is monitored to detect attacks and indicators of potential attacks;",
+        "[b] inbound communications traffic is monitored to detect attacks and indicators of potential attacks; and",
+        "[c] outbound communications traffic is monitored to detect attacks and indicators of potential attacks."
+      ]
+    },
+    {
+      "control_id": "SI.L2-3.14.7",
+      "nist": "3.14.7",
+      "family": "SI",
+      "weight": 3,
+      "poam_eligible": false,
+      "collector": "defender + wazuh + flaw-remediation-scan",
+      "command": null,
+      "owner": "cursor",
+      "blocker": "blocked:no-cmmc-laptop",
+      "evidence_dir": "docs/cmmc_evidence/si",
+      "evidenced": false,
+      "status": "blocked",
+      "assessment_objectives": [
+        "[a] authorized use of the system is defined; and",
+        "[b] unauthorized use of the system is identified."
+      ]
+    }
+  ]
+}

@@ -7,6 +7,7 @@
 
 import {
   DATA_CENTER_MIN_ZOOM,
+  INFRA_COUNTRY_REVEAL_MIN_ZOOM,
   INFRA_POINT_ICON_MIN_ZOOM,
   POWER_PLANT_MIN_ZOOM,
   TELECOM_CITY_MIN_ZOOM,
@@ -79,6 +80,14 @@ export function getInfraLayerMinZoom(layerId: string): number {
     id.includes("signalheatmap")
   ) {
     return TELECOM_DETAIL_MIN_ZOOM
+  }
+
+  // Substations: the HIFLD/OSM grid should read at continent zoom (Morgan, Jun 23
+  // 2026). crep-subs-* already set minzoom 2.7, but without this branch they fell
+  // through to INFRA_POINT_ICON_MIN_ZOOM (5) and applyInfraPointIconMinZoom overrode
+  // them to 5, hiding the grid until state zoom. Floor at the country reveal.
+  if (id.includes("crep-subs") || id.includes("substation")) {
+    return INFRA_COUNTRY_REVEAL_MIN_ZOOM
   }
 
   return INFRA_POINT_ICON_MIN_ZOOM

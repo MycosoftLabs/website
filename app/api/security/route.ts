@@ -12,6 +12,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { requireAdmin } from '@/lib/auth/api-auth';
 import { incidentLedger } from '@/lib/security/ledger';
+import { masState } from '@/lib/security/soc/mas-bff';
+import { unavailable, hasData, type OperationalState } from '@/lib/security/soc/operational-state';
 
 // Legacy imports (for backwards compatibility)
 import { 
@@ -199,6 +201,16 @@ interface TrustedService {
 const eventStore: SecurityEvent[] = [];
 const MAX_EVENTS = 1000;
 
+/** Fast-fail MAS calls for compliance polling (avoids ~4s+ hangs on 188). */
+const MAS_COMPLIANCE_FETCH_TIMEOUT_MS = 2000;
+/** Short server TTL so dashboard polling does not hammer MAS. */
+const MAS_COMPLIANCE_BUNDLE_TTL_MS = 20_000;
+
+let masComplianceBundleCache: {
+  expiresAt: number;
+  payload: Record<string, unknown>;
+} | null = null;
+
 function getMasApiBase(): string {
   return (process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || '').replace(/\/$/, '');
 }
@@ -210,19 +222,31 @@ function masRequestHeaders(extra?: Record<string, string>): Record<string, strin
   return h;
 }
 
-async function masGet(path: string): Promise<{ ok: boolean; data: unknown; status: number }> {
+async function masGet(
+  path: string,
+  options?: { timeoutMs?: number }
+): Promise<{ ok: boolean; data: unknown; status: number }> {
   const base = getMasApiBase();
   if (!base) return { ok: false, data: null, status: 0 };
   const p = path.startsWith('/') ? path : `/${path}`;
+  const timeoutMs = options?.timeoutMs;
+  const controller = typeof timeoutMs === 'number' ? new AbortController() : null;
+  const timer =
+    controller && typeof timeoutMs === 'number'
+      ? setTimeout(() => controller.abort(), timeoutMs)
+      : null;
   try {
     const res = await fetch(`${base}${p}`, {
       cache: 'no-store',
       headers: masRequestHeaders(),
+      ...(controller ? { signal: controller.signal } : {}),
     });
     const data = await res.json().catch(() => null);
     return { ok: res.ok, data, status: res.status };
   } catch {
     return { ok: false, data: null, status: 0 };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -297,7 +321,13 @@ function loadSecurityConfig(): SecurityConfig | null {
  * Admin required (company/SOC access).
  */
 export async function GET(request: NextRequest) {
-  const auth = await requireAdmin();
+  let auth: Awaited<ReturnType<typeof requireAdmin>>;
+  try {
+    auth = await requireAdmin();
+  } catch (err) {
+    console.error('[Security] requireAdmin threw:', err);
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
   if (auth.error) return auth.error;
 
   const { searchParams } = new URL(request.url);
@@ -496,45 +526,129 @@ export async function GET(request: NextRequest) {
       // COMPLIANCE ENDPOINTS
       // ═══════════════════════════════════════════════════════════════
       
-      case 'compliance-controls':
-        // Get compliance controls with optional framework filter
-        // Supports all compliance frameworks including NISP, FOCI, SBIR/STTR, ITAR, EAR
-        type ComplianceFramework = 
-          | 'NIST-800-53' | 'NIST-800-171' 
+      case 'compliance-controls': {
+        // Live MAS soc_ops via getComplianceControls (MAS_API_URL). Never 500 the heatmap.
+        type ComplianceFramework =
+          | 'NIST-800-53' | 'NIST-800-171'
           | 'CMMC-L1' | 'CMMC-L2' | 'CMMC-L3'
           | 'NISPOM' | 'FOCI' | 'SBIR-STTR' | 'ITAR' | 'EAR';
-        
+
         const frameworkFilter = searchParams.get('framework') as ComplianceFramework | undefined;
         const familyFilter = searchParams.get('family') || undefined;
         const statusFilter = searchParams.get('status') as 'compliant' | 'partial' | 'non_compliant' | 'not_applicable' | undefined;
-        
-        const complianceControls = await getComplianceControls({
-          framework: frameworkFilter || undefined,
-          family: familyFilter,
-          status: statusFilter,
-        });
-        
-        // Return all available frameworks based on the controls in the database
-        // E.O. 12829 NISP frameworks included: NISPOM, FOCI, SBIR-STTR
+
+        let complianceControls: Awaited<ReturnType<typeof getComplianceControls>> = [];
+        let source: 'mas' | 'seeded' | 'error' = 'seeded';
+        try {
+          complianceControls = await getComplianceControls({
+            framework: frameworkFilter || undefined,
+            family: familyFilter,
+            status: statusFilter,
+          });
+          source = getMasApiBase() ? 'mas' : 'seeded';
+        } catch (err) {
+          console.error('[Security] compliance-controls failed:', err);
+          // Direct MAS fallback if DB helper throws
+          const { ok, data } = await masGet('/api/compliance/controls');
+          if (ok && Array.isArray((data as { controls?: unknown[] })?.controls)) {
+            complianceControls = (data as { controls: Record<string, unknown>[] }).controls.map((row) => {
+              const impl = String(row.implementation_state ?? 'planned');
+              const status =
+                impl === 'implemented' ? 'compliant' : impl === 'partial' ? 'partial' : 'non_compliant';
+              return {
+                id: String(row.control_id ?? ''),
+                framework: String(row.framework ?? 'NIST_800_171').includes('CMMC') ? 'CMMC-L2' : 'NIST-800-171',
+                family: String(row.family ?? '—'),
+                name: String(row.title ?? row.control_id ?? ''),
+                description: String((row.state_snapshot as { summary?: string } | undefined)?.summary ?? ''),
+                status: status as 'compliant' | 'partial' | 'non_compliant',
+                evidence: row.evidence_uri ? [String(row.evidence_uri)] : [],
+                lastAudit: row.last_verified_at ? String(row.last_verified_at).split('T')[0] : '',
+                lastAuditBy: 'soc_ops',
+                priority: status === 'non_compliant' ? 'high' : status === 'partial' ? 'medium' : 'low',
+                notes: '',
+              };
+            }) as Awaited<ReturnType<typeof getComplianceControls>>;
+            source = 'mas';
+          } else {
+            source = 'error';
+          }
+        }
+
+        // A missing upstream result is not an all-noncompliant posture. Returning
+        // 200 with [] made the client append its reference catalog and briefly
+        // display a fabricated zero-Met score during MAS/database failures.
+        if (source === 'error' || complianceControls.length === 0) {
+          return NextResponse.json(
+            {
+              error: 'Live compliance posture is unavailable; the last known posture must be retained.',
+              source: 'error',
+              posture_available: false,
+            },
+            { status: 503 },
+          );
+        }
+
+        const implemented = complianceControls.filter((c) => c.status === 'compliant').length;
+        const partial = complianceControls.filter((c) => c.status === 'partial').length;
+
         const allFrameworks = [
-          'NIST-800-53', 'NIST-800-171', 
+          'NIST-800-53', 'NIST-800-171',
           'CMMC-L1', 'CMMC-L2', 'CMMC-L3',
-          'NISPOM', 'FOCI', 'SBIR-STTR', 'ITAR', 'EAR'
+          'NISPOM', 'FOCI', 'SBIR-STTR', 'ITAR', 'EAR',
         ];
-        
-        return NextResponse.json({ 
+
+        return NextResponse.json({
           controls: complianceControls,
           frameworks: allFrameworks,
+          source,
+          counts: { total: complianceControls.length, implemented, partial },
         });
-      
-      case 'compliance-stats':
-        // Get compliance statistics with optional framework filter
-        const statsFramework = searchParams.get('framework') as 'NIST-800-53' | 'NIST-800-171' | 'CMMC-L1' | 'CMMC-L2' | 'CMMC-L3' | undefined;
-        const complianceStats = await getComplianceStats();
-        return NextResponse.json({
-          ...complianceStats,
-          supportedFrameworks: ['NIST-800-53', 'NIST-800-171', 'CMMC-L2'],
-        });
+      }
+
+      case 'compliance-stats': {
+        // Get compliance statistics — prefer live MAS; never throw
+        try {
+          const complianceStats = await getComplianceStats();
+          return NextResponse.json({
+            ...complianceStats,
+            supportedFrameworks: ['NIST-800-53', 'NIST-800-171', 'CMMC-L2'],
+          });
+        } catch (err) {
+          console.error('[Security] compliance-stats failed:', err);
+          const { ok, data } = await masGet('/api/compliance/score');
+          if (ok && data && typeof data === 'object') {
+            const s = data as {
+              total_controls?: number;
+              implemented?: number;
+              partial?: number;
+              implementation_percent?: number;
+            };
+            return NextResponse.json({
+              totalControls: s.total_controls ?? 0,
+              compliant: s.implemented ?? 0,
+              partial: s.partial ?? 0,
+              nonCompliant: Math.max(0, (s.total_controls ?? 0) - (s.implemented ?? 0) - (s.partial ?? 0)),
+              score: Math.round(s.implementation_percent ?? 0),
+              lastAudit: '',
+              auditLogsToday: 0,
+              supportedFrameworks: ['NIST-800-53', 'NIST-800-171', 'CMMC-L2'],
+              source: 'mas',
+            });
+          }
+          return NextResponse.json({
+            totalControls: 0,
+            compliant: 0,
+            partial: 0,
+            nonCompliant: 0,
+            score: 0,
+            lastAudit: '',
+            auditLogsToday: 0,
+            supportedFrameworks: ['NIST-800-53', 'NIST-800-171', 'CMMC-L2'],
+            source: 'error',
+          });
+        }
+      }
       
       case 'compliance-audit-logs':
         // Get compliance audit logs
@@ -573,6 +687,14 @@ export async function GET(request: NextRequest) {
 
       /** MAS NIST 800-171 live bundle: score + latest SSP/POAM pointers + control rows for heatmap. */
       case 'mas-compliance-bundle': {
+        const now = Date.now();
+        if (masComplianceBundleCache && masComplianceBundleCache.expiresAt > now) {
+          return NextResponse.json({
+            ...masComplianceBundleCache.payload,
+            cached: true,
+            cache_ttl_ms: MAS_COMPLIANCE_BUNDLE_TTL_MS,
+          });
+        }
         const base = getMasApiBase();
         if (!base) {
           return NextResponse.json({
@@ -582,17 +704,18 @@ export async function GET(request: NextRequest) {
             error: 'mas_unconfigured',
           });
         }
+        const fetchOpts = { timeoutMs: MAS_COMPLIANCE_FETCH_TIMEOUT_MS };
         const [score, docs, controls] = await Promise.all([
-          masGet('/api/compliance/score'),
-          masGet('/api/compliance/docs'),
-          masGet('/api/compliance/controls'),
+          masGet('/api/compliance/score', fetchOpts),
+          masGet('/api/compliance/docs', fetchOpts),
+          masGet('/api/compliance/controls', fetchOpts),
         ]);
         const ctrlArr =
           controls.ok &&
           Array.isArray((controls.data as { controls?: unknown[] })?.controls)
             ? (controls.data as { controls: unknown[] }).controls
             : [];
-        return NextResponse.json({
+        const payload: Record<string, unknown> = {
           score: score.ok ? score.data : null,
           docs: docs.ok ? docs.data : null,
           controls: ctrlArr,
@@ -601,15 +724,27 @@ export async function GET(request: NextRequest) {
             docs: docs.ok ? null : docs.status,
             controls: controls.ok ? null : controls.status,
           },
-        });
+          cached: false,
+          cache_ttl_ms: MAS_COMPLIANCE_BUNDLE_TTL_MS,
+          mas_timeout_ms: MAS_COMPLIANCE_FETCH_TIMEOUT_MS,
+        };
+        masComplianceBundleCache = {
+          expiresAt: now + MAS_COMPLIANCE_BUNDLE_TTL_MS,
+          payload,
+        };
+        return NextResponse.json(payload);
       }
 
       /** Summary tiles for `/security` dashboard (inventory + compliance score + red team health). */
+      case 'soc-overview':
+        return await getSocOverview();
+
       case 'soc-dashboard-tiles': {
         const base = getMasApiBase();
         if (!base) {
+          // Honest unavailable — NOT a zeroed network with fake counts.
           return NextResponse.json({
-            network: { total: 0, online: 0, offline: 0, stale: 0, unknown: 0, source: 'mas_unconfigured' },
+            network: { total: null, online: null, offline: null, stale: null, unknown: null, source: 'mas_unconfigured', state: 'unavailable' },
             compliance: null,
             redteam: null,
           });
@@ -1025,40 +1160,121 @@ export async function POST(request: NextRequest) {
 // Handler functions
 
 async function getSecurityStatus() {
+  // Monitoring status must be DERIVED from real MAS signals, never asserted.
+  // When MAS is unreachable, status is 'unavailable' — not a fabricated 'active'.
+  const base = getMasApiBase();
+  if (!base) {
+    return NextResponse.json({
+      status: 'unavailable',
+      monitoring_enabled: false,
+      monitoring_state: 'unavailable',
+      reason: 'MAS_API_URL not configured',
+      threat_level: 'unknown',
+      last_check: new Date().toISOString(),
+      data_source: 'mas_unconfigured',
+    });
+  }
+
+  const [posture, guardian, heartbeat] = await Promise.all([
+    masGet('/api/security/posture-integrity', { timeoutMs: 8000 }),
+    masGet('/api/guardian/status', { timeoutMs: 8000 }),
+    masGet('/api/agents/heartbeat/summary', { timeoutMs: 8000 }),
+  ]);
+
   const masEvents = await fetchMasIncidentsAsEvents(300);
   const now = new Date();
   const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
   const eventsLastHour = masEvents.filter(e => new Date(e.timestamp) > hourAgo);
   const eventsLastDay = masEvents.filter(e => new Date(e.timestamp) > dayAgo);
-
-  // Calculate threat level based on events
-  let threatLevel: 'low' | 'elevated' | 'high' | 'critical' = 'low';
   const criticalCount = eventsLastHour.filter(e => e.severity === 'critical').length;
   const highCount = eventsLastHour.filter(e => e.severity === 'high').length;
 
-  if (criticalCount > 0) {
-    threatLevel = 'critical';
-  } else if (highCount > 2) {
-    threatLevel = 'high';
-  } else if (highCount > 0 || eventsLastHour.length > 10) {
-    threatLevel = 'elevated';
-  }
+  let threatLevel: 'low' | 'elevated' | 'high' | 'critical' = 'low';
+  if (criticalCount > 0) threatLevel = 'critical';
+  else if (highCount > 2) threatLevel = 'high';
+  else if (highCount > 0 || eventsLastHour.length > 10) threatLevel = 'elevated';
+
+  // Derive a single monitoring state from the health of the underlying workers.
+  const guardianActive = guardian.ok && (guardian.data as { status?: string })?.status === 'active' && !(guardian.data as { halted?: boolean })?.halted;
+  const postureOk = posture.ok && (posture.data as { ok?: boolean })?.ok !== false;
+  const hb = heartbeat.ok ? (heartbeat.data as { total_registered?: number; stale_count?: number }) : null;
+  const freshAgents = hb ? Math.max(0, (hb.total_registered ?? 0) - (hb.stale_count ?? 0)) : 0;
+
+  let monitoringState: 'active' | 'degraded' | 'unavailable';
+  if (!posture.ok && !guardian.ok && !heartbeat.ok) monitoringState = 'unavailable';
+  else if (guardianActive && postureOk && freshAgents > 0) monitoringState = 'active';
+  else monitoringState = 'degraded';
 
   return NextResponse.json({
-    status: 'active',
+    status: monitoringState,
+    monitoring_state: monitoringState,
+    monitoring_enabled: monitoringState === 'active',
     threat_level: threatLevel,
-    monitoring_enabled: true,
     last_check: now.toISOString(),
     events_last_hour: eventsLastHour.length,
     events_last_day: eventsLastDay.length,
     critical_events: criticalCount,
     high_events: highCount,
     unique_ips: new Set(eventsLastDay.map(e => e.source_ip)).size,
-    uptime_seconds: Math.floor(process.uptime()),
-    data_source: getMasApiBase() ? 'mas_api_incidents' : 'mas_unconfigured',
+    // Agent liveness is the honest headline: registered vs actually fresh.
+    agents_registered: hb?.total_registered ?? null,
+    agents_fresh: hb ? freshAgents : null,
+    agents_stale: hb?.stale_count ?? null,
+    guardian_available: guardian.ok,
+    posture_available: posture.ok,
+    data_source: 'mas_derived',
   });
+}
+
+/**
+ * Composed SOC overview read-model. There is no single MAS `/soc/overview`
+ * endpoint, so this BFF aggregates the real per-domain contracts and returns
+ * each as an OperationalState envelope with its own provenance. Nothing is
+ * fabricated: a failed sub-fetch surfaces as `unavailable`, never a zero.
+ */
+async function getSocOverview() {
+  const S = 'MAS 188';
+  const [posture, score, agents, guardian, incidents, redteam, devices] = await Promise.all([
+    masState(`${S} /api/security/posture-integrity`, '/api/security/posture-integrity', (b) => b),
+    masState(`${S} /api/compliance/score`, '/api/compliance/score', (b) => b),
+    masState(`${S} /api/agents/heartbeat/summary`, '/api/agents/heartbeat/summary', (b) => ({
+      registered: b.total_registered ?? 0,
+      stale: b.stale_count ?? 0,
+      fresh: Math.max(0, (b.total_registered ?? 0) - (b.stale_count ?? 0)),
+      stale_after_seconds: b.stale_after_seconds ?? null,
+    })),
+    masState(`${S} /api/guardian/status`, '/api/guardian/status', (b) => b),
+    masState(`${S} /api/incidents`, '/api/incidents?limit=500', (b) => {
+      const rows: Record<string, unknown>[] = Array.isArray(b.incidents) ? b.incidents : [];
+      const byState: Record<string, number> = {};
+      for (const r of rows) { const s = String(r.status || 'unknown').toLowerCase(); byState[s] = (byState[s] || 0) + 1; }
+      return { count: b.count ?? rows.length, by_state: byState };
+    }),
+    masState(`${S} /api/redteam/health`, '/api/redteam/health', (b) => b),
+    masState(`${S} /api/devices/inventory`, '/api/devices/inventory?limit=5000', (b) => {
+      const items: Record<string, unknown>[] = Array.isArray(b.items) ? b.items : [];
+      let online = 0, offline = 0, stale = 0, unknownC = 0;
+      for (const row of items) {
+        const st = String(row.status || 'unknown').toLowerCase();
+        if (st === 'online') online++; else if (st === 'offline') offline++;
+        else if (st === 'stale') stale++; else unknownC++;
+      }
+      return { total: items.length, online, offline, stale, unknown: unknownC, source: b.source ?? 'inventory' };
+    }),
+  ]);
+
+  // Derived monitoring headline (mirrors getSecurityStatus, single source).
+  const guardianActive = hasData(guardian) && (guardian.data as { status?: string }).status === 'active' && !(guardian.data as { halted?: boolean }).halted;
+  const postureOk = hasData(posture) && (posture.data as { ok?: boolean }).ok !== false;
+  const freshAgents = hasData(agents) ? (agents.data as { fresh: number }).fresh : 0;
+  const anyUp = [posture, guardian, agents].some((e) => e.state !== 'unavailable');
+  const monitoring: OperationalState<{ state: 'active' | 'degraded' | 'unavailable' }> = !anyUp
+    ? unavailable(`${S} derived`, 'no SOC worker signal reachable')
+    : { state: 'healthy', source: `${S} derived`, collected_at: new Date().toISOString(), fresh_until: null, correlation_id: null,
+        data: { state: guardianActive && postureOk && freshAgents > 0 ? 'active' : 'degraded' } };
+
+  return NextResponse.json({ monitoring, posture, compliance: score, agents, guardian, incidents, redteam, devices });
 }
 
 function getAuthorizedUsers() {

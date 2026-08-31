@@ -88,7 +88,7 @@ const GOFFS_ANCHOR = {
   description: "Historic Route 66 community, MYCOSOFT biz-dev vertical thesis site (Mojave Preserve adjacency, 34.92° N / -115.07° W). Ecology: east Mojave desert scrub, Mojave Yucca + creosote; documented desert tortoise critical habitat unit (Ord-Rodman / Ivanpah DWMA). Historical: Santa Fe RR Goffs schoolhouse (1914) + Essex-Goffs Rd intersection.",
   metadata: {
     thesis_completed: "2026-04-18",
-    owner: "Garret (BizDev)",
+    owner: "Mycosoft (BizDev)",
     elevation_m: 832,
     nearest_town: "Needles, CA (34 mi SE)",
     nearest_park_gateway: "Hole-in-the-Wall Visitor Center (29 mi W)",

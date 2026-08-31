@@ -89,6 +89,11 @@ export function Footer() {
                   Fusarium
                 </a>
               </li>
+              <li>
+                <a href="/fusarium/launchpad" className="hover:text-foreground transition-colors" suppressHydrationWarning>
+                  Launchpad
+                </a>
+              </li>
             </ul>
           </div>
 

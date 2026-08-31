@@ -436,7 +436,13 @@ export default function EiaIm3Overlays({ map, enabled, zoom, bounds, earthSimula
     let cancelled = false
     for (const [datasetIndex, ds] of DATASETS.entries()) {
       const on = !!enabled[ds.key]
-      const active = on && shouldLoadRawDetail(earthSimulator, zoom, bounds)
+      // EIA generator atlases (op/planned/retired/canceled) are bundled GeoJSON,
+      // not heavy raw footprint detail. Let them load at continent zoom (Morgan,
+      // Jun 23 2026: power plants must show at ~3.5-4). We scope to the viewport
+      // (scopeGeojsonToBounds) and cap per-source below so a continental load stays
+      // FPS-safe, instead of waiting for the 11.5 raw-detail floor.
+      const eiaContinentMinZoom = POWER_PLANT_MIN_ZOOM // 2.7
+      const active = on && shouldLoadRawDetail(earthSimulator, zoom, bounds, eiaContinentMinZoom)
       if (!active) {
         // Hide and clear raw detail when disabled or outside viewport LOD.
         if (!mapReady(map)) continue
@@ -469,7 +475,15 @@ export default function EiaIm3Overlays({ map, enabled, zoom, bounds, earthSimula
           await delay(datasetIndex * 90)
           await waitForBrowserIdle(ds.key === "eiaOperating" ? 300 : 180)
           const data = await loadCachedDataset(ds.file)
-          const scopedData = earthSimulator ? scopeGeojsonToBounds(data, bounds) : data
+          const scopedRaw = earthSimulator ? scopeGeojsonToBounds(data, bounds) : data
+          // Continent-zoom safety cap: at low zoom the viewport spans the whole US
+          // (~28k EIA generators). Cap the rendered slice so a continental load stays
+          // fast; at state+ zoom the viewport is small enough that the cap is rarely hit.
+          const EIA_CONTINENT_MAX_PER_LAYER = 4000
+          const scopedData =
+            (zoom ?? 0) < 7 && Array.isArray(scopedRaw?.features) && scopedRaw.features.length > EIA_CONTINENT_MAX_PER_LAYER
+              ? { ...scopedRaw, features: scopedRaw.features.slice(0, EIA_CONTINENT_MAX_PER_LAYER) }
+              : scopedRaw
           if (cancelled || !mapReady(map)) return
           if (setGeojsonSourceData(map, ds.sourceId, scopedData)) {
             showLayers(map, ds.layerIds)

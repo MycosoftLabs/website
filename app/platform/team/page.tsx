@@ -20,15 +20,12 @@ interface TeamMember {
   lastActive: string
 }
 
+// Authorized humans: Morgan and RJ only. Former staff removed 2026-07-22. MYCA is
+// the company AI system (not a person) and remains.
 const initialMembers: TeamMember[] = [
   { id: '1', name: 'Morgan', email: 'morgan@mycosoft.org', role: 'owner', status: 'active', lastActive: 'Now' },
-  { id: '2', name: 'Garret', email: 'garret@mycosoft.org', role: 'admin', status: 'active', lastActive: '2h ago' },
   { id: '3', name: 'RJ', email: 'rj@mycosoft.org', role: 'admin', status: 'active', lastActive: '1h ago' },
-  { id: '4', name: 'Chris', email: 'chris@mycosoft.org', role: 'scientist', status: 'active', lastActive: '30m ago' },
-  { id: '5', name: 'Alberto', email: 'alberto@mycosoft.org', role: 'scientist', status: 'active', lastActive: '3h ago' },
-  { id: '6', name: 'Abelardo', email: 'abelardo@mycosoft.org', role: 'scientist', status: 'active', lastActive: '5h ago' },
   { id: '7', name: 'MYCA', email: 'myca@mycosoft.org', role: 'viewer', status: 'active', lastActive: 'Always' },
-  { id: '8', name: 'Michelle', email: 'michelle@mycosoft.org', role: 'admin', status: 'active', lastActive: '1d ago' },
 ]
 
 const roleColors: Record<string, string> = {

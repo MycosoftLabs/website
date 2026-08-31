@@ -60,7 +60,12 @@ export const NeuButton = forwardRef<HTMLButtonElement, NeuButtonProps>(
       ...props,
     }
     if (!asChild) {
-      buttonProps.type = "button"
+      // Default to "button" so a NeuButton dropped inside a form does not
+      // submit it by accident — but let a caller opt into type="submit".
+      // This used to be an unconditional assignment placed AFTER the props
+      // spread, which silently overrode any type the caller passed: every
+      // NeuButton inside a <form> was a dead button that could not submit.
+      buttonProps.type = (props as { type?: string }).type ?? "button"
       buttonProps.disabled = disabled ?? isLoading
     }
 
@@ -73,7 +78,12 @@ export const NeuButton = forwardRef<HTMLButtonElement, NeuButtonProps>(
         {isLoading ? (
           <Loader2 className="w-[18px] h-[18px] animate-spin" aria-hidden />
         ) : null}
-        <span>{children}</span>
+        {/* inline-flex, not a plain inline span: Tailwind preflight sets
+            `svg { display: block }`, so an icon passed as a child became a
+            block box on its own line inside an inline span (label on line 1,
+            arrow on line 2) even with white-space:nowrap. No `gap` here —
+            call sites already space their icons with ml-2/mr-2. */}
+        <span className="inline-flex items-center">{children}</span>
       </Comp>
     )
   }

@@ -68,3 +68,28 @@ credentials.local
 # Worldview launch private artifacts (May 22, 2026)
 docs/launch/2026-05-22/fixtures/api_keys.env.PRIVATE
 docs/launch/2026-05-22/harness/reports/
+
+# CUI audit JUL15 2026 ? build/temp hygiene
+temp_original_crep.txt
+tsc_output_utf8.txt
+*.tsc_output*.txt
+
+# Psathyrella operator-correction capture (training data + frame crops from the live buoy).
+# Local-only: may contain imagery of the deployment environment. Never commit.
+.psathyrella/
+
+# Private / program-sensitive local docs (public GitHub repo)
+# See MAS docs/PUBLIC_REPO_DOCS_HYGIENE_AUG03_2026.md
+docs/private/**
+!docs/private/README.md
+
+# Launchpad synthetic demo account credentials (local only)
+.launchpad-demo.local
+
+# Launchpad MYCA local harness (BYO AI keys + lp_ tokens — never commit)
+.launchpad-myca.local.json
+.launchpad-myca.local.yaml
+**/launchpad-myca.local.json
+services/launchpad-myca-harness/.venv/
+services/launchpad-myca-harness/inbox/
+services/launchpad-myca-harness/data/

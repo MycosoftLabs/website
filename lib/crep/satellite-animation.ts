@@ -32,11 +32,14 @@ interface SatelliteInput {
  *  for MapLibre to interpolate visually. At 1fps the movement is clearly directional. */
 const TICK_INTERVAL_MS = 2500
 
-/** How often to recalculate orbit paths (every 60s) */
-const ORBIT_PATH_INTERVAL_MS = 60000
+/** How often to recalculate orbit paths. 15s (was 60s) so the small ring set tracks
+ *  the current rendered-dot set closely and orbits don't go stale → orphaned. */
+const ORBIT_PATH_INTERVAL_MS = 15000
 
-/** Duration of orbit path prediction in minutes (90 min ~ 1 LEO orbit) */
-const ORBIT_PATH_MINUTES = 90
+/** Duration of orbit path prediction in minutes. 30-min arc (was 90 = a full LEO
+ *  orbit) so each ring is a short tail near its dot, not a globe-spanning ring
+ *  detached from any single visible satellite. */
+const ORBIT_PATH_MINUTES = 30
 
 /** Orbit path step size in minutes */
 const ORBIT_PATH_STEP_MINUTES = 1
@@ -44,8 +47,11 @@ const ORBIT_PATH_STEP_MINUTES = 1
 /**
  * Maximum satellites for which we compute orbit paths.
  * Computing paths is more expensive than point propagation, so cap it.
+ * Jun 23 2026 (Morgan): 24 (was 200) — far fewer rings so trajectories don't
+ * blanket the globe; updateOrbitPaths couples them to actually-rendered dots so
+ * every ring has a satellite at its head (no orphans).
  */
-const MAX_ORBIT_PATHS = 200
+const MAX_ORBIT_PATHS = 24
 
 // Module state — singleton pattern, no React dependency
 let animationFrameId: number | null = null
@@ -262,8 +268,25 @@ function updateOrbitPaths(prop: SGP4Propagator, now: Date, map: any) {
   const orbitSource = map.getSource?.("crep-live-satellite-orbits") as any
   if (!orbitSource?.setData) return
 
-  // Only compute paths for a subset to avoid excessive computation
-  const satellitesToPath = currentSatellites.slice(0, MAX_ORBIT_PATHS)
+  // Couple orbits to satellites that are ACTUALLY rendered as dots: read the live
+  // dot FeatureCollection (published to window.__crep_sat_fc by the tick) and only
+  // draw orbits for ids present there. This eliminates "orphaned" orbit lines whose
+  // satellite is no longer in the current LOD/viewport set. Fall back to the in-set
+  // list if the window FC isn't available yet (SSR / first tick).
+  let renderedIds: Set<string> | null = null
+  try {
+    const dotFeatures = (typeof window !== "undefined" ? (window as any).__crep_sat_fc?.features : null) as any[] | null
+    if (dotFeatures && dotFeatures.length > 0) {
+      renderedIds = new Set(dotFeatures.map((f) => String(f.id ?? f.properties?.id)))
+    }
+  } catch { renderedIds = null }
+
+  const eligible = renderedIds
+    ? currentSatellites.filter((s) => renderedIds!.has(String(s.id)))
+    : currentSatellites
+  // Only compute paths for a small curated subset to avoid excessive computation
+  // AND keep the globe uncluttered.
+  const satellitesToPath = eligible.slice(0, MAX_ORBIT_PATHS)
   const paths: Array<{ id: string; path: [number, number, number][] }> = []
 
   for (const sat of satellitesToPath) {

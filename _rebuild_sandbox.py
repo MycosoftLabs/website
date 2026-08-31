@@ -27,7 +27,7 @@ def load_credentials():
             for line in creds_file.read_text(encoding="utf-8", errors="replace").splitlines():
                 if line and not line.startswith("#") and "=" in line:
                     key, value = line.split("=", 1)
-                    os.environ[key.strip()] = value.strip().strip('"\'')
+                    os.environ.setdefault(key.strip(), value.strip().strip('"\''))
     return True
 
 # Try to load from file first
@@ -80,11 +80,42 @@ def main():
         help="Git ref on origin to deploy (default: main or REBUILD_GIT_REF env)",
     )
     parser.add_argument(
+        "--require-gcs-verified",
+        action="store_true",
+        help="Abort if branch looks like Psathyrella GCS and GCS_VERIFIED is not set",
+    )
+    parser.add_argument(
         "--skip-build",
         action="store_true",
         help="Skip Dockerfile fix and docker build; use existing image on VM (start container only)",
     )
+    parser.add_argument(
+        "--local-build",
+        action="store_true",
+        help="Build on Sandbox only when no verified GHCR image is available",
+    )
+    parser.add_argument(
+        "--image",
+        default=os.environ.get("REBUILD_IMAGE", "ghcr.io/mycosoftlabs/website:production-latest"),
+        help="Verified registry image to pull and deploy (default: GHCR production-latest)",
+    )
+    parser.add_argument(
+        "--diagnose",
+        action="store_true",
+        help="Report Sandbox build capacity and stalled-build evidence without deploying",
+    )
     args = parser.parse_args()
+
+    branch_slug = args.branch.replace("origin/", "").lower()
+    if args.require_gcs_verified or "psathyrella" in branch_slug or branch_slug == "feat/psathyrella-gcs":
+        gcs_ok = os.environ.get("GCS_VERIFIED", "").strip().lower() in ("1", "true", "yes", "verified")
+        morgan_ok = os.environ.get("MORGAN_APPROVE_GCS_DEPLOY", "").strip().lower() in ("1", "true", "yes")
+        if not gcs_ok and not morgan_ok:
+            print(
+                "ERROR: Psathyrella GCS deploy blocked. Set GCS_VERIFIED=1 after Claude 3010 smoke, "
+                "or MORGAN_APPROVE_GCS_DEPLOY=1. Use scripts/group_release_deploy.py --phase core for Earth Sim/NLM only."
+            )
+            sys.exit(2)
 
     base_url = "https://mycosoft.com" if args.production else "https://sandbox.mycosoft.com"
     site_label = "mycosoft.com" if args.production else "sandbox.mycosoft.com"
@@ -92,15 +123,26 @@ def main():
         print(f"Connecting to {VM_HOST}...")
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(VM_HOST, username=VM_USER, password=VM_PASS, timeout=60)
+        client.connect(
+            VM_HOST,
+            username=VM_USER,
+            password=VM_PASS,
+            look_for_keys=False,
+            allow_agent=False,
+            timeout=60,
+        )
         transport = client.get_transport()
         if transport:
             transport.set_keepalive(30)
         return client
 
     ssh = _connect_ssh()
-    # VM Next.js --no-cache builds often exceed 2h; override with REBUILD_BUILD_TIMEOUT_SEC
+    # This is an absolute safety cap only. The no-progress watchdog below terminates a
+    # hung build far sooner, with an actionable tail of its log.
     build_timeout_sec = int(os.environ.get("REBUILD_BUILD_TIMEOUT_SEC", "14400"))
+    progress_timeout_sec = int(os.environ.get("REBUILD_PROGRESS_TIMEOUT_SEC", "1200"))
+    min_disk_mb = int(os.environ.get("REBUILD_MIN_DISK_MB", "12288"))
+    min_mem_mb = int(os.environ.get("REBUILD_MIN_MEM_MB", "4096"))
 
     def _run(cmd: str, timeout: int = 90) -> tuple[int, str, str]:
         """Run a remote command and return (exit_code, stdout, stderr)."""
@@ -133,7 +175,7 @@ def main():
         # closes as soon as subshell exits; PID written to file so we don't depend on stdout.
         run_cmd = (
             f"echo {b64} | base64 -d > {script_file} && chmod +x {script_file} && "
-            f"( nohup bash {script_file} >>{log} 2>&1 & echo $! > {pid_file} )"
+            f"( nohup setsid bash {script_file} >>{log} 2>&1 & echo $! > {pid_file} )"
         )
         code, out, err = _run(run_cmd, timeout=45)
         if code != 0:
@@ -143,24 +185,81 @@ def main():
             raise RuntimeError(f"Could not read build PID from {pid_file}: {out2!r}")
         return (out2 or "").strip()
 
-    def _poll_build_until_done(pid: str, poll_interval: int = 30, timeout_sec: int = 7200) -> tuple[int, str]:
-        """Poll until /tmp/rebuild_build.exit exists; return (exit_code, last_50_lines). Kill build on timeout."""
+    def _poll_build_until_done(
+        pid: str,
+        poll_interval: int = 30,
+        timeout_sec: int = 7200,
+        no_progress_timeout_sec: int = 1200,
+    ) -> tuple[int, str]:
+        """Poll a build and terminate its process group when its log stops changing."""
         log = "/tmp/rebuild_build.log"
         exit_file = "/tmp/rebuild_build.exit"
         deadline = time.monotonic() + timeout_sec
+        last_size = -1
+        last_progress_at = time.monotonic()
         while time.monotonic() < deadline:
             code, out, _ = _run(f"test -f {exit_file} && cat {exit_file}", timeout=10)
             if code == 0 and out.strip().isdigit():
                 build_code = int(out.strip())
                 _, tail_out, _ = _run(f"tail -50 {log}", timeout=10)
                 return build_code, (tail_out or "").strip()
+            _, size_out, _ = _run(f"stat -c %s {log} 2>/dev/null || echo 0", timeout=10)
+            try:
+                current_size = int((size_out or "0").strip())
+            except ValueError:
+                current_size = 0
+            if current_size != last_size:
+                last_size = current_size
+                last_progress_at = time.monotonic()
+            elif time.monotonic() - last_progress_at >= no_progress_timeout_sec:
+                _, tail_out, _ = _run(f"tail -100 {log}", timeout=10)
+                _run(f"kill -- -{pid} 2>/dev/null || kill {pid} 2>/dev/null || true", timeout=10)
+                raise RuntimeError(
+                    f"Build made no log progress for {no_progress_timeout_sec}s; "
+                    f"terminated process group {pid}. Last log lines:\n{(tail_out or '').strip()}"
+                )
             # Progress: show last 5 lines
             _, progress, _ = _run(f"tail -5 {log} 2>/dev/null || true", timeout=10)
             if progress.strip():
                 print(f"   ... {progress.strip().split(chr(10))[-1]}")
             time.sleep(poll_interval)
-        _run(f"kill {pid} 2>/dev/null || true", timeout=5)
+        _run(f"kill -- -{pid} 2>/dev/null || kill {pid} 2>/dev/null || true", timeout=10)
         raise RuntimeError(f"Build did not finish within {timeout_sec}s (PID {pid} killed)")
+
+    def _build_preflight() -> None:
+        """Fail before a VM build can exhaust disk, RAM, or compete with another build."""
+        command = (
+            "set -eu; "
+            "timeout 15 docker version >/dev/null; "
+            "free_mb=$(awk '/MemAvailable:/ {print int($2/1024)}' /proc/meminfo); "
+            "disk_mb=$(df -Pm /var/lib/docker | awk 'NR==2 {print $4}'); "
+            "if pgrep -af 'docker( |-)build|buildkitd|buildx.*build|next build' >/dev/null; then "
+            "echo 'Another Docker/Next build is already running:' >&2; "
+            "pgrep -af 'docker( |-)build|buildkitd|buildx.*build|next build' >&2; exit 21; fi; "
+            f"if [ \"$disk_mb\" -lt {min_disk_mb} ]; then echo \"Insufficient Docker disk: ${'{'}disk_mb{'}'}MB < {min_disk_mb}MB\" >&2; exit 22; fi; "
+            f"if [ \"$free_mb\" -lt {min_mem_mb} ]; then echo \"Insufficient available memory: ${'{'}free_mb{'}'}MB < {min_mem_mb}MB\" >&2; exit 23; fi; "
+            "echo \"Preflight passed: disk=${disk_mb}MB available_mem=${free_mb}MB\""
+        )
+        code, out, err = _run(command, timeout=45)
+        if code != 0:
+            raise RuntimeError(f"Sandbox build preflight failed (exit {code}): {err or out}")
+        print(f"   {out}")
+
+    def _diagnose_build_host() -> None:
+        command = (
+            "echo '=== resources ==='; df -h / /var/lib/docker; df -ih / /var/lib/docker; "
+            "free -h; swapon --show; echo '=== docker ==='; timeout 15 docker system df; "
+            "echo '=== build processes ==='; pgrep -af 'docker( |-)build|buildkitd|buildx.*build|next build' || true; "
+            "echo '=== OOM evidence ==='; (sudo dmesg -T 2>/dev/null || dmesg -T 2>/dev/null || true) | "
+            "grep -Ei 'out of memory|oom-kill|killed process' | tail -30 || true; "
+            "echo '=== last build log ==='; tail -100 /tmp/rebuild_build.log 2>/dev/null || true"
+        )
+        code, out, err = _run(command, timeout=90)
+        print(out)
+        if err:
+            print(err)
+        if code != 0:
+            raise RuntimeError(f"Sandbox diagnostics failed (exit {code})")
     
     # Pull latest code so build uses requested branch/ref
     git_ref = args.branch if args.branch.startswith("origin/") else f"origin/{args.branch}"
@@ -171,6 +270,11 @@ def main():
     if out:
         print(f"   {out.split(chr(10))[-1]}")
 
+    if args.diagnose:
+        _diagnose_build_host()
+        ssh.close()
+        return
+
     image_tag = "mycosoft-always-on-mycosoft-website:latest"
 
     if args.skip_build:
@@ -180,6 +284,24 @@ def main():
             f"docker image inspect {image_tag} >/dev/null 2>&1 && docker tag {image_tag} mycosoft-always-on-mycosoft-website:previous || true",
             timeout=30,
         )
+    elif not args.local_build:
+        print(f"\n2–3. Pulling pre-built GHCR image instead of building on Sandbox: {args.image}")
+        _build_preflight()
+        code, out, err = _run(f"timeout 900 docker pull {args.image}", timeout=930)
+        if code != 0:
+            raise RuntimeError(
+                f"Could not pull verified GHCR image {args.image} (exit {code}): {err or out}. "
+                "Refusing to fall back to a local build; rerun with --local-build only after resolving registry availability."
+            )
+        _run(
+            f"docker image inspect {image_tag} >/dev/null 2>&1 && docker tag {image_tag} "
+            "mycosoft-always-on-mycosoft-website:previous || true",
+            timeout=30,
+        )
+        code, out, err = _run(f"docker tag {args.image} {image_tag}", timeout=30)
+        if code != 0:
+            raise RuntimeError(f"Could not tag GHCR image for blue/green deploy: {err or out}")
+        print("   GHCR image pulled and tagged for blue/green cutover.")
     else:
         # Fix Dockerfile encoding: strip BOM and convert UTF-16 to UTF-8 (VM git/encoding can cause "unknown instruction" errors)
         print("\n2. Fixing Dockerfile encoding (BOM + UTF-16 -> UTF-8)...")
@@ -214,6 +336,11 @@ else:
         print(f"   {out or err or 'ok'}")
 
         print("\n3. Rebuilding Docker image (--no-cache, may take a few minutes)...")
+        print(
+            f"   Preflight thresholds: {min_disk_mb}MB Docker disk, {min_mem_mb}MB available memory; "
+            f"no-progress watchdog: {progress_timeout_sec}s."
+        )
+        _build_preflight()
 
         # Kill any stale build processes so only one build runs (prevents resource contention from multiple deploys)
         print("   Stopping any existing docker build processes on VM...")
@@ -241,17 +368,30 @@ else:
             timeout=30,
         )
 
-        print(f"   Build poll timeout: {build_timeout_sec}s ({build_timeout_sec // 3600}h)")
+        print(
+            f"   Build absolute timeout: {build_timeout_sec}s ({build_timeout_sec // 3600}h); "
+            f"no-progress timeout: {progress_timeout_sec}s."
+        )
         print("   Attempt 1/2: DOCKER_BUILDKIT=0 (legacy builder)")
         pid = _start_background_build(build_cmd_legacy)
-        code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=build_timeout_sec)
+        code, out = _poll_build_until_done(
+            pid,
+            poll_interval=30,
+            timeout_sec=build_timeout_sec,
+            no_progress_timeout_sec=progress_timeout_sec,
+        )
         print(f"   Last 50 lines:\n{out}")
 
         if code != 0:
             print(f"   Legacy build failed (exit {code}). Attempt 2/2: BuildKit (retry 2x)")
             for attempt in (1, 2):
                 pid = _start_background_build(build_cmd_buildkit)
-                code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=build_timeout_sec)
+                code, out = _poll_build_until_done(
+                    pid,
+                    poll_interval=30,
+                    timeout_sec=build_timeout_sec,
+                    no_progress_timeout_sec=progress_timeout_sec,
+                )
                 print(f"   BuildKit attempt {attempt}/2 exit {code}\n   Last 50 lines:\n{out}")
                 if code == 0:
                     break
@@ -280,35 +420,10 @@ else:
     else:
         print("   _sandbox_env_sync.py not found; run it once to push keys to VM.")
 
-    mycobrain_url = "http://host.docker.internal:8003"
-    supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
-    supabase_key = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
-    supabase_env = ""
-    if supabase_url:
-        supabase_env += f' -e NEXT_PUBLIC_SUPABASE_URL="{supabase_url}"'
-    if supabase_key:
-        supabase_env += f' -e NEXT_PUBLIC_SUPABASE_ANON_KEY="{supabase_key}"'
     env_file = f"{WEBSITE_DIR}/.env"
     ec, _, _ = _run(f"test -f {env_file} && echo ok", timeout=5)
-    env_file_opt = f" --env-file {env_file}" if (ec == 0) else ""
-    rollback_image = "mycosoft-always-on-mycosoft-website:previous"
-    candidate_name = "mycosoft-website-candidate"
-
-    def _docker_run_cmd(container_name: str, publish: str, img: str) -> str:
-        return f"""docker run -d --name {container_name} -p {publish} \
-        --add-host=host.docker.internal:host-gateway \
-        -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
-        {env_file_opt} \
-        -e NEXT_PUBLIC_BASE_URL={base_url} \
-        -e NEXTAUTH_URL={base_url} \
-        -e NEXT_PUBLIC_SITE_URL={base_url} \
-        -e MAS_API_URL=http://${{MAS_VM_HOST:-localhost}}:8001 \
-        -e MINDEX_API_URL=http://${{MINDEX_VM_HOST:-localhost}}:8000 \
-        -e OLLAMA_BASE_URL=http://${{MAS_VM_HOST:-localhost}}:11434 \
-        -e N8N_URL=http://${{MAS_VM_HOST:-localhost}}:5678 \
-        -e MYCOBRAIN_SERVICE_URL={mycobrain_url} \
-        -e MYCOBRAIN_API_URL={mycobrain_url}{supabase_env} \
-        --restart unless-stopped {img}"""
+    if ec != 0:
+        print("   Warning: VM .env missing — blue-green deploy may fail auth/env checks.")
 
     def _wait_http(url: str, attempts: int = 60, delay_sec: int = 3) -> str:
         """Poll curl on VM until HTTP 200 or attempts exhausted."""
@@ -326,78 +441,99 @@ else:
             time.sleep(delay_sec)
         return last
 
+    def _ensure_blue_green_proxy() -> None:
+        """Ensure mycosoft-website-proxy owns host :3000 — never bind app directly on :3000."""
+        _, out, _ = _run(
+            "docker ps --format '{{.Names}}' | grep -qx 'mycosoft-website-proxy' && echo yes || echo no",
+            timeout=15,
+        )
+        if (out or "").strip() != "yes":
+            print("   Proxy missing — running scripts/blue-green-bootstrap.sh ...")
+            code, bout, berr = _run(
+                f"cd {WEBSITE_DIR} && bash scripts/blue-green-bootstrap.sh",
+                timeout=900,
+            )
+            if code != 0:
+                raise RuntimeError(
+                    f"blue-green-bootstrap failed (exit {code}): {berr or bout}\n"
+                    "Refusing direct docker run on :3000 without nginx proxy."
+                )
+            print(f"   Bootstrap: {(bout or berr or 'ok')[-400:]}")
+
+        proxy_code = _wait_http("http://127.0.0.1:3000/healthz", attempts=40, delay_sec=2)
+        if proxy_code != "200":
+            raise RuntimeError(
+                f"mycosoft-website-proxy unhealthy on :3000/healthz (HTTP {proxy_code}). "
+                "Fix proxy before deploy — do not docker run on host :3000."
+            )
+        print("   mycosoft-website-proxy healthy on :3000/healthz")
+
+    def _blue_green_cutover(img: str, public_host: str) -> None:
+        """Cut over via blue-green-deploy.sh — never single-container docker run on :3000."""
+        cutover = (
+            f"cd {WEBSITE_DIR} && "
+            f"IMAGE={img} PUBLIC_HOST={public_host} "
+            f"bash scripts/blue-green-deploy.sh"
+        )
+        print(f"   Running: IMAGE={img} PUBLIC_HOST={public_host} blue-green-deploy.sh")
+        code, out, err = _run(cutover, timeout=1800)
+        tail = (out or err or "")[-2000:]
+        if tail:
+            print(f"   {tail}")
+        if code != 0:
+            raise RuntimeError(
+                f"blue-green-deploy failed (exit {code}). "
+                "Do not fall back to docker run on :3000 — fix compose/proxy/network on VM 187."
+            )
+
+    def _verify_public_https(url: str, attempts: int = 36, delay_sec: int = 5) -> str:
+        """Verify public URL returns HTTP 200 (from dev machine after VM cutover)."""
+        import subprocess
+
+        last = "000"
+        curl_bin = "curl.exe" if sys.platform == "win32" else "curl"
+        for i in range(attempts):
+            try:
+                proc = subprocess.run(
+                    [curl_bin, "-sS", "-o", os.devnull, "-w", "%{http_code}", "--max-time", "20", url],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                last = (proc.stdout or "000").strip() or "000"
+            except Exception:
+                last = "000"
+            if last == "200":
+                return last
+            if i % 3 == 0:
+                print(f"   ... public {url} attempt {i + 1}/{attempts} (HTTP {last})")
+            time.sleep(delay_sec)
+        return last
+
     http_code = "000"
 
     print(
-        f"\n5. Zero-downtime cutover ({site_label}): candidate on 127.0.0.1:3001, "
-        "then swap :3000 only after HTTP 200..."
+        f"\n5. Blue/green deploy ({site_label}): ensure proxy on :3000, cutover idle slot — "
+        "NEVER docker run single container on host :3000..."
     )
-    _run(f"docker rm -f {candidate_name} 2>/dev/null || true", timeout=20)
+    _ensure_blue_green_proxy()
+    _blue_green_cutover(image_tag, site_label)
 
-    cand_cmd = _docker_run_cmd(candidate_name, "127.0.0.1:3001:3000", image_tag)
-    code, out, err = _run(cand_cmd, timeout=90)
-    if out:
-        print(f"   Candidate ID: {(out or '')[:14]}")
-    if code != 0:
-        print(f"   Candidate start failed: {err or out}")
-        _run(f"docker rm -f {candidate_name} 2>/dev/null || true", timeout=15)
-        ssh.close()
-        raise RuntimeError("Failed to start candidate container; production container unchanged.")
+    print(f"\n6. Verifying public HTTPS {base_url} returns 200...")
+    http_code = _verify_public_https(base_url, attempts=36, delay_sec=5)
 
-    cand_http = _wait_http("http://127.0.0.1:3001/", attempts=70, delay_sec=3)
-    if cand_http != "200":
-        print(f"\n❌ Candidate never reached HTTP 200 (got {cand_http}). Removing candidate; leaving :3000 as-is.")
-        _run(f"docker rm -f {candidate_name} 2>/dev/null || true", timeout=20)
-        ssh.close()
-        raise RuntimeError("Candidate health check failed; no cutover. Fix image and redeploy.")
-
-    print("   Candidate healthy on :3001 — swapping public :3000 (brief handoff).")
-
-    # Free host :3000 from any container (compose stacks often use names like website-live).
-    _, pub3000, _ = _run("docker ps -q --filter publish=3000", timeout=30)
-    for cid in (pub3000 or "").strip().split():
-        _run(f"docker stop {cid}", timeout=90)
-        _run(f"docker rm {cid} 2>/dev/null || true", timeout=30)
-    _run("docker rm -f mycosoft-website website-live 2>/dev/null || true", timeout=20)
-
-    main_cmd = _docker_run_cmd("mycosoft-website", "3000:3000", image_tag)
-    code, out, err = _run(main_cmd, timeout=90)
-    if code != 0:
-        print(f"   Primary container start failed: {err or out}")
-        _run(f"docker rm -f {candidate_name} 2>/dev/null || true", timeout=15)
-        # Attempt rollback so Cloudflare origin is not left empty
-        print("   Attempting rollback to :previous image on :3000...")
-        rb_cmd = _docker_run_cmd("mycosoft-website", "3000:3000", rollback_image)
-        _run(rb_cmd, timeout=90)
-        _wait_http("http://127.0.0.1:3000/", attempts=40, delay_sec=2)
-        ssh.close()
-        raise RuntimeError("New primary container failed to start; rolled back to :previous if available.")
-
-    _run(f"docker rm -f {candidate_name} 2>/dev/null || true", timeout=20)
-
-    print("\n6. Waiting for public :3000 to return HTTP 200...")
-    http_code = _wait_http("http://127.0.0.1:3000/", attempts=70, delay_sec=3)
-
-    stdin, stdout, stderr = ssh.exec_command(
-        "docker ps --filter publish=3000 --format '{{.Names}} {{.Status}}' | head -1",
+    _, pub_status, _ = _run(
+        "docker ps --filter name=mycosoft-website-proxy --format '{{.Names}} {{.Status}}' | head -1",
         timeout=30,
     )
-    status = stdout.read().decode().strip()
-    print(f"   Docker: {status}")
+    print(f"   Proxy: {pub_status or '(unknown)'}")
 
     if http_code != "200":
-        print(f"\n⚠️  Primary returned {http_code} after cutover — attempting rollback to {rollback_image}...")
-        _run("docker rm -f mycosoft-website 2>/dev/null || true", timeout=30)
-        rb_cmd = _docker_run_cmd("mycosoft-website", "3000:3000", rollback_image)
-        _run(rb_cmd, timeout=90)
-        http_code = _wait_http("http://127.0.0.1:3000/", attempts=50, delay_sec=3)
-        if http_code == "200":
-            print("   Rollback serving 200 on :3000.")
         ssh.close()
-        if http_code != "200":
-            raise RuntimeError("Primary and rollback both unhealthy; check docker logs on VM 187.")
-        print("\n⚠️  Deploy reverted to previous image. Skipping Cloudflare purge.")
-        return
+        raise RuntimeError(
+            f"Deploy guardrail failed: {base_url} returned HTTP {http_code} (expected 200). "
+            "Site may be down — run blue-green-bootstrap.sh on VM 187 and check docker network."
+        )
 
     print("\n7. NAS media spot-check (critical MP4)...")
     _, spot_out, _ = _run(
@@ -432,7 +568,7 @@ else:
     else:
         print(f"\n⚠️  Site returned {http_code} — Cloudflare purge skipped.")
 
-    print("\nNote: Cloudflare purge runs only after HTTP 200 on origin :3000.")
+    print("\nNote: Cloudflare purge runs only after public HTTPS returns 200.")
 
 if __name__ == "__main__":
     main()

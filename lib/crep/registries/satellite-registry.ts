@@ -283,7 +283,7 @@ async function fetchFromSatNogs(): Promise<SatelliteRecord[]> {
   const now = new Date().toISOString()
 
   const pageResults = await Promise.allSettled(
-    Array.from({ length: 1 }, (_, i) => i + 1).map(async (page) => {
+    Array.from({ length: MAX_PAGES }, (_, i) => i + 1).map(async (page) => {
       const url = `https://db.satnogs.org/api/tle/?format=json&page=${page}&page_size=${PAGE_SIZE}`
       try {
         const res = await fetch(url, {
@@ -705,6 +705,13 @@ export async function fetchAllSatellitesWithMeta(): Promise<SatelliteRegistryRes
   const allSatellites: SatelliteRecord[] = []
   const sourceCounts: Record<string, number> = {}
   let enrichMap = new Map<string, Partial<SatelliteRecord>>()
+  // Jun 23 2026 (Morgan): satellites were "massively missing" (~100). Root cause was the
+  // SatNOGS paging bug (fetched 1 page; fixed to MAX_PAGES above) — it now yields ~1600
+  // UNIQUE sats (11k TLEs deduped by NORAD), plenty to fill the render LOD cap
+  // (lod-policy: 400 globe) so the globe is dense again AND stays FPS-safe. The deep
+  // multi-source fanout (CelesTrak/Space-Track/N2YO/…) stays opt-in via
+  // CREP_SATELLITE_DEEP_AGGREGATE=1 — those need keys/config and returned 0 in dev, so we
+  // don't pay their latency by default; SatNOGS alone is the representative baseline.
   const fastOnly = process.env.CREP_SATELLITE_DEEP_AGGREGATE !== "1"
 
   const satnogsStart = Date.now()
