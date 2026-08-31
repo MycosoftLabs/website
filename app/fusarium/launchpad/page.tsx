@@ -33,6 +33,7 @@ import { COMMERCIAL_NON_CUI_BANNER } from "@/lib/launchpad/constants"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { deviceHeroVideoSources } from "@/lib/asset-video-sources"
 import { GlassButton, GlassChip } from "@/components/ui/glass-button"
+import { useSupabaseUser } from "@/hooks/use-supabase-user"
 
 // ---------------------------------------------------------------------------
 // Hero backdrop. Large media lives on the NAS bind mount under public/assets/
@@ -196,6 +197,7 @@ const journey = [
 
 export default function LaunchpadPage() {
   const [demoOpen, setDemoOpen] = useState(false)
+  const { user } = useSupabaseUser()
 
   return (
     <NeuromorphicProvider>
@@ -255,10 +257,17 @@ export default function LaunchpadPage() {
                     Demo
                   </GlassButton>
                 )}
-                <GlassButton href="/fusarium/launchpad/get-started">
-                  Get started
-                  <ArrowRight className="ml-2 h-5 w-5 shrink-0 text-current" />
-                </GlassButton>
+                {user ? (
+                  <GlassButton href="/app/launchpad/dashboard">
+                    Open workspace
+                    <ArrowRight className="ml-2 h-5 w-5 shrink-0 text-current" />
+                  </GlassButton>
+                ) : (
+                  <GlassButton href="/fusarium/launchpad/checkout">
+                    Get started
+                    <ArrowRight className="ml-2 h-5 w-5 shrink-0 text-current" />
+                  </GlassButton>
+                )}
                 <GlassButton href="/fusarium/launchpad/pricing">See Pricing</GlassButton>
               </div>
               {/* Trust strip (§26.1) */}
@@ -298,14 +307,14 @@ export default function LaunchpadPage() {
                 <NeuCard key={w.title}>
                   <NeuCardHeader className="pb-2">
                     <div className="flex items-center gap-2.5">
-                      <w.icon className="h-5 w-5 text-primary shrink-0" />
+                      <w.icon className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                       <h3 className="font-semibold">{w.title}</h3>
                     </div>
                   </NeuCardHeader>
                   <NeuCardContent>
                     <p className="text-sm text-muted-foreground mb-3">{w.pain}</p>
                     <p className="text-sm">
-                      <span className="font-medium text-primary">With Launchpad: </span>
+                      <span className="font-medium text-emerald-600 dark:text-emerald-400">With Launchpad: </span>
                       {w.shift}
                     </p>
                   </NeuCardContent>
@@ -326,7 +335,7 @@ export default function LaunchpadPage() {
                 <div className="grid sm:grid-cols-2 gap-2.5">
                   {timeSinks.map((t) => (
                     <div key={t} className="flex items-start gap-2 text-sm">
-                      <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                       <span className="text-muted-foreground">{t}</span>
                     </div>
                   ))}
@@ -447,7 +456,7 @@ export default function LaunchpadPage() {
                 <NeuCard key={m.name} className="transition-all hover:scale-[1.01]">
                   <NeuCardHeader className="flex flex-row items-start gap-4 space-y-0 pb-2">
                     <div className="myco-glass-tile p-3">
-                      <m.icon className="h-6 w-6 text-primary" />
+                      <m.icon className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold">{m.name}</h3>
@@ -471,7 +480,7 @@ export default function LaunchpadPage() {
               {journey.map((j) => (
                 <NeuCard key={j.step}>
                   <NeuCardContent className="pt-6">
-                    <div className="text-3xl font-bold text-primary/40 mb-3">{j.step}</div>
+                    <div className="text-3xl font-bold text-emerald-600/40 dark:text-emerald-400/40 mb-3">{j.step}</div>
                     <h3 className="font-semibold mb-2">{j.title}</h3>
                     <p className="text-sm text-muted-foreground">{j.detail}</p>
                   </NeuCardContent>
@@ -522,7 +531,7 @@ export default function LaunchpadPage() {
               customer-direct purchases, always disclosed and never marked up into the entry price.
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
-              <GlassButton href="/fusarium/launchpad/get-started">
+              <GlassButton href="/fusarium/launchpad/checkout">
                 Get started
                 <ArrowRight className="ml-2 h-5 w-5 text-current" />
               </GlassButton>

@@ -132,7 +132,7 @@ export default function LaunchpadPricingPage() {
                     "Direct line to the Launchpad team",
                   ].map((f) => (
                     <div key={f} className="flex items-center gap-2 text-sm">
-                      <CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> {f}
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" /> {f}
                     </div>
                   ))}
                 </div>
@@ -227,7 +227,7 @@ export default function LaunchpadPricingPage() {
                       <ul className="space-y-2">
                         {planFeatures(key).map((f) => (
                           <li key={f} className="flex items-start gap-2 text-sm">
-                            <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" /> {f}
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" /> {f}
                           </li>
                         ))}
                       </ul>
@@ -308,7 +308,7 @@ export default function LaunchpadPricingPage() {
                 </p>
 
                 <div className="mt-5 pt-1 flex-1 flex items-end">
-                  <GlassButton href="/fusarium/launchpad/get-started" className="myco-glass-button--block">
+                  <GlassButton href="/fusarium/launchpad/checkout" className="myco-glass-button--block">
                     Get started <ArrowRight className="h-4 w-4 text-current ml-2" />
                   </GlassButton>
                 </div>
@@ -369,7 +369,7 @@ export default function LaunchpadPricingPage() {
                 </p>
 
                 <div className="mt-5 pt-1 flex-1 flex items-end">
-                  <GlassButton href="/fusarium/launchpad/get-started" className="myco-glass-button--block">
+                  <GlassButton href="/fusarium/launchpad/checkout" className="myco-glass-button--block">
                     Book a session <ArrowRight className="h-4 w-4 text-current ml-2" />
                   </GlassButton>
                 </div>

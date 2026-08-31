@@ -23,7 +23,7 @@ const TONE_TEXT: Record<Tone, string> = {
   amber: 'text-amber-500',
   red: 'text-red-500',
   sky: 'text-sky-500',
-  slate: 'text-slate-400',
+  slate: 'text-slate-500 dark:text-slate-400',
 };
 const TONE_STRIPE: Record<Tone, string> = {
   emerald: 'bg-emerald-500',

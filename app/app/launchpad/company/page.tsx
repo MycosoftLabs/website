@@ -130,19 +130,26 @@ export default function CompanyPage() {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">{s.title}</h2>
             <Card className="p-5">
               <div className="grid sm:grid-cols-2 gap-4">
-                {s.fields.map((f) => (
-                  <div key={f.key} className={f.multiline ? 'sm:col-span-2' : ''}>
-                    <label className="text-sm font-medium block mb-1">{f.label}</label>
-                    {f.multiline ? (
-                      <textarea rows={3} className={input} value={data[f.key] ?? ''}
-                        onChange={(e) => setData((x) => ({ ...x, [f.key]: e.target.value }))} />
-                    ) : (
-                      <input className={input} value={data[f.key] ?? ''}
-                        onChange={(e) => setData((x) => ({ ...x, [f.key]: e.target.value }))} />
-                    )}
-                    {f.hint && <p className="text-[11px] text-muted-foreground mt-1">{f.hint}</p>}
-                  </div>
-                ))}
+                {s.fields.map((f) => {
+                  // f.key is unique across every section, so deriving the id from it
+                  // keeps each rendered control's label association intact — a literal
+                  // id would repeat 14 times and silently unbind every row but the first.
+                  const fieldId = `company-${f.key}`;
+                  const hintId = `${fieldId}-hint`;
+                  return (
+                    <div key={f.key} className={f.multiline ? 'sm:col-span-2' : ''}>
+                      <label htmlFor={fieldId} className="text-sm font-medium block mb-1">{f.label}</label>
+                      {f.multiline ? (
+                        <textarea id={fieldId} aria-describedby={f.hint ? hintId : undefined} rows={3} className={input} value={data[f.key] ?? ''}
+                          onChange={(e) => setData((x) => ({ ...x, [f.key]: e.target.value }))} />
+                      ) : (
+                        <input id={fieldId} aria-describedby={f.hint ? hintId : undefined} className={input} value={data[f.key] ?? ''}
+                          onChange={(e) => setData((x) => ({ ...x, [f.key]: e.target.value }))} />
+                      )}
+                      {f.hint && <p id={hintId} className="text-[11px] text-muted-foreground mt-1">{f.hint}</p>}
+                    </div>
+                  );
+                })}
               </div>
             </Card>
           </section>

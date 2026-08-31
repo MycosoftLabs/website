@@ -236,8 +236,10 @@ export default function PartnerMeshPage() {
           </p>
 
           <form onSubmit={saveProfile} className="space-y-5">
-            <div>
-              <label className="text-sm font-medium block mb-2">Capability domains</label>
+            <div role="group" aria-labelledby="pm-domains-label">
+              {/* Not a <label>: it names a set of checkboxes, and htmlFor would
+                  arbitrarily bind the heading to whichever one came first. */}
+              <div id="pm-domains-label" className="text-sm font-medium block mb-2">Capability domains</div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2">
                 {DOMAIN_OPTIONS.map((d) => (
                   <LiquidCheckbox
@@ -251,8 +253,9 @@ export default function PartnerMeshPage() {
             </div>
 
             <div>
-              <label className="text-sm font-medium block mb-1">What you build (plain English)</label>
+              <label htmlFor="pm-description" className="text-sm font-medium block mb-1">What you build (plain English)</label>
               <textarea
+                id="pm-description"
                 className={FIELD}
                 rows={4}
                 maxLength={2000}
@@ -264,8 +267,8 @@ export default function PartnerMeshPage() {
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium block mb-1">Technology maturity</label>
-                <select className={FIELD} value={trl} onChange={(e) => setTrl(e.target.value)}>
+                <label htmlFor="pm-trl" className="text-sm font-medium block mb-1">Technology maturity</label>
+                <select id="pm-trl" className={FIELD} value={trl} onChange={(e) => setTrl(e.target.value)}>
                   <option value="">Not sure yet</option>
                   {TRL_LEVELS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
@@ -275,8 +278,8 @@ export default function PartnerMeshPage() {
                   beats an optimistic one.
                 </p>
               </div>
-              <div>
-                <label className="text-sm font-medium block mb-2">Integration interests</label>
+              <div role="group" aria-labelledby="pm-interests-label">
+                <div id="pm-interests-label" className="text-sm font-medium block mb-2">Integration interests</div>
                 <div className="grid gap-y-2">
                   {INTEREST_OPTIONS.map((i) => (
                     <LiquidCheckbox
@@ -343,8 +346,12 @@ export default function PartnerMeshPage() {
                   ) : (
                     <div className="space-y-3">
                       <div>
-                        <label className="text-xs font-medium block mb-1">Purpose (why you are opting in)</label>
+                        {/* One purpose field renders per scope, so the id is keyed on
+                            the scope — a literal id would collide and silently break
+                            label association for every card after the first. */}
+                        <label htmlFor={`pm-purpose-${s.key}`} className="text-xs font-medium block mb-1">Purpose (why you are opting in)</label>
                         <textarea
+                          id={`pm-purpose-${s.key}`}
                           className={FIELD}
                           rows={2}
                           maxLength={500}

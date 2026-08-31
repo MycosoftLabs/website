@@ -35,6 +35,52 @@ export function LoginForm({ redirectTo, initialError, initialMessage }: LoginFor
     const host = window.location.hostname.toLowerCase()
     setIsLocalDevHost(process.env.NODE_ENV === "development" && ["localhost", "127.0.0.1", "::1"].includes(host))
   }, [])
+  useEffect(() => {
+    let cancelled = false
+    const target =
+      redirectTo.startsWith("/") && !redirectTo.startsWith("//") && !redirectTo.includes("://")
+        ? redirectTo
+        : "/app/launchpad/dashboard"
+
+    async function enterIfAlreadySignedIn() {
+      if (supabase) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!cancelled && user) {
+          window.location.replace(target)
+          return
+        }
+      }
+      try {
+        const sessionRes = await fetch("/api/auth/session", { cache: "no-store" })
+        const session = await sessionRes.json()
+        if (cancelled || !session?.ok || !session.user) return
+        if (session.user.localDev) {
+          const minted = await fetch("/api/auth/local-dev-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ redirectTo: target }),
+          })
+          const body = await minted.json().catch(() => ({}))
+          if (!cancelled && minted.ok && body.supabaseSession) {
+            window.location.replace(body.redirectTo || target)
+            return
+          }
+          if (!cancelled) {
+            setError("Local test session is not a Launchpad login. Sign in as morgan@mycosoft.org.")
+          }
+          return
+        }
+        window.location.replace(target)
+      } catch {
+        // Stay on the form if session probe fails.
+      }
+    }
+
+    void enterIfAlreadySignedIn()
+    return () => {
+      cancelled = true
+    }
+  }, [redirectTo, supabase])
 
   const handleMagicLink = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -134,6 +180,9 @@ export function LoginForm({ redirectTo, initialError, initialMessage }: LoginFor
       const data = await response.json().catch(() => ({}))
       if (!response.ok || data.success !== true) {
         throw new Error(data.error || "Local dev session failed")
+      }
+      if (data.supabaseSession !== true) {
+        throw new Error("Local test session could not open Launchpad. Sign in as morgan@mycosoft.org.")
       }
       window.location.replace(data.redirectTo || redirectTo)
     } catch (err) {

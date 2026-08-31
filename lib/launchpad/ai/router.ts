@@ -11,6 +11,7 @@ import { sanitizeForModel, filterModelOutput } from '@/lib/launchpad/prompt-fire
 import { envelopeDecrypt, envelopeFromCustodyRow, redactSecrets } from '@/lib/launchpad/crypto/envelope';
 import { governanceFor, maxPromptChars, type AiTaskType } from './governance';
 import { completeWithKey, managedKeyFor } from './providers';
+import { completeWithMas } from './mas-fallback';
 import { insertCostLedger, refundReservation, reserveCredits, settleCredits } from './metering';
 import type { AiProvider } from './types';
 import { isInferenceProvider } from './types';
@@ -195,14 +196,49 @@ export async function routeCompletion(req: RouterRequest): Promise<RouterResult>
           ? 'xai'
           : 'perplexity';
   if (!managedKey) {
+    const mas = await completeWithMas(
+      { system: safeSystem, user: safeUser, maxTokens: req.maxTokens ?? gov.maxContextTokens },
+      req.userId,
+    );
+    if (!('ok' in mas)) {
+      const filtered = filterModelOutput(mas.text);
+      await insertCostLedger(req.supabase, req.tenantId, req.userId, {
+        provider: mas.provider,
+        model: mas.model,
+        providerPriceVersion: null,
+        inputUnits: mas.inputUnits,
+        outputUnits: mas.outputUnits,
+        searchRequests: 0,
+        retrievalRequests: 0,
+        reasoningUnits: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        actualCost: null,
+        reservedCost: null,
+        creditsCharged: 0,
+        byoKey: false,
+        taskId: null,
+        reservationId: null,
+      });
+      return {
+        ok: true,
+        text: filtered.text,
+        byoKey: false,
+        provider: mas.provider,
+        model: mas.model,
+        creditsCharged: 0,
+        firewallRedactions: redactions,
+        firewallFlags: filtered.flagged,
+      };
+    }
     return {
       ok: false,
       byoKey: false,
       creditsCharged: 0,
       firewallRedactions: redactions,
       firewallFlags: [],
-      error: 'No managed AI provider configured and no verified BYO connection.',
-      code: 'no_provider',
+      error: mas.error || 'No managed AI provider configured, no verified BYO connection, and MYCA is unavailable.',
+      code: mas.code || 'no_provider',
     };
   }
 

@@ -376,6 +376,13 @@ function HeaderContent() {
             supabaseUser.user_metadata?.picture ||
             "/placeholder.svg",
   } : null
+  const visibleDefenseItems = [
+    defenseItems[0],
+    user
+      ? { title: "Launchpad workspace", href: "/app/launchpad/dashboard", icon: Rocket, description: "Open your contractor workspace" }
+      : { title: "Launchpad", href: "/fusarium/launchpad", icon: Rocket, description: "Contractor Readiness & Opportunity OS" },
+    ...defenseItems.slice(2),
+  ]
 
   // Close dropdown when clicking outside. Use `click` instead of `mousedown`
   // so page navigation is not pre-empted on the first press.
@@ -465,7 +472,7 @@ function HeaderContent() {
           <NavDropdown
             label="Defense"
             icon={Bug}
-            items={defenseItems}
+            items={visibleDefenseItems}
             isOpen={openDropdown === "defense"}
             onOpen={() => setOpenDropdown("defense")}
             onClose={() => setOpenDropdown(null)}
@@ -546,6 +553,9 @@ function HeaderContent() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-popover border bg-background">
+                <DropdownMenuItem asChild>
+                  <a href="/app/launchpad/dashboard">Launchpad workspace</a>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/profile">Profile</Link>
                 </DropdownMenuItem>

@@ -110,6 +110,10 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
     activePathname.startsWith("/search/") ||
     activePathname === "/sensing/sine/player"
 
+  const isLaunchpadApp =
+    activePathname === "/app/launchpad" ||
+    activePathname.startsWith("/app/launchpad/")
+
   // Full-bleed standalone surfaces: no site Header/Footer/chrome, no scroll —
   // a dedicated application controller that fills the viewport (iPad-first).
   const isFullBleed =
@@ -124,7 +128,7 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
     : undefined
 
   // Build the page layout (MYCAFloatingButton goes inside MYCAProvider below)
-  const pageLayout = isFullBleed ? (
+  const pageLayout = isFullBleed || isLaunchpadApp ? (
     <>
       {isHydrated ? <NavigationClickRescue /> : null}
       {children}

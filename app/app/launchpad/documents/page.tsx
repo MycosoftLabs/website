@@ -126,7 +126,10 @@ export default function DocumentsPage() {
       {/* Generator bar */}
       <Card className="p-4 mb-8">
         <div className="flex flex-wrap items-center gap-2">
-          <select value={family} onChange={(e) => setFamily(e.target.value)}
+          {/* No visible label on this bar, so the name a sighted user infers from
+              the "AC — …" options is carried by aria-label (WCAG 1.3.1 / 4.1.2). */}
+          <select id="doc-family" aria-label="Requirement family to draft a policy for"
+            value={family} onChange={(e) => setFamily(e.target.value)}
             className="myco-glass-field rounded-lg border border-border px-3 py-2 text-sm">
             {Object.entries(POLICY_FAMILIES).map(([k, v]) => (
               <option key={k} value={k}>{k} — {v.policyTitle}</option>

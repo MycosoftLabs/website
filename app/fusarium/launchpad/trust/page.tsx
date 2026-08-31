@@ -114,7 +114,7 @@ export default function LaunchpadTrustPage() {
                     <NeuCardContent className="pt-6">
                       <div className="flex items-start gap-3">
                         <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                          <Lock className="h-4 w-4 text-primary" />
+                          <Lock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                         </div>
                         <div>
                           <h3 className="font-semibold mb-1">{title}</h3>
@@ -130,14 +130,14 @@ export default function LaunchpadTrustPage() {
             <NeuCard className="mb-14">
               <NeuCardHeader>
                 <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <FileCheck className="h-5 w-5 text-primary" /> What the customer always owns
+                  <FileCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /> What the customer always owns
                 </h2>
               </NeuCardHeader>
               <NeuCardContent>
                 <ul className="space-y-2.5">
                   {customerOwns.map((c) => (
                     <li key={c} className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" /> {c}
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" /> {c}
                     </li>
                   ))}
                 </ul>
@@ -157,7 +157,7 @@ export default function LaunchpadTrustPage() {
                   <ShieldCheck className="mr-2 h-5 w-5" /> Back to Launchpad
                 </NeuButton>
               </Link>
-              <Link href="/fusarium/launchpad/get-started" className="ml-3">
+              <Link href="/fusarium/launchpad/checkout" className="ml-3">
                 <NeuButton variant="primary" className="px-6 py-3">
                   Get started <ArrowRight className="ml-2 h-4 w-4" />
                 </NeuButton>
