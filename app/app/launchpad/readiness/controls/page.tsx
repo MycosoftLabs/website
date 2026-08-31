@@ -122,7 +122,7 @@ export default function ControlsRegisterPage() {
           </>
         }
         actions={
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 w-full min-w-0">
             <LiquidSwitch
               checked={unassessedOnly}
               onChange={setUnassessedOnly}
@@ -132,7 +132,7 @@ export default function ControlsRegisterPage() {
                 "All families" option are the only cues — so the name a sighted
                 user infers is carried by aria-label (WCAG 1.3.1 / 4.1.2). A
                 placeholder is not an accessible name. */}
-            <div className="relative">
+            <div className="relative w-full sm:w-auto min-w-0">
               <Search className="h-4 w-4 absolute left-2.5 top-2.5 text-muted-foreground" />
               <input
                 id="ctl-search"
@@ -140,7 +140,7 @@ export default function ControlsRegisterPage() {
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="Search id or title…"
-                className="myco-glass-field pl-8 pr-3 py-2 rounded-lg border border-border text-sm w-56"
+                className="myco-glass-field pl-8 pr-3 py-2 rounded-lg border border-border text-sm w-full sm:w-56"
               />
             </div>
             <select
@@ -148,7 +148,7 @@ export default function ControlsRegisterPage() {
               aria-label="Filter requirements by family"
               value={family}
               onChange={(e) => setFamily(e.target.value)}
-              className="myco-glass-field px-3 py-2 rounded-lg border border-border text-sm"
+              className="myco-glass-field px-3 py-2 rounded-lg border border-border text-sm w-full sm:w-auto"
             >
               <option value="all">All families</option>
               {families.map((f) => (

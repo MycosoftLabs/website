@@ -112,14 +112,20 @@ for (const route of ROUTES) {
       }
     }
 
-    // Interactive things too small to hit. 44px is the usual floor.
+    // Targets below the WCAG 2.2 AA minimum (2.5.8 Target Size, 24x24 CSS px).
+    // The standard exempts a link sitting inside a sentence, because shrinking
+    // prose to pad a link helps nobody — so inline links are skipped rather than
+    // reported. Using 44 (the AAA figure) here flagged every ordinary text link
+    // on the page, which buries the targets that are genuinely too small.
     const small = [];
-    for (const el of document.querySelectorAll('main button, main a[href], main select, main input[type=checkbox]')) {
+    for (const el of document.querySelectorAll('main button, main a[href], main select, main input, main [role=button]')) {
       const b = el.getBoundingClientRect();
       if (b.width === 0 || b.height === 0) continue;
       const st = getComputedStyle(el);
-      if (st.display === 'inline' || st.visibility === 'hidden') continue;
-      if (b.height < 32 || b.width < 32) {
+      if (st.visibility === 'hidden' || st.display === 'none') continue;
+      // Inline or inline-level link inside flowing text — exempt.
+      if (el.tagName === 'A' && /^inline/.test(st.display)) continue;
+      if (b.height < 24 || b.width < 24) {
         const t = (el.textContent || '').trim().slice(0, 24) || el.tagName.toLowerCase();
         small.push(t + ' (' + Math.round(b.width) + 'x' + Math.round(b.height) + ')');
       }
@@ -151,7 +157,7 @@ for (const route of ROUTES) {
     issues.push('page scrolls sideways (' + r.pageWidth + 'px > ' + r.viewport + 'px)');
     if (r.overflowing.length) issues.push('  caused by: ' + r.overflowing.join(', '));
   }
-  if (r.small.length) issues.push(r.small.length + ' tap target(s) under 32px: ' + r.small.join(', '));
+  if (r.small.length) issues.push(r.small.length + ' tap target(s) under WCAG 2.5.8 (24x24): ' + r.small.join(', '));
   if (r.tables.length) issues.push('table overflows with no scroll parent: ' + r.tables.join(', '));
   if (issues.length) problems.push({ route, issues });
 

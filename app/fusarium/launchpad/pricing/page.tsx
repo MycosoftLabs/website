@@ -369,8 +369,11 @@ export default function LaunchpadPricingPage() {
                 </p>
 
                 <div className="mt-5 pt-1 flex-1 flex items-end">
-                  <GlassButton href="/fusarium/launchpad/checkout" className="myco-glass-button--block">
-                    Book a session <ArrowRight className="h-4 w-4 text-current ml-2" />
+                  {/* Names the SKU. Bare /checkout falls back to the $397 Launch
+                      Pass when no item is given, so this button was opening a
+                      payment page for a completely different product. */}
+                  <GlassButton href="/fusarium/launchpad/checkout?item=fus_launchpad_advisory_30" className="myco-glass-button--block">
+                    Book a 30-minute session <ArrowRight className="h-4 w-4 text-current ml-2" />
                   </GlassButton>
                 </div>
               </div>

@@ -54,11 +54,32 @@ for (const [from, selector, mustAppear, mustVanish] of HOPS) {
     await link.click();
     await page.waitForTimeout(5000);
 
-    const r = await page.evaluate(() => ({
+    // Reading the page can land mid-navigation — Playwright then throws
+    // "execution context was destroyed" and the hop looks like a failure when
+    // nothing is wrong. In dev that happens whenever the destination route is
+    // still compiling. Retry until the document settles.
+    //
+    // This does not hide a real hard reload: the marker lives on window, so a
+    // full document load wipes it, and `soft` still reports false below.
+    const probe = () => page.evaluate(() => ({
       soft: window.__soft === 'yes',
       url: location.pathname + location.search,
       text: document.body.innerText,
     }));
+
+    let r = null;
+    let lastErr = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        r = await probe();
+        break;
+      } catch (e) {
+        lastErr = e;
+        await page.waitForLoadState('load', { timeout: 60_000 }).catch(() => {});
+        await page.waitForTimeout(2500);
+      }
+    }
+    if (!r) throw lastErr;
 
     const appeared = r.text.includes(mustAppear);
     const vanished = mustVanish ? !r.text.includes(mustVanish) : true;

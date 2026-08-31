@@ -39,6 +39,9 @@ interface TenantInfo {
   isOperator?: boolean;
 }
 
+/** One-shot brake so a 401 cannot become a document-reload loop. */
+const AUTH_BOUNCE_KEY = 'lp_auth_bounce';
+
 type NavItem = { label: string; href: string; icon: LucideIcon };
 // The full Partner-Mesh-Pro surface. Lower tiers see the same map — locked
 // screens render a FeatureGate plate, never a hidden nav item, so every
@@ -193,12 +196,49 @@ export default function TenantGate({ children }: { children: React.ReactNode }) 
   const load = useCallback(async () => {
     try {
       const r = await fetch('/api/fusarium/launchpad/tenant', { cache: 'no-store' });
+
       if (r.status === 401) {
+        // requireTenant answers 401 for a retryable auth error as well as a
+        // genuinely absent session, and /login sends a still-valid session
+        // straight back here. A bare document replace turns that into a reload
+        // loop with no client-side brake, which pins the tab across all 42
+        // workspace pages. Bounce once, then say what happened instead.
+        let alreadyBounced = false;
+        try {
+          alreadyBounced = window.sessionStorage.getItem(AUTH_BOUNCE_KEY) === '1';
+        } catch {
+          // Private mode or blocked storage: fall through and bounce once.
+        }
+        if (alreadyBounced) {
+          try { window.sessionStorage.removeItem(AUTH_BOUNCE_KEY); } catch {}
+          setErr('We could not confirm your sign-in. Reload the page, or sign in again.');
+          return;
+        }
+        try { window.sessionStorage.setItem(AUTH_BOUNCE_KEY, '1'); } catch {}
         window.location.replace(`/login?redirectTo=${encodeURIComponent(pathname ?? '/app/launchpad/dashboard')}`);
         return;
       }
+
       if (r.status === 404) { setErr('Launchpad is not enabled in this environment.'); return; }
-      const d = await r.json();
+
+      const d = await r.json().catch(() => null);
+
+      if (!r.ok || !d) {
+        // Anything else that is not a tenant payload. 409 is the real one:
+        // requireTenant returns { error, code: 'tenant_selection_required',
+        // memberships } for a user in two workspaces, and that body carries no
+        // `tenant` — rendering it crashed the shell on tenant.name.
+        setErr(
+          d && d.code === 'tenant_selection_required'
+            ? 'You belong to more than one workspace. Choose which one to open.'
+            : (d && d.error) || 'Could not load your workspace.',
+        );
+        return;
+      }
+
+      // Got this far on a real session, so a later 401 is allowed to bounce again.
+      try { window.sessionStorage.removeItem(AUTH_BOUNCE_KEY); } catch {}
+
       setInfo(d);
       if (
         d.state === 'needs_onboarding' &&

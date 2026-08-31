@@ -189,6 +189,122 @@ All three are fixed in `7edb877b`. The contrast check now paints each colour ont
 
 ---
 
+## 3.3 A pre-deploy review returned BLOCK, and I fixed what it found (`654088b0`)
+
+I ran a five-way adversarial review over every changed file before asking for a
+deploy. It said **do not ship**, and it was right. All three blockers were new on
+this branch and **all three were mine.**
+
+| # | Defect | Why it mattered |
+|---|---|---|
+| 1 | **The upgrade CTA sold the wrong product.** `minPlanFor` walks `PLAN_ORDER`, which starts with `launch_pass_30d`; `monthlyLookupKeyFor` found no monthly SKU for a *pass* and fell through to `fus_launchpad_launch_pass`. Four of ten gates offered a **$397 one-time 30-day pass** instead of the **$149/mo** plan whose entitlements are byte-identical. | Charges the wrong amount. Worst case is a customer whose pass just expired: the server says "select a recurring plan" and the UI re-sells the expired pass at 2.66x the price of the right one. |
+| 2 | **The button re-enabled itself mid-redirect.** `return` inside `try` still runs `finally`, and `location.assign` does not stop execution — so `setBusy(false)` flipped the label back to idle while the cross-origin navigation was in flight. | Reads as a click that did not register. A second click creates a second payable Stripe session. |
+| 3 | **`TenantGate`'s 401 could pin the tab.** `requireTenant` answers 401 for retryable auth errors too, and `/login` redirects a still-valid session straight back — so `window.location.replace` turned a soft redirect cycle into an unthrottled document reload loop across all 42 workspace pages. | Takes the whole authenticated shell down. |
+
+**Fixed.** `upsellFor()` now scans the catalog for the cheapest **recurring monthly**
+plan whose entitlements actually include the feature, and returns `null` rather
+than falling back to a one-time SKU — no button beats the wrong price. Verified
+all ten resolve correctly: 149 / 149 / 149 / 149 / 299 / 299 / 299 / 499 / 999 / 999.
+Busy now clears only on failure paths. The plate states price and cadence, says
+billing needs an owner or admin, pins the redirect to a `stripe.com` host, and
+announces errors with `role="status"`. `TenantGate` bounces once then explains,
+and no longer renders a `409 tenant_selection_required` body as if it were a
+tenant (which crashed the shell on `tenant.name`).
+
+### Also fixed: your advisory CTA was selling the wrong product
+
+`pricing/page.tsx` "Book a session" pointed at bare `/fusarium/launchpad/checkout`.
+`resolveOrder` falls back to the **$397 Launch Pass** when given no `item`, so that
+button opened a payment page for a completely different product. On `origin/main`
+it pointed at `/get-started`; the repoint came in with your uncommitted "one Stripe
+buy path" work. It now names `?item=fus_launchpad_advisory_30`.
+
+**Still bare `/checkout` and therefore Launch-Pass-by-default** — I left these because
+the fallback is defensible for a generic CTA, but you should confirm:
+`app/fusarium/launchpad/page.tsx:266` and `:534`, `pricing/page.tsx:311` (the AI
+credits card — its "Get started" lands on Launch Pass, not a credit pack),
+`trust/page.tsx:160`.
+
+## 3.4 Correction: my emerald fix does nothing in dark mode
+
+I reported "33 icons fixed" on the front door. **That is true in light mode only.**
+
+`components/ui/neuromorphic/neuromorphic-styles.css:72` repaints any svg whose
+class list lacks `text-white|green|red|yellow|blue|purple`:
+
+```css
+.neuromorphic-page.neuromorphic-dark svg:not([class*="text-white"]):not([class*="text-green"])… { color: #d1d5db; }
+```
+
+**`emerald` is missing from that allowlist**, and the rule out-specifies a Tailwind
+utility, so emerald icons render grey in dark mode — the default theme.
+
+This is **not a regression** — `text-primary` was overridden by the same rule, so
+those icons are grey today either way. It is an improvement that does not land.
+
+**I did not fix it, deliberately.** The one-token fix is adding `text-emerald` to
+that allowlist, but it is a shared stylesheet: `components/devices/mushroom1-details.tsx`
+(48 emerald usages), `app/science/page.tsx` (26) and `app/about/page.tsx` (19)
+would all change appearance in dark mode. That is outside Launchpad, and Morgan's
+rule is not to touch pages he did not ask for. **Your call, or Morgan's.**
+
+## 3.5 One more thing about your hero CTA (§0.1)
+
+`useSupabaseUser()` returns the **site-wide** Supabase user with no Launchpad
+entitlement check, so the hero now hides the purchase CTA from *every* signed-in
+mycosoft.com account — including someone with a NatureOS login who has never
+bought Launchpad. They see "Open workspace" and land on a gated page. There is
+also a hydration flash: the hook's `loading` state is ignored, so first paint
+always shows the anonymous CTA. Both are in the change I accidentally committed,
+so flagging rather than fixing.
+
+---
+
+## 3.6 Final verification results
+
+**Desktop sweep** — 50 routes, both themes, 100 page-loads. Issue count fell 21 → 7 → and the
+remainder were either fixed or proved to be tooling error (§3.1).
+
+**Mobile sweep** — 17 routes at 375x812: **16 of 17 clean.**
+
+One genuine mobile defect, now fixed (`6f8b1d1e`): `/app/launchpad/readiness/controls`
+measured **551px against a 375px viewport**, scrolling the whole page sideways. The cause was
+upstream in the shared `PageHeader` — its actions slot carried `shrink-0`, so a wide toolbar
+could never get narrower than its content. The parent already wrapped; it just had nothing it
+was allowed to shrink. **This affects every Launchpad page using `PageHeader` with actions**, so
+it is worth a look on the candidate slot.
+
+The remaining mobile line is `/app/launchpad/admin` at 22 chars, which is **dev-mode cold
+compilation, not the page**. A dedicated probe with a longer wait renders it in full.
+
+## 3.7 A real accessibility finding I did NOT fix — it is a design decision
+
+Measured on white, in light mode, with browser-resolved colour:
+
+| Colour | Ratio on white | Size used | WCAG AA needs |
+|---|---|---|---|
+| `text-emerald-600` | **3.65:1** | 10–14px | 4.5:1 |
+| `text-amber-600` | **3.2:1** | 10px | 4.5:1 |
+| `text-emerald-500` | **2.47:1** | 30px | 3:1 (large) |
+| `text-sky-500` | **2.71:1** | 30px | 3:1 (large) |
+
+`text-emerald-600 dark:text-emerald-400` is the **Launchpad accent convention**, used across the
+whole product and pre-dating my work — I standardised more usages onto it, I did not introduce
+it. On white it lands at 3.65:1, under AA for normal text, and the 10px labels on
+`/app/launchpad/resources` (72 nodes) are the worst of it at 3.2–3.65:1.
+
+**The fix is a one-token change** — `text-emerald-700` in light mode (~5.3:1), keeping
+`dark:text-emerald-400`. Visually near-identical, measurably compliant.
+
+**I deliberately did not sweep it.** It touches dozens of files across the whole product, it is a
+brand decision as much as an accessibility one, and doing it in the same change as a deploy —
+immediately after a review caught me shipping commercial bugs — is exactly the wrong moment.
+**Morgan's call.** I will do it as its own pass on request, with before/after measurements.
+
+Dark mode is clean throughout.
+
+---
+
 ## 4. What I need from you — I cannot do these
 
 ### 4.1 Decide on `force-dynamic` (blocking for deploy confidence)
