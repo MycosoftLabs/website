@@ -1,5 +1,8 @@
 import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
 import { LoginForm } from "./LoginForm"
+import { createClient } from '@/lib/supabase/server'
+import { LAUNCHPAD_WORKSPACE_PATH } from '@/lib/launchpad/paths'
 
 export const metadata: Metadata = {
   title: 'Sign In | Mycosoft',
@@ -45,6 +48,19 @@ export default async function LoginPage({
     "/dashboard"
   const device = typeof params.device === "string" ? params.device : null
   const normalizedRedirectTo = normalizeRedirectForDevice(redirectTo, device)
+  const safeNext =
+    normalizedRedirectTo.startsWith("/") &&
+    !normalizedRedirectTo.startsWith("//") &&
+    !normalizedRedirectTo.includes("://")
+      ? normalizedRedirectTo
+      : LAUNCHPAD_WORKSPACE_PATH
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    redirect(safeNext)
+  }
+
   const initialError =
     typeof params.error === "string" ? params.error : null
   const initialMessage =

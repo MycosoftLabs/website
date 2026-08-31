@@ -61,6 +61,7 @@ interface ActivateResult {
   alreadyClaimed: boolean
   email: string | null
   loggedIn: boolean
+  magicLinkSent: boolean
   redirectTo: string | null
   dashboardPath: string | null
   actionLink: string | null
@@ -237,6 +238,7 @@ function WelcomeBody() {
         alreadyClaimed: Boolean(d.alreadyClaimed),
         email: str(d.email),
         loggedIn: Boolean(d.loggedIn),
+        magicLinkSent: Boolean(d.magicLinkSent),
         redirectTo: safePath(d.redirectTo),
         dashboardPath: safePath(d.dashboardPath),
         actionLink:
@@ -481,12 +483,26 @@ function WelcomeBody() {
                         </div>
                         <p className="text-sm text-muted-foreground mb-6">
                           Your workspace is ready
-                          {activate.alreadyClaimed ? " and this purchase was already activated" : ""},
-                          but we could not sign you in automatically. Continue as{" "}
-                          <span className="font-medium text-foreground">
-                            {activate.email ?? status.email ?? "the email Stripe has"}
-                          </span>{" "}
-                          — signing in under any other address will not reach it.
+                          {activate.alreadyClaimed ? " and this purchase was already activated" : ""}.
+                          {activate.magicLinkSent ? (
+                            <>
+                              {" "}
+                              We emailed a sign-in link to{" "}
+                              <span className="font-medium text-foreground">
+                                {activate.email ?? status.email ?? "the email Stripe has"}
+                              </span>
+                              . Use that inbox — a different address cannot claim this purchase.
+                            </>
+                          ) : (
+                            <>
+                              {" "}
+                              We could not sign you in automatically. Continue as{" "}
+                              <span className="font-medium text-foreground">
+                                {activate.email ?? status.email ?? "the email Stripe has"}
+                              </span>{" "}
+                              — signing in under any other address will not reach it.
+                            </>
+                          )}
                         </p>
                         <GlassButton
                           href={

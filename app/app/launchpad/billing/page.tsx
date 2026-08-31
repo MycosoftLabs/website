@@ -48,6 +48,22 @@ export default function BillingPage() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  const openPortal = async () => {
+    setBusy('portal');
+    setErr(null);
+    try {
+      const r = await fetch('/api/fusarium/launchpad/billing/portal', { method: 'POST' });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setErr(d?.error || 'Billing portal is not available');
+        return;
+      }
+      if (d.url) window.location.href = d.url;
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const checkout = async (lookupKey: string) => {
     setBusy(lookupKey); setErr(null);
     try {
@@ -140,7 +156,14 @@ export default function BillingPage() {
           }
         />
       </div>
-      <p className="text-xs text-muted-foreground mb-8">{state?.derived.reason}</p>
+      <p className="text-xs text-muted-foreground mb-4">{state?.derived.reason}</p>
+      {state?.subscription?.plan_key && (
+        <div className="mb-8">
+          <GlassButton onClick={openPortal} disabled={!!busy}>
+            {busy === 'portal' ? 'Opening portal…' : 'Manage billing on Stripe'}
+          </GlassButton>
+        </div>
+      )}
 
       {err && (
         <Card tone="red" className="p-4 mb-5">
@@ -165,7 +188,7 @@ export default function BillingPage() {
               Guided activation + 30 days of Core. Never auto-renews — a recurring plan is a separate,
               explicit choice.
             </p>
-            <GlassButton onClick={() => checkout(pass.lookupKey)} disabled={!!busy} className="w-full">
+            <GlassButton onClick={() => checkout(pass.lookupKey)} disabled={!!busy} className="myco-glass-button--block">
               {busy === pass.lookupKey ? 'Opening checkout…' : 'Purchase pass'}
             </GlassButton>
           </div>
@@ -181,7 +204,7 @@ export default function BillingPage() {
               {PLAN_ENTITLEMENTS[p.planKey as PlanKey].aiCreditsMonthly} credits/mo ·{' '}
               {PLAN_ENTITLEMENTS[p.planKey as PlanKey].activeOpportunityWatches} watches
             </p>
-            <GlassButton onClick={() => checkout(p.lookupKey)} disabled={!!busy} className="w-full">
+            <GlassButton onClick={() => checkout(p.lookupKey)} disabled={!!busy} className="myco-glass-button--block">
               {busy === p.lookupKey ? 'Opening checkout…' : 'Select plan'}
             </GlassButton>
           </Card>

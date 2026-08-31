@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { requireTenant, ACTIVE_TENANT_COOKIE } from '@/lib/launchpad/tenant-context';
 import { TERMS_VERSION } from '@/lib/launchpad/constants';
+import { isLaunchpadOperatorEmail } from '@/lib/launchpad/operator';
 
 /**
  * GET  — resolve the caller's Launchpad context (or signal onboarding/selection).
@@ -19,6 +20,7 @@ export async function GET() {
     return NextResponse.json({
       state: 'needs_onboarding',
       user: { email: ctx.user.email },
+      isOperator: isLaunchpadOperatorEmail(ctx.user.email),
       acceptance: {
         termsVersion: TERMS_VERSION,
         accepted: false,
@@ -42,6 +44,7 @@ export async function GET() {
     tenant: { id: ctx.tenantId, name: ctx.tenantName, status: ctx.tenantStatus },
     role: ctx.role,
     user: { email: ctx.user.email },
+    isOperator: isLaunchpadOperatorEmail(ctx.user.email),
     acceptance: {
       termsVersion: TERMS_VERSION,
       accepted,

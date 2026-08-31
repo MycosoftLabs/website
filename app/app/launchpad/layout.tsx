@@ -18,6 +18,10 @@ export const metadata: Metadata = {
  * entire subtree 404s regardless of build. Middleware already requires a
  * signed-in user (AUTH_REQUIRED_PREFIXES); TenantGate resolves the tenant and
  * every BFF route independently re-derives it via requireTenant().
+ *
+ * `dynamic = 'force-dynamic'` is required for that contract: flags.ts is
+ * request-time env. Without it, Next can prerender this layout and a slot
+ * env flip does nothing until rebuild.
  */
 export default function LaunchpadAppLayout({ children }: { children: React.ReactNode }) {
   if (!isLaunchpadEnabled()) notFound();

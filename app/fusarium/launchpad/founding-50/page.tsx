@@ -8,5 +8,5 @@ import { redirect } from 'next/navigation'
  * correct; nothing should point here.
  */
 export default function LegacyFounding50Redirect() {
-  redirect('/fusarium/launchpad/get-started')
+  redirect('/fusarium/launchpad/checkout')
 }

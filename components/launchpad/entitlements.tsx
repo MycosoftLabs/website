@@ -54,18 +54,33 @@ export function minPlanFor(key: FeatureKey): { planKey: PlanKey; label: string }
   return null;
 }
 
-/** The recurring SKU that unlocks a plan, read from the catalog rather than a
- *  second hardcoded list — a drifting copy here would send a buyer to Stripe
- *  for the wrong thing. Monthly on purpose: it is the smallest commitment that
- *  removes the block, and annual is one click further on the billing page. */
-export function monthlyLookupKeyFor(planKey: PlanKey): string | null {
-  const monthly = CATALOG.find(
-    (p) => p.planKey === planKey && p.kind === 'plan' && p.billing === 'month',
-  );
-  if (monthly) return monthly.lookupKey;
-  const pass = CATALOG.find((p) => p.planKey === planKey);
-  return pass ? pass.lookupKey : null;
+/** The cheapest RECURRING plan that actually unlocks a feature, with its price.
+ *
+ *  Deliberately not "the first plan in PLAN_ORDER". That order starts with
+ *  launch_pass_30d, whose entitlements are byte-identical to core — so keying
+ *  the upsell off it offered a $397 one-time 30-day pass in place of the
+ *  $149/mo plan that unlocks exactly the same features. Worst case was a
+ *  customer whose pass had just expired being sold the same pass again, at
+ *  2.66x the price of the recurring plan the server had just told them to pick.
+ *
+ *  Scanning the catalog by entitlement keeps this correct on its own as plans
+ *  change, and returning null rather than falling back to a one-time SKU means
+ *  we show no button instead of the wrong price. */
+export function upsellFor(
+  key: FeatureKey,
+): { lookupKey: string; label: string; unitAmount: number } | null {
+  let best: { lookupKey: string; label: string; unitAmount: number } | null = null;
+  for (const p of CATALOG) {
+    if (p.kind !== 'plan' || p.billing !== 'month' || !p.planKey) continue;
+    if (!hasFeature(PLAN_ENTITLEMENTS[p.planKey], key)) continue;
+    if (!best || p.unitAmount < best.unitAmount) {
+      best = { lookupKey: p.lookupKey, label: PLAN_LABEL[p.planKey], unitAmount: p.unitAmount };
+    }
+  }
+  return best;
 }
+
+const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US')}`;
 
 // ---------------------------------------------------------------------------
 // Context
@@ -129,36 +144,52 @@ export function FeatureGate({ feature, children }: { feature: FeatureKey; childr
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const min = minPlanFor(feature);
-  const lookupKey = min ? monthlyLookupKeyFor(min.planKey) : null;
+  const upsell = upsellFor(feature);
 
   // Hooks must run on every render, so the entitled early-return sits below them.
   if (s.loading || hasFeature(s.entitlements, feature)) return <>{children}</>;
 
-  // Sends the buyer to Stripe for the exact plan that unlocks THIS panel. The
-  // plate used to offer only a link to the pricing table, which made the person
-  // who had already found the thing they wanted go and look for it again.
+  // Sends the buyer to Stripe for the plan that unlocks THIS panel. The plate
+  // used to offer only a link to the pricing table, which made the person who
+  // had already found the thing they wanted go and look for it again.
   async function upgrade() {
-    if (!lookupKey) return;
+    if (!upsell) return;
     setBusy(true);
     setErr(null);
     try {
       const r = await fetch('/api/fusarium/launchpad/billing/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lookupKey }),
+        body: JSON.stringify({ lookupKey: upsell.lookupKey }),
       });
       const d = await r.json().catch(() => ({}));
-      if (r.ok && typeof d?.url === 'string' && d.url.startsWith('https://')) {
-        window.location.assign(d.url);
+      let target: URL | null = null;
+      try {
+        target = d?.url ? new URL(String(d.url)) : null;
+      } catch {
+        target = null;
+      }
+      // Pin the destination to Stripe. Nothing user-supplied reaches this value
+      // today, but an open redirect is a cheap thing to close and an expensive
+      // one to discover later.
+      const toStripe =
+        target !== null &&
+        target.protocol === 'https:' &&
+        (target.hostname === 'checkout.stripe.com' || target.hostname.endsWith('.stripe.com'));
+
+      if (r.ok && toStripe && target) {
+        // Deliberately NOT clearing busy here. `return` inside `try` still runs
+        // `finally`, and location.assign does not stop execution — so clearing
+        // it flipped the button back to its idle label while the redirect was
+        // still in flight. That reads as a click that did not register, and a
+        // second click creates a second payable Stripe session.
+        window.location.assign(target.toString());
         return;
       }
-      // Say what actually happened. The billing page still works, so the sale is
-      // not lost — but claiming success here would be a lie.
       setErr(d?.error || 'Could not start the upgrade. Compare plans below.');
+      setBusy(false);
     } catch {
       setErr('Network error — could not reach billing.');
-    } finally {
       setBusy(false);
     }
   }
@@ -170,26 +201,39 @@ export function FeatureGate({ feature, children }: { feature: FeatureKey; childr
       </div>
       <p className="text-sm font-semibold">Not included in your current plan</p>
       <p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto leading-relaxed">
-        {min ? <>This capability is included in <span className="font-medium text-foreground">{min.label}</span> and above.</>
-             : 'This capability requires a plan upgrade.'}
+        {upsell ? <>This capability is included in <span className="font-medium text-foreground">{upsell.label}</span> and above.</>
+                : 'This capability requires a plan upgrade.'}
         {' '}Your existing data is untouched — upgrading re-enables it in place.
       </p>
 
-      {min && lookupKey && (
+      {upsell && (
         <div className="mt-4 flex justify-center">
+          {/* Price and cadence on the control itself. The pricing page treats
+              that disclosure as load-bearing, and a button that starts a real
+              charge should not say less than the page selling the same plan. */}
           <GlassButton onClick={upgrade} disabled={busy}>
             {busy ? (
               <>
                 <Loader2 className="h-4 w-4 text-current mr-2 animate-spin" /> Opening secure checkout…
               </>
             ) : (
-              <>Upgrade to {min.label}</>
+              <>Upgrade to {upsell.label} — {usd(upsell.unitAmount)}/mo</>
             )}
           </GlassButton>
         </div>
       )}
 
-      {err && <p className="text-xs text-destructive mt-3">{err}</p>}
+      {/* Only workspace owners and admins can complete a purchase; the checkout
+          route enforces it. Saying so up front beats a 403 after the spinner. */}
+      <p className="text-[11px] text-muted-foreground mt-2">
+        A workspace owner or admin has to approve billing changes.
+      </p>
+
+      {err && (
+        <p role="status" aria-live="polite" className="text-xs text-destructive mt-3">
+          {err}
+        </p>
+      )}
 
       <Link href="/app/launchpad/billing"
         className="inline-block mt-3 text-xs font-medium text-emerald-600 dark:text-emerald-400 underline underline-offset-2">

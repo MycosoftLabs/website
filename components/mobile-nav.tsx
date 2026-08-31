@@ -122,6 +122,13 @@ export function MobileNav() {
   const [mounted, setMounted] = useState(false)
   const { user, signOut } = useAuth()
   const { hasAccess: isCompanyUser } = useGateAccess(AccessGate.COMPANY)
+  const visibleDefenseItems = [
+    defenseItems[0],
+    user
+      ? { title: "Launchpad workspace", href: "/app/launchpad/dashboard", icon: Rocket }
+      : { title: "Launchpad", href: "/fusarium/launchpad", icon: Rocket },
+    ...defenseItems.slice(2),
+  ]
   
   // Track which sections are expanded
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
@@ -235,7 +242,7 @@ export function MobileNav() {
                   title="Defense"
                   href="/defense"
                   icon={Shield}
-                  items={defenseItems}
+                  items={visibleDefenseItems}
                   closeMenu={closeMenuAfterNavigation}
                   isOpen={expandedSections.defense || false}
                   onToggle={() => toggleSection("defense")}

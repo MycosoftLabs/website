@@ -7,8 +7,8 @@
  * Flipping this env on the active slot enables/disables the entire
  * authenticated app and every BFF route on the next request — no rebuild.
  *
- * NEXT_PUBLIC_LAUNCHPAD_WAITLIST_MODE only changes marketing CTA copy
- * (waitlist vs. buy) and is rebuild-acceptable.
+ * NEXT_PUBLIC_LAUNCHPAD_WAITLIST_MODE only changes leftover waitlist copy.
+ * Buy CTAs go to Stripe checkout. Rebuild-acceptable.
  */
 
 function envFlagOn(name: string): boolean {
@@ -30,10 +30,8 @@ export function isLaunchpadPublicCheckoutEnabled(): boolean {
   return envFlagOn('LAUNCHPAD_PUBLIC_CHECKOUT_ENABLED');
 }
 
-/** When true, marketing CTAs collect waitlist interest instead of starting checkout. */
+/** When true, leftover waitlist copy can still render. Buy CTAs go to Stripe checkout. */
 export function isWaitlistMode(): boolean {
-  const v = process.env.NEXT_PUBLIC_LAUNCHPAD_WAITLIST_MODE;
-  // Default to waitlist until Morgan flips it: the safe direction for a
-  // product whose legal terms have not yet cleared counsel.
-  return v !== '0' && v !== 'false';
+  // Fail open to checkout. Waitlist is no longer the buy funnel.
+  return envFlagOn('NEXT_PUBLIC_LAUNCHPAD_WAITLIST_MODE');
 }

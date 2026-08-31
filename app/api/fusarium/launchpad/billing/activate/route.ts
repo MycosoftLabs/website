@@ -112,6 +112,36 @@ export async function POST(request: NextRequest) {
 
   const origin = request.nextUrl.origin;
   const created = shouldAutoLoginAfterPurchase(provisioned);
+  const sessionClient = await createClient();
+  const {
+    data: { user: currentUser },
+  } = await sessionClient.auth.getUser();
+  const currentEmail = normalizeCheckoutEmail(currentUser?.email || '');
+  const alreadySignedInAsBuyer =
+    Boolean(currentEmail && provisioned.email && currentEmail === provisioned.email);
+
+  if (alreadySignedInAsBuyer && provisioned.tenantId) {
+    (await cookies()).set(ACTIVE_TENANT_COOKIE, provisioned.tenantId, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30,
+    });
+    return NextResponse.json({
+      ok: true,
+      provisioned: true,
+      alreadyClaimed: Boolean(provisioned.alreadyClaimed),
+      created,
+      tenantId: provisioned.tenantId,
+      email: provisioned.email,
+      loggedIn: true,
+      magicLinkSent: false,
+      nextStep: 'onboarding',
+      redirectTo: ONBOARDING,
+      dashboardPath: DASHBOARD,
+    });
+  }
 
   if (!created) {
     await svc.auth.signInWithOtp({
@@ -129,10 +159,11 @@ export async function POST(request: NextRequest) {
       tenantId: provisioned.tenantId,
       email: provisioned.email,
       loggedIn: false,
+      magicLinkSent: true,
       nextStep: 'onboarding',
       redirectTo: `/login?redirectTo=${encodeURIComponent(ONBOARDING)}`,
       dashboardPath: DASHBOARD,
-      note: 'This email already has an account. Sign in to claim the purchase.',
+      note: 'This email already has an account. We emailed a sign-in link.',
     });
   }
 
@@ -151,6 +182,7 @@ export async function POST(request: NextRequest) {
         tenantId: provisioned.tenantId,
         email: provisioned.email,
         loggedIn: false,
+        magicLinkSent: false,
         nextStep: 'onboarding',
         redirectTo: ONBOARDING,
         dashboardPath: DASHBOARD,
@@ -161,7 +193,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const sessionClient = await createClient();
   const { error: otpError } = await sessionClient.auth.verifyOtp({
     type: 'email',
     token_hash: link.properties.hashed_token,
@@ -185,6 +216,7 @@ export async function POST(request: NextRequest) {
     tenantId: provisioned.tenantId,
     email: provisioned.email,
     loggedIn: !otpError,
+    magicLinkSent: false,
     nextStep: 'onboarding',
     redirectTo: otpError ? `/login?redirectTo=${encodeURIComponent(ONBOARDING)}` : ONBOARDING,
     dashboardPath: DASHBOARD,
