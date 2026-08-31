@@ -11,6 +11,7 @@ import {
   markPendingPurchasePaid,
   normalizeCheckoutEmail,
 } from '@/lib/launchpad/billing/public-checkout';
+import { provisionPaidPublicPurchase } from '@/lib/launchpad/billing/provision';
 
 /**
  * Launchpad's OWN Stripe webhook — deliberately separate from the legacy
@@ -109,12 +110,30 @@ export async function POST(request: NextRequest) {
             billing: product.billing,
             kind: product.kind,
             company: session.metadata?.lp_company ?? null,
+            contactName: session.metadata?.lp_contact_name ?? null,
+            jobTitle: session.metadata?.lp_job_title ?? null,
+            companySize: session.metadata?.lp_company_size ?? null,
+            applyReason: session.metadata?.lp_apply_reason ?? null,
+          });
+          const provisioned = await provisionPaidPublicPurchase(svc, {
+            stripeSessionId: session.id,
+            eventId: event.id,
+            email: stripeEmail,
+            lookupKey: product.lookupKey,
+            company: session.metadata?.lp_company ?? null,
+            contactName: session.metadata?.lp_contact_name ?? null,
+            customerId,
+            subscriptionId,
           });
           outcome = svcOutcome({
             handled: true,
             pending: true,
+            provisioned: provisioned.ok,
+            tenantId: provisioned.tenantId ?? null,
             kind: product.kind,
-            note: 'No tenant yet. Buyer claims by verified auth email.',
+            note: provisioned.ok
+              ? 'Workspace provisioned. Buyer activates login via session_id on welcome.'
+              : provisioned.error || 'Paid. Activate/claim can provision later.',
           });
           break;
         }
