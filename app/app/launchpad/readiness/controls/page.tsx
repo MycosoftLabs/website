@@ -128,9 +128,15 @@ export default function ControlsRegisterPage() {
               onChange={setUnassessedOnly}
               label="Unassessed only"
             />
+            {/* Neither filter has a visible label — the magnifier icon and the
+                "All families" option are the only cues — so the name a sighted
+                user infers is carried by aria-label (WCAG 1.3.1 / 4.1.2). A
+                placeholder is not an accessible name. */}
             <div className="relative">
               <Search className="h-4 w-4 absolute left-2.5 top-2.5 text-muted-foreground" />
               <input
+                id="ctl-search"
+                aria-label="Search id or title, in the requirement register"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="Search id or title…"
@@ -138,6 +144,8 @@ export default function ControlsRegisterPage() {
               />
             </div>
             <select
+              id="ctl-family"
+              aria-label="Filter requirements by family"
               value={family}
               onChange={(e) => setFamily(e.target.value)}
               className="myco-glass-field px-3 py-2 rounded-lg border border-border text-sm"

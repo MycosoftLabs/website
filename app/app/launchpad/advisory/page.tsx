@@ -204,7 +204,7 @@ export default function AdvisoryPage() {
               <p className="text-xs text-muted-foreground leading-relaxed flex-1 mb-3">
                 {meta ? meta.blurb : ''}
               </p>
-              <GlassButton onClick={() => book(p.lookupKey)} disabled={booking !== null} className="w-full">
+              <GlassButton onClick={() => book(p.lookupKey)} disabled={booking !== null} className="myco-glass-button--block">
                 {booking === p.lookupKey ? 'Opening checkout…' : 'Book'}
               </GlassButton>
             </Card>
@@ -240,7 +240,11 @@ export default function AdvisoryPage() {
           description of the topic is all that is needed.
         </p>
         <form onSubmit={submitTopic} className="space-y-3">
+          {/* No visible label element in this layout, so the field carries its own
+              name — otherwise a screen reader announces a bare "edit text". */}
           <textarea
+            id="advisory-topic"
+            aria-label="Request a topic"
             className={FIELD}
             rows={3}
             maxLength={4000}

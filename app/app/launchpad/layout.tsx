@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import { isLaunchpadEnabled } from '@/lib/launchpad/flags';
 import TenantGate from '@/components/launchpad/TenantGate';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Launchpad Workspace | FUSARIUM | Mycosoft',
   description: 'FUSARIUM Launchpad tenant workspace — commercial, non-CUI.',

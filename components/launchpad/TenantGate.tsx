@@ -23,6 +23,7 @@ import {
   ListTodo, Crosshair, GraduationCap, FileCheck2, PenLine, Boxes, HardDrive, Library, Vault,
   Handshake, CalendarClock, Plug, ShieldAlert, Download, ClipboardList,
   Layers, FileSpreadsheet, FileSignature, Lightbulb, BookOpen, Map as MapIcon,
+  UserCog,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { COMMERCIAL_NON_CUI_BANNER } from '@/lib/launchpad/constants';
@@ -35,6 +36,7 @@ interface TenantInfo {
   tenant?: { id: string; name: string; status: string };
   role?: string;
   user?: { email: string };
+  isOperator?: boolean;
 }
 
 type NavItem = { label: string; href: string; icon: LucideIcon };
@@ -186,22 +188,29 @@ export default function TenantGate({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const pathname = usePathname();
   const isOnboarding = pathname?.startsWith('/app/launchpad/onboarding');
+  const isAdminPath = pathname?.startsWith('/app/launchpad/admin');
 
   const load = useCallback(async () => {
     try {
       const r = await fetch('/api/fusarium/launchpad/tenant', { cache: 'no-store' });
       if (r.status === 401) {
-        router.replace(`/login?redirectTo=${encodeURIComponent(pathname ?? '/app/launchpad/dashboard')}`);
+        window.location.replace(`/login?redirectTo=${encodeURIComponent(pathname ?? '/app/launchpad/dashboard')}`);
         return;
       }
       if (r.status === 404) { setErr('Launchpad is not enabled in this environment.'); return; }
       const d = await r.json();
       setInfo(d);
-      if (d.state === 'needs_onboarding' && !isOnboarding) router.replace('/app/launchpad/onboarding');
+      if (
+        d.state === 'needs_onboarding' &&
+        !isOnboarding &&
+        !(d.isOperator && isAdminPath)
+      ) {
+        router.replace('/app/launchpad/onboarding');
+      }
     } catch {
       setErr('Could not reach Launchpad.');
     }
-  }, [router, pathname, isOnboarding]);
+  }, [router, pathname, isOnboarding, isAdminPath]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setMobileOpen(false); }, [pathname]);
@@ -224,11 +233,20 @@ export default function TenantGate({ children }: { children: React.ReactNode }) 
     );
   }
   // Onboarding: render bare (its own centered layout), just under the boundary strip.
-  if (isOnboarding || info.state === 'needs_onboarding') {
+  if (isOnboarding || (info.state === 'needs_onboarding' && !(info.isOperator && isAdminPath))) {
     return (
       <div className="launchpad-glass-page min-h-dvh flex flex-col">
         <BoundaryStrip />
         <main className="flex-1">{info.state === 'needs_onboarding' && !isOnboarding ? null : children}</main>
+      </div>
+    );
+  }
+
+  if (info.state === 'needs_onboarding' && info.isOperator && isAdminPath) {
+    return (
+      <div className="launchpad-glass-page min-h-dvh flex flex-col">
+        <BoundaryStrip />
+        <main className="flex-1">{children}</main>
       </div>
     );
   }
@@ -261,7 +279,10 @@ export default function TenantGate({ children }: { children: React.ReactNode }) 
       </div>
 
       <div className="flex-1 overflow-y-auto py-3 px-3 space-y-4">
-        {NAV_GROUPS.map((g) => (
+        {(info.isOperator
+          ? [{ group: 'Operator', items: [{ label: 'Operator', href: '/app/launchpad/admin', icon: UserCog }] }, ...NAV_GROUPS]
+          : NAV_GROUPS
+        ).map((g) => (
           <div key={g.group}>
             <div className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">{g.group}</div>
             <div className="space-y-0.5">
@@ -345,7 +366,7 @@ function BoundaryStrip({ tenant, role }: { tenant?: { name: string }; role?: str
   return (
     <div className="bg-slate-950 text-center py-1.5 px-4 sticky top-0 z-[60]">
       <span className="text-[11px] tracking-widest font-semibold text-emerald-400">{COMMERCIAL_NON_CUI_BANNER}</span>
-      {tenant && <span className="text-[11px] text-slate-400 ml-3 hidden sm:inline">{tenant.name} · {role}</span>}
+      {tenant && <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-3 hidden sm:inline">{tenant.name} · {role}</span>}
     </div>
   );
 }

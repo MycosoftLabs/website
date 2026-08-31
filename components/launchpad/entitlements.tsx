@@ -16,7 +16,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Lock, Coins, Loader2 } from 'lucide-react';
-import { PLAN_ENTITLEMENTS, type Entitlements, type PlanKey } from '@/lib/launchpad/catalog';
+import { GlassButton } from '@/components/ui/glass-button';
+import { CATALOG, PLAN_ENTITLEMENTS, type Entitlements, type PlanKey } from '@/lib/launchpad/catalog';
 
 // ---------------------------------------------------------------------------
 // Feature keys — boolean features map straight onto Entitlements; count-based
@@ -51,6 +52,19 @@ export function minPlanFor(key: FeatureKey): { planKey: PlanKey; label: string }
     if (hasFeature(PLAN_ENTITLEMENTS[p], key)) return { planKey: p, label: PLAN_LABEL[p] };
   }
   return null;
+}
+
+/** The recurring SKU that unlocks a plan, read from the catalog rather than a
+ *  second hardcoded list — a drifting copy here would send a buyer to Stripe
+ *  for the wrong thing. Monthly on purpose: it is the smallest commitment that
+ *  removes the block, and annual is one click further on the billing page. */
+export function monthlyLookupKeyFor(planKey: PlanKey): string | null {
+  const monthly = CATALOG.find(
+    (p) => p.planKey === planKey && p.kind === 'plan' && p.billing === 'month',
+  );
+  if (monthly) return monthly.lookupKey;
+  const pass = CATALOG.find((p) => p.planKey === planKey);
+  return pass ? pass.lookupKey : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -112,8 +126,43 @@ export function useEntitlements(): BillingState {
 // ---------------------------------------------------------------------------
 export function FeatureGate({ feature, children }: { feature: FeatureKey; children: ReactNode }) {
   const s = useEntitlements();
-  if (s.loading || hasFeature(s.entitlements, feature)) return <>{children}</>;
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
   const min = minPlanFor(feature);
+  const lookupKey = min ? monthlyLookupKeyFor(min.planKey) : null;
+
+  // Hooks must run on every render, so the entitled early-return sits below them.
+  if (s.loading || hasFeature(s.entitlements, feature)) return <>{children}</>;
+
+  // Sends the buyer to Stripe for the exact plan that unlocks THIS panel. The
+  // plate used to offer only a link to the pricing table, which made the person
+  // who had already found the thing they wanted go and look for it again.
+  async function upgrade() {
+    if (!lookupKey) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const r = await fetch('/api/fusarium/launchpad/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lookupKey }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && typeof d?.url === 'string' && d.url.startsWith('https://')) {
+        window.location.assign(d.url);
+        return;
+      }
+      // Say what actually happened. The billing page still works, so the sale is
+      // not lost — but claiming success here would be a lie.
+      setErr(d?.error || 'Could not start the upgrade. Compare plans below.');
+    } catch {
+      setErr('Network error — could not reach billing.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="myco-glass-surface relative rounded-xl border border-border/70 p-8 text-center">
       <div className="myco-glass-tile h-11 w-11 mx-auto mb-3">
@@ -125,8 +174,25 @@ export function FeatureGate({ feature, children }: { feature: FeatureKey; childr
              : 'This capability requires a plan upgrade.'}
         {' '}Your existing data is untouched — upgrading re-enables it in place.
       </p>
+
+      {min && lookupKey && (
+        <div className="mt-4 flex justify-center">
+          <GlassButton onClick={upgrade} disabled={busy}>
+            {busy ? (
+              <>
+                <Loader2 className="h-4 w-4 text-current mr-2 animate-spin" /> Opening secure checkout…
+              </>
+            ) : (
+              <>Upgrade to {min.label}</>
+            )}
+          </GlassButton>
+        </div>
+      )}
+
+      {err && <p className="text-xs text-destructive mt-3">{err}</p>}
+
       <Link href="/app/launchpad/billing"
-        className="inline-block mt-4 text-xs font-medium text-emerald-600 dark:text-emerald-400 underline underline-offset-2">
+        className="inline-block mt-3 text-xs font-medium text-emerald-600 dark:text-emerald-400 underline underline-offset-2">
         Compare plans
       </Link>
     </div>
