@@ -114,7 +114,7 @@ export const LAUNCH_PASS_DAYS = 30;
 // Stripe product catalog (stripe_product_catalog.json, verbatim amounts in cents)
 // ---------------------------------------------------------------------------
 
-export type ProductKind = 'plan' | 'pass' | 'credits' | 'advisory';
+export type ProductKind = 'plan' | 'pass' | 'credits' | 'advisory' | 'envelope';
 
 export interface CatalogProduct {
   lookupKey: string;
@@ -163,6 +163,9 @@ export const CATALOG: CatalogProduct[] = [
     kind: 'advisory', billing: 'one_time', unitAmount: 32500, advisoryMinutes: 60 },
   { lookupKey: 'fus_launchpad_advisory_90', name: 'FUSARIUM Launchpad 90-Minute Working Session',
     kind: 'advisory', billing: 'one_time', unitAmount: 47500, advisoryMinutes: 90 },
+
+  { lookupKey: 'fus_launchpad_envelope_send', name: 'FUSARIUM Launchpad Hosted Envelope Send',
+    kind: 'envelope', billing: 'one_time', unitAmount: 1500 },
 ];
 
 const BY_LOOKUP = new Map(CATALOG.map((p) => [p.lookupKey, p]));

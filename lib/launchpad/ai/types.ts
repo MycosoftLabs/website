@@ -1,4 +1,4 @@
-export type AiProvider = 'anthropic' | 'openai' | 'perplexity' | 'xai' | 'cursor';
+export type AiProvider = 'anthropic' | 'openai' | 'perplexity' | 'xai' | 'cursor' | 'myca' | 'nemotron';
 export type AiConnectionMode = 'managed' | 'byo' | 'mcp';
 export type AiConnectionStatus = 'pending' | 'verified' | 'revoked' | 'failed';
 
@@ -8,6 +8,8 @@ export const AI_PROVIDERS: readonly AiProvider[] = [
   'perplexity',
   'xai',
   'cursor',
+  'myca',
+  'nemotron',
 ] as const;
 
 export const INFERENCE_PROVIDERS: readonly AiProvider[] = [
@@ -15,6 +17,8 @@ export const INFERENCE_PROVIDERS: readonly AiProvider[] = [
   'openai',
   'perplexity',
   'xai',
+  'myca',
+  'nemotron',
 ] as const;
 
 export function isAiProvider(v: string): v is AiProvider {

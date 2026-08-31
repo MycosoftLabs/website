@@ -57,8 +57,8 @@ export async function completeWithMas(
       text,
       provider: 'myca',
       model: typeof data.model === 'string' ? data.model : 'myca',
-      inputUnits: message.length,
-      outputUnits: text.length,
+      inputUnits: Math.max(1, Math.ceil(message.length / 4)),
+      outputUnits: Math.max(1, Math.ceil(text.length / 4)),
     };
   } catch (e) {
     return {

@@ -94,13 +94,35 @@ export default function PartnerMeshPage() {
   const [acting, setActing] = useState<string | null>(null);
   const [consentErr, setConsentErr] = useState<string | null>(null);
 
+  const [canInitiate, setCanInitiate] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteNote, setInviteNote] = useState<string | null>(null);
+  const [inviting, setInviting] = useState(false);
+  const [invites, setInvites] = useState<
+    Array<{
+      id: string;
+      from_tenant_id: string;
+      to_tenant_id: string | null;
+      to_email: string | null;
+      scopes: string[];
+      status: string;
+      created_at: string;
+    }>
+  >([]);
+
   const load = useCallback(async () => {
     try {
-      const r = await fetch('/api/fusarium/launchpad/partner-mesh', { cache: 'no-store' });
+      const [r, invRes] = await Promise.all([
+        fetch('/api/fusarium/launchpad/partner-mesh', { cache: 'no-store' }),
+        fetch('/api/fusarium/launchpad/partner-mesh/invites', { cache: 'no-store' }),
+      ]);
       const d = await r.json();
+      const inv = await invRes.json().catch(() => ({}));
       if (!r.ok) { setErr(d?.error || `HTTP ${r.status}`); return; }
       setErr(null);
+      setCanInitiate(Boolean(d.canInitiate || inv.canInitiate));
       setConsents(Array.isArray(d.consents) ? d.consents : []);
+      setInvites(Array.isArray(inv.invites) ? inv.invites : []);
       if (d.profile) {
         setDomains(Array.isArray(d.profile.domains) ? d.profile.domains : []);
         setDescription(typeof d.profile.description === 'string' ? d.profile.description : '');
@@ -171,6 +193,106 @@ export default function PartnerMeshPage() {
         description="An opt-in path to integrate your robotics, sensors, software, data, AI, or hardware into the FUSARIUM ecosystem. Everything here is off until you affirmatively turn it on."
         actions={<TierTag feature="partnerMesh" />}
       />
+
+      <Card className="p-5 mb-6">
+        <h2 className="text-base font-semibold mb-1">Workspace mesh invites</h2>
+        <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+          Partner Mesh Pro can invite another paid workspace. Any paid tenant (including Core) can accept.
+          Readiness, evidence, and billing stay private. Shared scopes are capability card, integration
+          contact, and optional joint opportunity watch — recorded on the consent ledger.
+        </p>
+        {canInitiate && (
+          <form
+            className="flex flex-col sm:flex-row gap-2 mb-4"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setInviting(true);
+              setInviteNote(null);
+              try {
+                const r = await fetch('/api/fusarium/launchpad/partner-mesh/invites', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: 'invite',
+                    email: inviteEmail,
+                    scopes: ['capability_profile', 'integration_contact', 'shared_opportunity_watch'],
+                  }),
+                });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { setInviteNote(d?.error || 'Invite failed'); return; }
+                setInviteEmail('');
+                setInviteNote('Invite sent.');
+                await load();
+              } catch { setInviteNote('Invite failed'); }
+              finally { setInviting(false); }
+            }}
+          >
+            <input
+              type="email"
+              className={FIELD}
+              required
+              placeholder="workspace email of the invitee"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+            />
+            <GlassButton type="submit" disabled={inviting || !inviteEmail.trim()}>
+              {inviting ? 'Sending…' : 'Invite workspace'}
+            </GlassButton>
+          </form>
+        )}
+        {!canInitiate && (
+          <p className="text-xs text-muted-foreground mb-3">
+            This plan can accept an invite. Initiating a mesh requires Partner Mesh Pro.
+          </p>
+        )}
+        {inviteNote && <p className="text-xs text-muted-foreground mb-3">{inviteNote}</p>}
+        {invites.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No mesh invites yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {invites.map((inv) => (
+              <li key={inv.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 px-3 py-2">
+                <StateBadge tone={inv.status === 'accepted' ? 'emerald' : inv.status === 'pending' ? 'amber' : 'slate'}>
+                  {inv.status}
+                </StateBadge>
+                <span className="text-xs text-muted-foreground">
+                  {inv.to_email || inv.to_tenant_id || 'workspace'} · {new Date(inv.created_at).toLocaleDateString()}
+                </span>
+                {inv.status === 'pending' && (
+                  <div className="ml-auto flex gap-2">
+                    <GlassButton
+                      onClick={async () => {
+                        const r = await fetch('/api/fusarium/launchpad/partner-mesh/invites', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ action: 'accept', inviteId: inv.id }),
+                        });
+                        const d = await r.json().catch(() => ({}));
+                        setInviteNote(r.ok ? 'Invite accepted.' : d?.error || 'Accept failed');
+                        await load();
+                      }}
+                    >
+                      Accept
+                    </GlassButton>
+                    <GlassButton
+                      onClick={async () => {
+                        await fetch('/api/fusarium/launchpad/partner-mesh/invites', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ action: 'decline', inviteId: inv.id }),
+                        });
+                        await load();
+                      }}
+                    >
+                      Decline
+                    </GlassButton>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <FeatureGate feature="partnerMesh">
         {/* Education-first intro */}

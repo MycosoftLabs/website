@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getProduct } from '@/lib/launchpad/catalog';
+import { saleBlockForProduct } from '@/lib/launchpad/billing/sale-gates';
 import { isLaunchpadPublicCheckoutEnabled } from '@/lib/launchpad/flags';
 import {
   lookupPublicCheckoutSession,
@@ -128,6 +129,10 @@ export async function POST(request: NextRequest) {
   const product = getProduct(typeof body.lookupKey === 'string' ? body.lookupKey : '');
   if (!product) {
     return NextResponse.json({ error: 'Unknown product', code: 'unknown_product' }, { status: 400 });
+  }
+  const blocked = saleBlockForProduct(product);
+  if (blocked) {
+    return NextResponse.json({ error: blocked.message, code: blocked.code }, { status: 503 });
   }
 
   const intake = parsePublicCheckoutIntake(body, { requireReason: false });

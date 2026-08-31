@@ -47,6 +47,8 @@ export interface RequireTenantOptions {
   write?: boolean;
   /** Allow a signed-in user with no tenant yet (onboarding + tenant creation). */
   allowNoTenant?: boolean;
+  /** Pause expensive AI during grace / read_export (copy already says AI is paused). */
+  ai?: boolean;
   /**
    * Allow session routes when the workspace flag is off IF public checkout is
    * on — paid buyers must still onboard/claim. Does not open the rest of the app.
@@ -150,6 +152,15 @@ export async function requireTenant(
         403,
         'read_export_mode',
         'This workspace is in read/export mode — new changes are disabled until billing is resolved. Your data remains exportable.',
+      ),
+    };
+  }
+  if (opts.ai && (tenant.status === 'grace' || tenant.status === 'read_export')) {
+    return {
+      error: err(
+        403,
+        'ai_paused',
+        'AI is paused while billing is in grace or read/export. Resolve billing, then buy credits if the balance is 0.',
       ),
     };
   }

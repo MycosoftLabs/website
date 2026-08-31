@@ -14,8 +14,13 @@ import {
   AUTHORIZED_OFFICIAL_REPRESENTATIONS,
   createAndSendEnvelope,
   docusignConfigStatus,
+  resolveSendContext,
   type DocuSignSigner,
 } from '@/lib/launchpad/signatures/docusign';
+import {
+  consumeEnvelopeSendCredit,
+  unredeemedEnvelopeCredits,
+} from '@/lib/launchpad/billing/envelope-credits';
 import { LINKS_BY_SURFACE } from '@/lib/launchpad/official-links';
 
 export const dynamic = 'force-dynamic';
@@ -83,9 +88,11 @@ export async function GET(request: NextRequest) {
     .select('id, status, docusign_account_id, token_last4, expires_at')
     .eq('tenant_id', ctx.tenantId)
     .maybeSingle();
+  const envelopeCredits = await unredeemedEnvelopeCredits(ctx.supabase, ctx.tenantId);
   return NextResponse.json({
     envelopes,
     unsignedAging,
+    envelopeCredits,
     connection: connection
       ? {
           connected: connection.status === 'active',
@@ -143,6 +150,18 @@ export async function POST(request: NextRequest) {
 
   let sent;
   try {
+    const sendCtx = await resolveSendContext(ctx.tenantId);
+    if (sendCtx.ok === false) {
+      return jsonError(503, sendCtx.code, sendCtx.error, { docusign: docusignConfigStatus() });
+    }
+    if (sendCtx.mode === 'platform_jwt') {
+      const credit = await consumeEnvelopeSendCredit(createLaunchpadServiceClient(), ctx.tenantId);
+      if (!credit.ok) {
+        return jsonError(402, credit.code, credit.error, {
+          sku: 'fus_launchpad_envelope_send',
+        });
+      }
+    }
     sent = await createAndSendEnvelope({
       tenantId: ctx.tenantId,
       title: doc.title,

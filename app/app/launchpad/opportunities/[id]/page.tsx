@@ -46,8 +46,14 @@ interface Amendment { id: string; amendment_no: number; detected_at: string }
 interface Match { id: string; fit_score: number | null; status: string; disqualifiers: unknown }
 
 const SOURCE_LABEL: Record<string, string> = {
-  sam: 'SAM.gov', dsip: 'DSIP', grants_gov: 'Grants.gov', diu: 'DIU',
-  darpa: 'DARPA', nspires: 'NSPIRES', nsf: 'NSF', other: 'Other',
+  sam: 'SAM.gov',
+  dsip: 'SBIR.gov (DSIP-class public topics — not a DSIP login)',
+  grants_gov: 'Grants.gov',
+  diu: 'DIU',
+  darpa: 'DARPA',
+  nspires: 'NSPIRES',
+  nsf: 'NSF',
+  other: 'Other',
 };
 const MATCH_TONE: Record<string, Tone> = {
   matched: 'sky', review: 'sky', qualified: 'emerald', watch: 'sky', bid: 'emerald',
@@ -56,6 +62,12 @@ const MATCH_TONE: Record<string, Tone> = {
 
 function fmt(iso: string | null | undefined): string {
   return iso ? new Date(iso).toLocaleString() : '—';
+}
+
+function fitPercent(score: number | null | undefined): string {
+  if (score == null) return '—';
+  const pct = score <= 1 ? score * 100 : score;
+  return `${pct.toFixed(0)}%`;
 }
 
 export default function OpportunityDetailPage() {
@@ -69,6 +81,9 @@ export default function OpportunityDetailPage() {
   const [sourceNote, setSourceNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [enriching, setEnriching] = useState(false);
+  const [enrichNote, setEnrichNote] = useState<string | null>(null);
+  const [enrichSummary, setEnrichSummary] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -307,9 +322,9 @@ export default function OpportunityDetailPage() {
               <div className="pl-1.5 space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl font-bold tabular-nums">
-                    {match.fit_score != null ? Number(match.fit_score).toFixed(0) : '—'}
+                    {fitPercent(match.fit_score)}
                   </span>
-                  <span className="text-[11px] text-muted-foreground">fit score</span>
+                  <span className="text-[11px] text-muted-foreground">fit</span>
                   <span className="ml-auto"><StateBadge tone={MATCH_TONE[match.status] ?? 'slate'}>{match.status.replace(/_/g, ' ')}</StateBadge></span>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
@@ -329,6 +344,48 @@ export default function OpportunityDetailPage() {
                 opportunity. {sourceNote ?? ''} No mock scores are shown.
               </div>
             )}
+            <div className="pl-1.5 mt-3 space-y-2">
+              <GlassButton
+                disabled={enriching || !opp.official_url}
+                onClick={async () => {
+                  setEnriching(true);
+                  setEnrichNote(null);
+                  try {
+                    const r = await fetch('/api/fusarium/launchpad/radar/enrich', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        opportunityId: opp.id,
+                        title: opp.title,
+                        agency: opp.agency,
+                        officialUrl: opp.official_url,
+                      }),
+                    });
+                    const d = await r.json().catch(() => ({}));
+                    if (!r.ok) {
+                      setEnrichNote(d?.error || `HTTP ${r.status}`);
+                      return;
+                    }
+                    setEnrichSummary(typeof d.summary === 'string' ? d.summary : null);
+                    setEnrichNote(
+                      d.cached
+                        ? 'Cached public summary — no credits charged.'
+                        : `Charged ${d.creditsCharged ?? 0} credits. Not a win-probability claim.`,
+                    );
+                  } catch {
+                    setEnrichNote('Enrichment failed');
+                  } finally {
+                    setEnriching(false);
+                  }
+                }}
+              >
+                {enriching ? 'Enriching…' : 'Enrich public notice (uses credits)'}
+              </GlassButton>
+              {enrichNote && <p className="text-[11px] text-muted-foreground">{enrichNote}</p>}
+              {enrichSummary && (
+                <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">{enrichSummary}</p>
+              )}
+            </div>
           </Card>
 
           {/* Next step */}

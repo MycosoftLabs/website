@@ -1,0 +1,12 @@
+[Unit]
+Description=Mycosoft Launchpad official collectors (SAM + SBIR.gov + Grants.gov)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/mycosoft/website
+EnvironmentFile=-/opt/mycosoft/website/.env
+ExecStart=/usr/bin/curl -sS -X POST -H "Authorization: Bearer ${LAUNCHPAD_INGEST_BEARER}" -H "Content-Type: application/json" --data "{}" https://mycosoft.com/api/fusarium/launchpad/radar/collect
+User=mycosoft
+Group=mycosoft

@@ -6,6 +6,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getProduct, LAUNCH_PASS_DAYS, PLAN_ENTITLEMENTS, type CatalogProduct, type PlanKey } from '@/lib/launchpad/catalog';
+import { grantEnvelopeSendCredit } from '@/lib/launchpad/billing/envelope-credits';
 
 export interface GrantInput {
   tenantId: string;
@@ -70,6 +71,15 @@ export async function grantCatalogProductToTenant(
     return { granted: 'advisory_credit', minutes: product.advisoryMinutes, sku: lookupKey };
   }
 
+  if (product.kind === 'envelope') {
+    const envGrant = await grantEnvelopeSendCredit(svc, {
+      tenantId,
+      sku: lookupKey,
+      eventId,
+    });
+    return envGrant;
+  }
+
   if (product.kind === 'plan' && product.planKey) {
     await svc.from('launchpad_subscriptions').upsert(
       {
@@ -86,7 +96,27 @@ export async function grantCatalogProductToTenant(
       .from('launchpad_tenants')
       .update({ status: 'active', updated_at: new Date().toISOString() })
       .eq('id', tenantId);
-    return { granted: 'plan', plan: product.planKey };
+    const monthly = monthlyCreditsForPlanKey(product.planKey);
+    let dayOneCredits = 0;
+    if (monthly != null) {
+      const already = await svc
+        .from('launchpad_credit_ledger')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('reason', 'plan_checkout_grant')
+        .filter('ref->>event', 'eq', eventId)
+        .maybeSingle();
+      if (!already.data) {
+        await svc.from('launchpad_credit_ledger').insert({
+          tenant_id: tenantId,
+          delta: monthly,
+          reason: 'plan_checkout_grant',
+          ref: { event: eventId, lookupKey },
+        });
+        dayOneCredits = monthly;
+      }
+    }
+    return { granted: 'plan', plan: product.planKey, credits: dayOneCredits };
   }
 
   return { granted: false, note: `no grant path for kind=${product.kind}` };

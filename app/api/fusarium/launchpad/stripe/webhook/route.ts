@@ -247,13 +247,24 @@ export async function POST(request: NextRequest) {
           });
           break;
         }
+        const { data: alreadyGranted } = await svc
+          .from('launchpad_credit_ledger')
+          .select('id')
+          .eq('tenant_id', subRow.tenant_id)
+          .eq('reason', 'monthly_grant')
+          .filter('ref->>invoice', 'eq', invoice.id)
+          .maybeSingle();
+        if (alreadyGranted) {
+          outcome = svcOutcome({ handled: true, credits: 0, replay: true, invoice: invoice.id });
+          break;
+        }
         await svc.from('launchpad_credit_ledger').insert({
           tenant_id: subRow.tenant_id,
           delta: monthly,
           reason: 'monthly_grant',
           ref: { event: event.id, invoice: invoice.id },
         });
-        outcome = svcOutcome({ handled: true, credits: monthly });
+        outcome = svcOutcome({ handled: true, credits: monthly, invoice: invoice.id });
         break;
       }
 

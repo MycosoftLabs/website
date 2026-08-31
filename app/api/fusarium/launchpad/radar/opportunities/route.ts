@@ -29,6 +29,17 @@ export async function GET(request: NextRequest) {
           status: 'sam_not_configured' as const,
           message: 'SAM not configured / no federal source connected',
         },
+    sbir: {
+      configured: true as const,
+      status: 'connected' as const,
+      message:
+        'DoW SBIR/STTR from the official SBIR.gov API (same public topics posted on DSIP). Not a DSIP login.',
+    },
+    grants_gov: {
+      configured: true as const,
+      status: 'connected' as const,
+      message: 'Grants.gov official Search2 API (keyless).',
+    },
   };
 
   return NextResponse.json({

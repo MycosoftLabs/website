@@ -37,7 +37,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const gate = await requireTenant({ write: true });
+  const gate = await requireTenant({ write: true, ai: true });
   if (gate.error) return gate.error;
   const { ctx } = gate;
   const parsed = await readJson<{

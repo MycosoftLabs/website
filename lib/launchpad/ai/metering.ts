@@ -82,7 +82,7 @@ export async function insertCostLedger(
   const { error } = await svc.from('launchpad_ai_cost_ledger').insert({
     tenant_id: tenantId,
     user_id: userId,
-    task: input.taskId,
+    task: input.taskId?.trim() || 'unattributed',
     provider: input.provider,
     model: input.model,
     provider_price_version: input.providerPriceVersion,

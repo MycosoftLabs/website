@@ -490,6 +490,26 @@ jobs:
             ./scripts/sanitize-production-env.sh .env
           SANITIZE
 
+      - name: Fail-closed Launchpad billing ready
+        run: |
+          ssh-retry production bash -s <<'BILLINGREADY'
+            set -euo pipefail
+            cd /opt/mycosoft/website
+            # Boolean-only: never print secret values.
+            enabled="$(grep -E '^LAUNCHPAD_ENABLED=(1|true)$' .env || true)"
+            webhook="$(grep -E '^STRIPE_LAUNCHPAD_WEBHOOK_SECRET=.+' .env || true)"
+            stripe="$(grep -E '^STRIPE_SECRET_KEY=.+' .env || true)"
+            if [ -n "$enabled" ]; then
+              if [ -z "$webhook" ] || [ -z "$stripe" ]; then
+                echo "::error::LAUNCHPAD_ENABLED is on but Launchpad Stripe webhook secret or Stripe secret is absent. Deploy aborted."
+                exit 1
+              fi
+              echo "Launchpad billing ready: webhook secret present (value not printed)"
+            else
+              echo "LAUNCHPAD_ENABLED is off — billing ready check skipped"
+            fi
+          BILLINGREADY
+
       # Apr 23, 2026 — Morgan: "you need to prevent data from building up
       # in sandbox for builds that will kill resources especially in fixes
       # and deployments this needs to be cleaned autonomously when
