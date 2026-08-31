@@ -116,7 +116,7 @@ export default function OpportunityDetailPage() {
         <p className="text-sm text-muted-foreground max-w-md mx-auto mb-5">
           {err ?? (collectorsLive
             ? 'This record is not in the central opportunity table.'
-            : 'No opportunity sources are connected yet — the SAM.gov, DSIP, and Grants.gov collectors are in implementation, and this page never shows sample data as if it were live.')}
+            : 'No opportunity source is connected yet — the SAM.gov collector is built and waiting on an API key; DSIP and Grants.gov are not built. This page never shows sample data as if it were live.')}
         </p>
         <GlassButton href="/app/launchpad/opportunities">
           <ArrowLeft className="h-4 w-4 text-current mr-2" /> Back to Contract Radar

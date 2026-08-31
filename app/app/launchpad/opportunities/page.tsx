@@ -131,7 +131,7 @@ export default function OpportunitiesPage() {
         {sam ? (
           sam.configured ? (
             <StatTile label="Sources configured" value={1} tone="emerald"
-              sub="SAM.gov connected · DSIP and Grants.gov collectors in implementation" />
+              sub="SAM.gov collector ready · DSIP and Grants.gov not built" />
           ) : (
             <StatTile label="Sources configured" value={0} tone="amber"
               sub={sam.message ?? 'SAM not configured / no federal source connected'} />
@@ -143,10 +143,14 @@ export default function OpportunitiesPage() {
 
       {!live ? (
         <div className="rounded-lg border border-border/60 bg-muted/20 p-8 text-center text-sm text-muted-foreground">
-          <p className="font-medium text-foreground mb-1">No opportunity sources are connected yet.</p>
+          <p className="font-medium text-foreground mb-1">No opportunity source is connected yet.</p>
           <p>
-            The SAM.gov, DSIP, and Grants.gov collectors are in implementation. When they come online,
-            matches appear here automatically — this page will never show sample data as if it were live.
+            The SAM.gov collector is built and waiting on an API key — once one is set, notices are
+            pulled nightly and matches appear here on their own. DSIP and Grants.gov are not built yet.
+          </p>
+          <p className="mt-2">
+            Nothing is shown until a real source returns real notices. This page never displays sample
+            awards as if they were live.
           </p>
         </div>
       ) : (
