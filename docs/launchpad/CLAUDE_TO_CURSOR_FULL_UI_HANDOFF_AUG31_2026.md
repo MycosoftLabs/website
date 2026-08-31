@@ -260,6 +260,51 @@ so flagging rather than fixing.
 
 ---
 
+## 3.6 Final verification results
+
+**Desktop sweep** — 50 routes, both themes, 100 page-loads. Issue count fell 21 → 7 → and the
+remainder were either fixed or proved to be tooling error (§3.1).
+
+**Mobile sweep** — 17 routes at 375x812: **16 of 17 clean.**
+
+One genuine mobile defect, now fixed (`6f8b1d1e`): `/app/launchpad/readiness/controls`
+measured **551px against a 375px viewport**, scrolling the whole page sideways. The cause was
+upstream in the shared `PageHeader` — its actions slot carried `shrink-0`, so a wide toolbar
+could never get narrower than its content. The parent already wrapped; it just had nothing it
+was allowed to shrink. **This affects every Launchpad page using `PageHeader` with actions**, so
+it is worth a look on the candidate slot.
+
+The remaining mobile line is `/app/launchpad/admin` at 22 chars, which is **dev-mode cold
+compilation, not the page**. A dedicated probe with a longer wait renders it in full.
+
+## 3.7 A real accessibility finding I did NOT fix — it is a design decision
+
+Measured on white, in light mode, with browser-resolved colour:
+
+| Colour | Ratio on white | Size used | WCAG AA needs |
+|---|---|---|---|
+| `text-emerald-600` | **3.65:1** | 10–14px | 4.5:1 |
+| `text-amber-600` | **3.2:1** | 10px | 4.5:1 |
+| `text-emerald-500` | **2.47:1** | 30px | 3:1 (large) |
+| `text-sky-500` | **2.71:1** | 30px | 3:1 (large) |
+
+`text-emerald-600 dark:text-emerald-400` is the **Launchpad accent convention**, used across the
+whole product and pre-dating my work — I standardised more usages onto it, I did not introduce
+it. On white it lands at 3.65:1, under AA for normal text, and the 10px labels on
+`/app/launchpad/resources` (72 nodes) are the worst of it at 3.2–3.65:1.
+
+**The fix is a one-token change** — `text-emerald-700` in light mode (~5.3:1), keeping
+`dark:text-emerald-400`. Visually near-identical, measurably compliant.
+
+**I deliberately did not sweep it.** It touches dozens of files across the whole product, it is a
+brand decision as much as an accessibility one, and doing it in the same change as a deploy —
+immediately after a review caught me shipping commercial bugs — is exactly the wrong moment.
+**Morgan's call.** I will do it as its own pass on request, with before/after measurements.
+
+Dark mode is clean throughout.
+
+---
+
 ## 4. What I need from you — I cannot do these
 
 ### 4.1 Decide on `force-dynamic` (blocking for deploy confidence)
