@@ -63,18 +63,43 @@ line('   price shown', await page.evaluate(() => (document.body.innerText.match(
 console.log('\n3. Customer fills in their details');
 // Scoped to main and to text-ish types: the header carries its own controls
 // (search, a checkbox toggle) that are not part of the purchase form.
+// The intake asks for more than name/email/company now, and job title, company
+// size and "why are you applying" are required — a partial fill leaves the
+// submit button correctly disabled, which is the form working, not failing.
 const inputs = await page
   .locator('main input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])')
   .all();
-line('   fields found', inputs.length);
-if (inputs.length >= 3) {
-  await inputs[0].fill('Dana Reyes');
-  await inputs[1].fill('dana@northwindrobotics.com');
-  await inputs[2].fill('Northwind Robotics');
-  line('   filled', 'name / email / company');
-} else {
-  line('   fields', 'FEWER THAN EXPECTED — form may not have rendered');
+line('   text fields found', inputs.length);
+
+const byLabel = async (re, value) => {
+  const el = page.getByLabel(re).first();
+  if (!(await el.count())) return false;
+  await el.fill(value);
+  return true;
+};
+
+await byLabel(/your name/i, 'Dana Reyes');
+await byLabel(/work email/i, 'dana@northwindrobotics.com');
+await byLabel(/^company \*/i, 'Northwind Robotics');
+await byLabel(/job title/i, 'Chief Operating Officer');
+await byLabel(/company website/i, 'northwindrobotics.com');
+
+const size = page.locator('main select').first();
+if (await size.count()) await size.selectOption('11-50');
+
+const areas = await page.locator('main textarea').all();
+if (areas[0]) {
+  await areas[0].fill(
+    'We are bidding on our first DoD prime contract and need a commercial ' +
+    'workspace to run our own CMMC Level 2 self-assessment and track the POA&M.',
+  );
 }
+if (areas[1]) await areas[1].fill('Internal readiness tracking for our engineering org.');
+await page.waitForTimeout(500);
+line('   filled', 'name / email / company / title / size / website / why / use');
+
+const submit0 = page.locator('main button[type="submit"]').first();
+line('   submit enabled', (await submit0.count()) ? !(await submit0.isDisabled()) : 'no submit found');
 
 console.log('\n4. Customer submits — this hits Stripe for real');
 const submit = page.locator('button:has-text("Continue to payment")').first();
