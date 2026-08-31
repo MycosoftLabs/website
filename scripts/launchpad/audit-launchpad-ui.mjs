@@ -123,39 +123,87 @@ async function auditOne(route, theme) {
       sameColour,
       ghost,
       textPrimary: q('[class*="text-primary"]').length,
-      // Measured contrast, not class names. A bare text-slate-400 is fine on a
-      // permanently dark strip and unreadable on a white card, and only the
-      // computed colours can tell those apart.
+      // Measured contrast, resolved by the browser.
+      //
+      // Two things make a hand-rolled version wrong here. Tailwind v4 emits
+      // oklch(), so a naive /[\d.]+/ parse reads 0.765 0.177 163.223 as if it
+      // were rgb() and calls every emerald label near-black. And the glass
+      // surfaces are semi-transparent, so the first "non-transparent" ancestor
+      // is a 7%-white film whose literal colour is nothing like what a reader
+      // sees. Painting each colour onto a canvas over white and over black
+      // resolves any CSS colour space AND recovers alpha, so the layers can be
+      // composited down to the colour actually on screen.
       lowContrast: (() => {
-        const lum = (c) => {
-          const m = c.match(/[\d.]+/g);
-          if (!m || m.length < 3) return null;
-          const [r, g, b] = m.slice(0, 3).map(Number).map((v) => {
-            const s = v / 255;
-            return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-          });
-          return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        const cv = document.createElement('canvas');
+        cv.width = cv.height = 1;
+        const g = cv.getContext('2d', { willReadFrequently: true });
+        const cache = new Map();
+        const resolve = (css) => {
+          if (cache.has(css)) return cache.get(css);
+          let out = null;
+          try {
+            g.clearRect(0, 0, 1, 1);
+            g.fillStyle = '#fff'; g.fillRect(0, 0, 1, 1);
+            g.fillStyle = css; g.fillRect(0, 0, 1, 1);
+            const w = g.getImageData(0, 0, 1, 1).data;
+            g.clearRect(0, 0, 1, 1);
+            g.fillStyle = '#000'; g.fillRect(0, 0, 1, 1);
+            g.fillStyle = css; g.fillRect(0, 0, 1, 1);
+            const b = g.getImageData(0, 0, 1, 1).data;
+            const a = 1 - (w[0] - b[0]) / 255;
+            out = a <= 0.001
+              ? { r: 0, g: 0, b: 0, a: 0 }
+              : { r: b[0] / a, g: b[1] / a, b: b[2] / a, a };
+          } catch { out = null; }
+          cache.set(css, out);
+          return out;
         };
-        const bgOf = (el) => {
+        const lum = (c) => {
+          const f = [c.r, c.g, c.b].map((v) => {
+            const x = Math.min(255, Math.max(0, v)) / 255;
+            return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+          });
+          return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2];
+        };
+        const effectiveBg = (el) => {
+          const layers = [];
           let n = el;
           while (n && n !== document.documentElement) {
-            const b = getComputedStyle(n).backgroundColor;
-            if (b && !/rgba\(0, 0, 0, 0\)|transparent/.test(b)) return b;
+            const c = resolve(getComputedStyle(n).backgroundColor);
+            if (c && c.a > 0) layers.push(c);
             n = n.parentElement;
           }
-          return getComputedStyle(document.body).backgroundColor;
+          const root = resolve(getComputedStyle(document.documentElement).backgroundColor) ||
+            { r: 255, g: 255, b: 255, a: 1 };
+          layers.push(root.a > 0 ? root : { r: 255, g: 255, b: 255, a: 1 });
+          let acc = null;
+          for (let i = layers.length - 1; i >= 0; i--) {
+            const c = layers[i];
+            if (!acc) { acc = { r: c.r, g: c.g, b: c.b }; continue; }
+            acc = {
+              r: c.r * c.a + acc.r * (1 - c.a),
+              g: c.g * c.a + acc.g * (1 - c.a),
+              b: c.b * c.a + acc.b * (1 - c.a),
+            };
+          }
+          return acc;
         };
         let bad = 0;
         for (const el of q('p, span, div, li, td, th, label, a')) {
           if (!el.textContent || !el.textContent.trim()) continue;
           if (el.children.length) continue;
           const st = getComputedStyle(el);
-          const size = parseFloat(st.fontSize) || 16;
-          const lf = lum(st.color);
-          const lb = lum(bgOf(el));
-          if (lf === null || lb === null) continue;
+          if (st.visibility === 'hidden' || st.display === 'none') continue;
+          const fg = resolve(st.color);
+          if (!fg || fg.a < 0.95) continue;
+          const bg = effectiveBg(el);
+          if (!bg) continue;
+          const lf = lum(fg);
+          const lb = lum(bg);
           const ratio = (Math.max(lf, lb) + 0.05) / (Math.min(lf, lb) + 0.05);
-          const large = size >= 24 || (size >= 18.66 && parseInt(st.fontWeight, 10) >= 700);
+          const size = parseFloat(st.fontSize) || 16;
+          const weight = parseInt(st.fontWeight, 10) || 400;
+          const large = size >= 24 || (size >= 18.66 && weight >= 700);
           if (ratio < (large ? 3 : 4.5)) bad++;
         }
         return bad;
