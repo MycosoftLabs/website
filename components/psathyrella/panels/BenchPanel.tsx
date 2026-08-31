@@ -91,7 +91,9 @@ export function BenchPanel({
 
   // Raw PCA9685 channel tester — find which channel a servo/ESC is on, trim its neutral.
   const [rawCh, setRawCh] = useState(4);
-  const [rawUs, setRawUs] = useState(1700);
+  // Defaults to neutral, so an accidental send on a freshly-opened panel does not spin anything.
+  // 1700 used to be the default and is ~100 µs off the measured 1600 stop — enough to drive a pod.
+  const [rawUs, setRawUs] = useState(1600);
   const sendRaw = (us: number) => sendCommand({ domain: "pwm", action: "setChannel", channel: rawCh, us });
 
   // Live per-channel stop trim + the real ESC/servo channel map from the agent, so spin/STOP/spin
@@ -110,11 +112,24 @@ export function BenchPanel({
     (u: string) => fetch(u, { cache: "no-store" }).then((r) => r.json()).catch(() => null),
     { refreshInterval: 2500, revalidateOnFocus: false, dedupingInterval: 2000 }
   );
-  // ESC/servo channel sets (fall back to the legacy 0–3 / 4–7 layout only until the agent answers).
-  const escChannels = agentState?.escChannels ?? [0, 1, 2, 3];
+  /*
+   * FALLBACKS ARE THE MEASURED BENCH VALUES, NOT THE DATASHEET ONES.
+   *
+   * These only apply in the window before the agent's first answer, but in that window a wrong
+   * number is not cosmetic — the STOP preset sends it. Bench-measured Aug 17 on the live rig:
+   *
+   *   ESC neutral   1600 µs   (all four stop dead; verified by sweeping 996 → 1800)
+   *   servo stop    1600 µs   (FS90MR units; matches servo_stop_us_by_channel)
+   *   ESC channels  8–11      servo channels 4–7
+   *
+   * The datasheet 1500 µs is NOT neutral on this hardware — it drives the thrusters. Falling back
+   * to it meant "press STOP while the agent is unreachable" would spin all four. Same for the old
+   * 0–3 ESC map: the ESCs moved to 8–11, so a stale fallback aimed STOP at the servo channels.
+   */
+  const escChannels = agentState?.escChannels ?? [8, 9, 10, 11];
   const servoChannels = agentState?.servoChannels ?? [4, 5, 6, 7];
   const escSet = new Set(escChannels);
-  const escNeutral = typeof agentState?.escNeutralUs === "number" ? agentState.escNeutralUs : 1500;
+  const escNeutral = typeof agentState?.escNeutralUs === "number" ? agentState.escNeutralUs : 1600;
   const isEscCh = (c: number) => escSet.has(c);
   // Label a channel by its role + index within that role, e.g. CH8 → "ESC0", CH4 → "SRV0".
   const roleLabel = (c: number) => (isEscCh(c) ? `ESC${escChannels.indexOf(c)}` : `SRV${servoChannels.indexOf(c)}`);
@@ -122,7 +137,7 @@ export function BenchPanel({
   const stopFor = (c: number) =>
     isEscCh(c)
       ? Math.round(agentState?.escNeutralByChannel?.[String(c)] ?? escNeutral)
-      : Math.round(agentState?.servoStopByChannel?.[String(c)] ?? 1500);
+      : Math.round(agentState?.servoStopByChannel?.[String(c)] ?? 1600);
   // Union of all wired channels, sorted, for the live-signals grid + raw selector.
   const allChannels = Array.from(new Set([...escChannels, ...servoChannels])).sort((a, b) => a - b);
   // Once the real map arrives, snap the raw tester onto a wired channel if it isn't already.
