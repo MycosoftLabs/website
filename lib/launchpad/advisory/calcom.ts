@@ -43,16 +43,24 @@ export function calcomStatus(): CalcomStatus {
   const webhookSecretSet = Boolean(env('CALCOM_WEBHOOK_SECRET'));
   const bookingBaseSet = Boolean(env('CALCOM_BOOKING_BASE_URL'));
   const anyType = MINUTES.some((m) => eventTypes[m]);
-  const configured = (apiKeySet || bookingBaseSet) && anyType;
+  const configured = (apiKeySet || bookingBaseSet) && anyType && webhookSecretSet;
+  let blockingReason: string | null = null;
+  if (!configured) {
+    if (!webhookSecretSet) {
+      blockingReason =
+        'Set CALCOM_WEBHOOK_SECRET plus CALCOM_BOOKING_BASE_URL and CALCOM_EVENT_TYPE_ADVISORY_{15,30,60,90}. Paid bookings are not sold until redeem works.';
+    } else {
+      blockingReason =
+        'Set CALCOM_BOOKING_BASE_URL (or CALCOM_API_KEY) and CALCOM_EVENT_TYPE_ADVISORY_{15,30,60,90}. Availability is not invented.';
+    }
+  }
   return {
     apiKeySet,
     webhookSecretSet,
     bookingBaseSet,
     eventTypes,
     configured,
-    blockingReason: configured
-      ? null
-      : 'Set CALCOM_BOOKING_BASE_URL (or CALCOM_API_KEY) and CALCOM_EVENT_TYPE_ADVISORY_{15,30,60,90}. Availability is not invented.',
+    blockingReason,
   };
 }
 

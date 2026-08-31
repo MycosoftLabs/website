@@ -126,6 +126,36 @@ export async function completeWithKey(
   if (provider === 'cursor') {
     throw new Error('Cursor is MCP-only in this build — no inference complete().');
   }
+  if (provider === 'myca') {
+    throw new Error('MYCA completions go through completeWithMas, not completeWithKey.');
+  }
+  if (provider === 'nemotron') {
+    const model =
+      req.model || process.env.NVIDIA_NIM_MODEL || 'nvidia/llama-3.1-nemotron-70b-instruct';
+    const base = (process.env.NVIDIA_NIM_API_URL || 'https://integrate.api.nvidia.com/v1').replace(
+      /\/$/,
+      '',
+    );
+    const r = await postJson(`${base}/chat/completions`, headersOpenAi(key), {
+      model,
+      max_tokens: req.maxTokens ?? 1024,
+      messages: [
+        { role: 'system', content: req.system },
+        { role: 'user', content: req.user },
+      ],
+    });
+    if (!r.ok || !r.json) throw new Error(`Nemotron NIM complete failed (HTTP ${r.status})`);
+    const choices = r.json.choices as Array<{ message?: { content?: string } }> | undefined;
+    const text = choices?.[0]?.message?.content ?? '';
+    const usage = (r.json.usage as { prompt_tokens?: number; completion_tokens?: number } | undefined) ?? {};
+    return {
+      text,
+      provider,
+      model,
+      inputUnits: usage.prompt_tokens ?? 0,
+      outputUnits: usage.completion_tokens ?? 0,
+    };
+  }
   if (provider === 'anthropic') {
     const model = req.model || 'claude-sonnet-4-5';
     const r = await postJson(
@@ -206,6 +236,9 @@ export function managedKeyFor(provider: AiProvider): string | null {
   }
   if (provider === 'xai') {
     return firstEnv(['XAI_API_KEY', 'LAUNCHPAD_XAI_API_KEY', 'GROK_API_KEY']);
+  }
+  if (provider === 'nemotron') {
+    return firstEnv(['NVIDIA_NIM_API_KEY', 'LAUNCHPAD_NVIDIA_NIM_API_KEY']);
   }
   return null;
 }

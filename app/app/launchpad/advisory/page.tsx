@@ -41,6 +41,7 @@ export default function AdvisoryPage() {
   const [topicNote, setTopicNote] = useState<{ tone: 'ok' | 'info' | 'error'; text: string } | null>(null);
   const [credits, setCredits] = useState<Array<{ id: string; sku: string; minutes: number; status: string }>>([]);
   const [calNote, setCalNote] = useState<string | null>(null);
+  const [calBlocking, setCalBlocking] = useState<string | null>(null);
   const [schedulingId, setSchedulingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,7 +49,11 @@ export default function AdvisoryPage() {
       .then((r) => r.json())
       .then((d) => {
         if (Array.isArray(d.credits)) setCredits(d.credits);
-        if (d.calcom && d.calcom.configured === false) setCalNote(d.note || d.calcom.blockingReason);
+        if (d.calcom && d.calcom.configured === false) {
+          const reason = d.note || d.calcom.blockingReason;
+          setCalNote(reason);
+          setCalBlocking(d.calcom.blockingReason || reason);
+        }
       })
       .catch(() => undefined);
   }, []);
@@ -204,16 +209,20 @@ export default function AdvisoryPage() {
               <p className="text-xs text-muted-foreground leading-relaxed flex-1 mb-3">
                 {meta ? meta.blurb : ''}
               </p>
-              <GlassButton onClick={() => book(p.lookupKey)} disabled={booking !== null} className="myco-glass-button--block">
-                {booking === p.lookupKey ? 'Opening checkout…' : 'Book'}
+              <GlassButton
+                onClick={() => book(p.lookupKey)}
+                disabled={booking !== null || Boolean(calBlocking)}
+                className="myco-glass-button--block"
+              >
+                {calBlocking ? 'Booking unavailable' : booking === p.lookupKey ? 'Opening checkout…' : 'Book'}
               </GlassButton>
             </Card>
           );
         })}
       </div>
       <p className="text-[11px] text-muted-foreground mb-8 leading-snug">
-        Booking opens a real Stripe checkout (test mode in this environment). Calendar integration is not
-        wired yet — after payment, scheduling is coordinated with you by email.
+        Pay in Stripe first. Schedule then opens a real Cal.com link on Morgan&apos;s calendar. Availability
+        is never invented — checkout stays disabled until Cal.com is configured including the redeem webhook.
       </p>
 
       {/* Group clinics */}

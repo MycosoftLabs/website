@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { requireTenant } from '@/lib/launchpad/tenant-context';
 import { appendAuditEvent } from '@/lib/launchpad/audit';
 import { getProduct } from '@/lib/launchpad/catalog';
+import { saleBlockForProduct } from '@/lib/launchpad/billing/sale-gates';
 import { createLaunchpadServiceClient } from '@/lib/launchpad/service-client';
 
 /**
@@ -36,6 +37,10 @@ export async function POST(request: NextRequest) {
   }
   const product = getProduct(String(body.lookupKey ?? ''));
   if (!product) return NextResponse.json({ error: 'Unknown product' }, { status: 400 });
+  const blocked = saleBlockForProduct(product);
+  if (blocked) {
+    return NextResponse.json({ error: blocked.message, code: blocked.code }, { status: 503 });
+  }
 
   // No cohort cap: the Launch Pass is not seat-limited and never publishes a count.
 

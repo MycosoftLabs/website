@@ -1,7 +1,7 @@
 /**
  * Dual-meter AI router.
  * BYO: decrypt in-process, credits_charged=0.
- * Managed: reserve-then-settle platform credits.
+ * Managed (including MYCA / Nemotron): reserve-then-settle platform credits.
  * Prompt firewall applies to both. Keys never appear in responses or logs.
  */
 
@@ -13,6 +13,7 @@ import { governanceFor, maxPromptChars, type AiTaskType } from './governance';
 import { completeWithKey, managedKeyFor } from './providers';
 import { completeWithMas } from './mas-fallback';
 import { insertCostLedger, refundReservation, reserveCredits, settleCredits } from './metering';
+import { estimateReserveCredits, quoteCredits } from './price-book';
 import type { AiProvider } from './types';
 import { isInferenceProvider } from './types';
 
@@ -59,7 +60,7 @@ async function loadByoMaterial(
     .eq('mode', 'byo')
     .in('status', ['active', 'verified'])
     .is('revoked_at', null);
-  if (provider) q = q.eq('provider', provider);
+  if (provider && provider !== 'myca' && provider !== 'nemotron') q = q.eq('provider', provider);
   const { data, error } = await q.limit(1).maybeSingle();
   if (error || !data) return null;
   const blob = envelopeFromCustodyRow(data as Parameters<typeof envelopeFromCustodyRow>[0]);
@@ -90,6 +91,39 @@ export async function listPublicConnections(
     kmsKeyId: row.key_kms_key_id,
   }));
   return { ok: true as const, connections };
+}
+
+function defaultModel(provider: AiProvider): string {
+  if (provider === 'anthropic') return 'claude-sonnet-4-5';
+  if (provider === 'openai') return 'gpt-4o';
+  if (provider === 'perplexity') return 'sonar-pro';
+  if (provider === 'xai') return 'grok-2-latest';
+  if (provider === 'nemotron') {
+    return process.env.NVIDIA_NIM_MODEL || 'nvidia/llama-3.1-nemotron-70b-instruct';
+  }
+  if (provider === 'myca') return 'myca';
+  return '*';
+}
+
+function pickManaged(preferred?: AiProvider): {
+  provider: AiProvider;
+  key: string | null;
+  viaMas: boolean;
+} {
+  const nim = managedKeyFor('nemotron');
+  if (preferred === 'myca') return { provider: 'myca', key: null, viaMas: true };
+  if (preferred === 'nemotron' && nim) return { provider: 'nemotron', key: nim, viaMas: false };
+  if (preferred && isInferenceProvider(preferred) && preferred !== 'myca' && preferred !== 'nemotron') {
+    const key = managedKeyFor(preferred);
+    if (key) return { provider: preferred, key, viaMas: false };
+  }
+  if (nim) return { provider: 'nemotron', key: nim, viaMas: false };
+  const order: AiProvider[] = ['anthropic', 'openai', 'xai', 'perplexity'];
+  for (const p of order) {
+    const key = managedKeyFor(p);
+    if (key) return { provider: p, key, viaMas: false };
+  }
+  return { provider: 'myca', key: null, viaMas: true };
 }
 
 export async function routeCompletion(req: RouterRequest): Promise<RouterResult> {
@@ -150,7 +184,7 @@ export async function routeCompletion(req: RouterRequest): Promise<RouterResult>
         reservedCost: null,
         creditsCharged: 0,
         byoKey: true,
-        taskId: null,
+        taskId: gov.taskType,
         reservationId: null,
       });
       return {
@@ -178,76 +212,37 @@ export async function routeCompletion(req: RouterRequest): Promise<RouterResult>
     }
   }
 
-  const managedProvider: AiProvider =
-    preferred && isInferenceProvider(preferred) ? preferred : 'anthropic';
-  const managedKey =
-    managedKeyFor(managedProvider) ||
-    managedKeyFor('openai') ||
-    managedKeyFor('anthropic') ||
-    managedKeyFor('xai') ||
-    managedKeyFor('perplexity');
-  const resolvedProvider: AiProvider = managedKeyFor(managedProvider)
-    ? managedProvider
-    : managedKeyFor('openai')
-      ? 'openai'
-      : managedKeyFor('anthropic')
-        ? 'anthropic'
-        : managedKeyFor('xai')
-          ? 'xai'
-          : 'perplexity';
-  if (!managedKey) {
-    const mas = await completeWithMas(
-      { system: safeSystem, user: safeUser, maxTokens: req.maxTokens ?? gov.maxContextTokens },
-      req.userId,
-    );
-    if (!('ok' in mas)) {
-      const filtered = filterModelOutput(mas.text);
-      await insertCostLedger(req.supabase, req.tenantId, req.userId, {
-        provider: mas.provider,
-        model: mas.model,
-        providerPriceVersion: null,
-        inputUnits: mas.inputUnits,
-        outputUnits: mas.outputUnits,
-        searchRequests: 0,
-        retrievalRequests: 0,
-        reasoningUnits: 0,
-        cacheRead: 0,
-        cacheWrite: 0,
-        actualCost: null,
-        reservedCost: null,
-        creditsCharged: 0,
-        byoKey: false,
-        taskId: null,
-        reservationId: null,
-      });
-      return {
-        ok: true,
-        text: filtered.text,
-        byoKey: false,
-        provider: mas.provider,
-        model: mas.model,
-        creditsCharged: 0,
-        firewallRedactions: redactions,
-        firewallFlags: filtered.flagged,
-      };
-    }
+  const picked = pickManaged(preferred);
+  const modelForQuote = defaultModel(picked.provider);
+  const estInput = Math.max(1, Math.ceil((safeSystem.length + safeUser.length) / 4));
+  const estOutput = req.maxTokens ?? Math.min(1024, gov.maxContextTokens);
+  const reserveQuote = estimateReserveCredits(
+    {
+      provider: picked.provider,
+      model: modelForQuote,
+      inputUnits: estInput,
+      outputUnits: estOutput,
+    },
+    gov.maxCostCredits,
+  );
+  if (!reserveQuote.ok) {
     return {
       ok: false,
       byoKey: false,
       creditsCharged: 0,
       firewallRedactions: redactions,
       firewallFlags: [],
-      error: mas.error || 'No managed AI provider configured, no verified BYO connection, and MYCA is unavailable.',
-      code: mas.code || 'no_provider',
+      error: reserveQuote.error,
+      code: reserveQuote.code,
     };
   }
 
   const reserve = await reserveCredits(
     req.supabase,
     req.tenantId,
-    gov.maxCostCredits,
+    reserveQuote.credits,
     `spend:${gov.taskType}`,
-    { taskType: gov.taskType, provider: resolvedProvider },
+    { taskType: gov.taskType, provider: picked.provider },
   );
   if (!reserve.ok || !reserve.reservationId) {
     return {
@@ -262,18 +257,65 @@ export async function routeCompletion(req: RouterRequest): Promise<RouterResult>
   }
 
   try {
-    const result = await completeWithKey(resolvedProvider, managedKey, {
-      system: safeSystem,
-      user: safeUser,
-      maxTokens: req.maxTokens ?? gov.maxContextTokens,
-    });
+    let result: {
+      text: string;
+      provider: string;
+      model: string;
+      inputUnits: number;
+      outputUnits: number;
+    };
+    if (picked.viaMas) {
+      const mas = await completeWithMas(
+        { system: safeSystem, user: safeUser, maxTokens: req.maxTokens ?? gov.maxContextTokens },
+        req.userId,
+      );
+      if ('ok' in mas) {
+        await refundReservation(req.supabase, req.tenantId, reserve.reservationId);
+        return {
+          ok: false,
+          byoKey: false,
+          creditsCharged: 0,
+          firewallRedactions: redactions,
+          firewallFlags: [],
+          error: mas.error || 'No managed AI provider configured, no verified BYO connection, and MYCA is unavailable.',
+          code: mas.code || 'no_provider',
+        };
+      }
+      result = mas;
+    } else {
+      result = await completeWithKey(picked.provider, picked.key as string, {
+        system: safeSystem,
+        user: safeUser,
+        maxTokens: req.maxTokens ?? gov.maxContextTokens,
+        model: modelForQuote,
+      });
+    }
     const filtered = filterModelOutput(result.text);
-    const charged = Math.min(gov.maxCostCredits, Math.max(1, Math.ceil((result.inputUnits + result.outputUnits) / 1000)));
+    const quoted = quoteCredits({
+      provider: result.provider,
+      model: result.model,
+      inputUnits: result.inputUnits,
+      outputUnits: result.outputUnits,
+    });
+    if (!quoted.ok) {
+      await refundReservation(req.supabase, req.tenantId, reserve.reservationId);
+      return {
+        ok: false,
+        byoKey: false,
+        creditsCharged: 0,
+        reservationId: reserve.reservationId,
+        firewallRedactions: redactions,
+        firewallFlags: [],
+        error: quoted.error,
+        code: quoted.code,
+      };
+    }
+    const charged = Math.min(reserveQuote.credits, Math.max(1, quoted.credits));
     await settleCredits(req.supabase, req.tenantId, reserve.reservationId, charged);
     await insertCostLedger(req.supabase, req.tenantId, req.userId, {
       provider: result.provider,
       model: result.model,
-      providerPriceVersion: null,
+      providerPriceVersion: quoted.version,
       inputUnits: result.inputUnits,
       outputUnits: result.outputUnits,
       searchRequests: 0,
@@ -281,11 +323,11 @@ export async function routeCompletion(req: RouterRequest): Promise<RouterResult>
       reasoningUnits: 0,
       cacheRead: 0,
       cacheWrite: 0,
-      actualCost: null,
-      reservedCost: gov.maxCostCredits,
+      actualCost: quoted.actualCents,
+      reservedCost: reserveQuote.credits,
       creditsCharged: charged,
       byoKey: false,
-      taskId: null,
+      taskId: gov.taskType,
       reservationId: reserve.reservationId,
     });
     return {

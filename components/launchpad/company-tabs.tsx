@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * Company section tab strip — Profile | Registrations | Formation | Clearance
- * readiness. Rendered at the top of all four /app/launchpad/company* pages so
+ * Company section tab strip — Profile | Capabilities | Registrations | Formation |
+ * Clearance readiness. Rendered at the top of all four /app/launchpad/company* pages so
  * the company workbook reads as one place with four chapters.
  */
 
@@ -11,6 +11,7 @@ import { usePathname } from 'next/navigation';
 
 const TABS: Array<{ href: string; label: string; exact?: boolean }> = [
   { href: '/app/launchpad/company', label: 'Profile', exact: true },
+  { href: '/app/launchpad/company/capabilities', label: 'Capabilities' },
   { href: '/app/launchpad/company/registrations', label: 'Registrations' },
   { href: '/app/launchpad/company/formation', label: 'Formation' },
   { href: '/app/launchpad/company/clearance-readiness', label: 'Clearance readiness' },

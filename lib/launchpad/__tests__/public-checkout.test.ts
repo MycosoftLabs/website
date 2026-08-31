@@ -32,7 +32,10 @@ describe('public checkout catalog whitelist', () => {
         'fus_launchpad_advisory_90',
       ]),
     );
-    expect(PUBLIC_CHECKOUT_LOOKUP_KEYS).toHaveLength(CATALOG.length);
+    expect(PUBLIC_CHECKOUT_LOOKUP_KEYS).toHaveLength(
+      CATALOG.filter((p) => p.kind !== 'envelope').length,
+    );
+    expect(PUBLIC_CHECKOUT_LOOKUP_KEYS).not.toContain('fus_launchpad_envelope_send');
   });
 
   test('rejects unknown lookup keys and never accepts a raw price id', () => {

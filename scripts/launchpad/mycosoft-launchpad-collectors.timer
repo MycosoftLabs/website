@@ -1,0 +1,10 @@
+[Unit]
+Description=Nightly Launchpad official collectors on Sandbox 187
+
+[Timer]
+OnCalendar=*-*-* 06:15:00
+Persistent=true
+RandomizedDelaySec=180
+
+[Install]
+WantedBy=timers.target

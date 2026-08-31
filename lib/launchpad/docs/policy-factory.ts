@@ -18,11 +18,15 @@
 
 import { CMMC_L2_CONTROLS } from '@/lib/security/reference/cmmc-l2-reference';
 import { renderReportHtml, renderProse, type ReportDocument } from '@/lib/reports/report-doc';
-import { generateNarrative, activeReportProvider } from '@/lib/reports/llm';
 import { POLICY_FAMILIES } from '@/lib/reports/policy';
 import { sanitizeForModel, filterModelOutput } from '@/lib/launchpad/prompt-firewall';
 import { DRAFT_LABEL, PLACEHOLDER } from '@/lib/launchpad/constants';
 import { tenantContext, reportOrg, type TenantProfile } from './tenant-profile';
+
+export interface PolicyNarrative {
+  text: string | null;
+  provider: string | null;
+}
 
 export const TEMPLATE_VERSION = 'launchpad-doc-v1';
 
@@ -54,20 +58,16 @@ function docControl(p: TenantProfile, suffix: string) {
   };
 }
 
-/** Draft one family policy for a tenant. Deterministic fallback when no LLM key. */
-export async function buildTenantPolicy(
-  family: string,
-  profile: TenantProfile,
-  rulePackVersion: string,
-): Promise<TenantDraft | null> {
+export function policyDraftPrompts(family: string, profile: TenantProfile): {
+  system: string;
+  user: string;
+} | null {
   const fam = POLICY_FAMILIES[family];
   if (!fam) return null;
   const controls = CMMC_L2_CONTROLS.filter((c) => c.family === family);
-
-  const { text: safeContext, redactions } = sanitizeForModel(tenantContext(profile));
+  const { text: safeContext } = sanitizeForModel(tenantContext(profile));
   const controlList = controls.map((c) => `${c.controlId} — ${c.title}`).join('\n');
-
-  const narrativeResult = await generateNarrative({
+  return {
     system:
       `You draft a ${fam.policyTitle} for a small U.S. defense-market startup. ` +
       `HARD RULES: never invent implementation facts, systems, dates, personnel, evidence, or approvals; ` +
@@ -76,7 +76,21 @@ export async function buildTenantPolicy(
       `never state or imply the organization is certified, compliant, or government-approved; ` +
       `begin the body with "${DRAFT_LABEL}".`,
     user: `Organization context:\n${safeContext}\n\nControls this policy must cover (${controls.length}):\n${controlList}\n\nDraft the ${fam.policyTitle}.`,
-  });
+  };
+}
+
+/** Draft one family policy for a tenant. LLM text must already be metered. */
+export async function buildTenantPolicy(
+  family: string,
+  profile: TenantProfile,
+  rulePackVersion: string,
+  narrative?: PolicyNarrative | null,
+): Promise<TenantDraft | null> {
+  const fam = POLICY_FAMILIES[family];
+  if (!fam) return null;
+  const controls = CMMC_L2_CONTROLS.filter((c) => c.family === family);
+
+  const { text: safeContext, redactions } = sanitizeForModel(tenantContext(profile));
 
   const fallback =
     `## 1. Purpose\n${DRAFT_LABEL}\n\nThis ${fam.policyTitle} establishes how ${profile.legalName} intends to satisfy the ` +
@@ -85,10 +99,9 @@ export async function buildTenantPolicy(
     `\n\n## 4. Review\nOwner: ${PLACEHOLDER} · Approver: ${PLACEHOLDER} · Review cadence: ${PLACEHOLDER}\n\n` +
     `*(No drafting model configured — the structure above is deterministic. Every ${PLACEHOLDER} needs a customer fact.)*`;
 
-  const narrative = narrativeResult?.text ?? null;
+  const narrative = narrative?.text ?? null;
   const { text: filtered, flagged } = filterModelOutput(narrative ?? fallback);
-  const provider = activeReportProvider();
-  const providerLabel = provider ? `${provider.provider} (${provider.model})` : null;
+  const providerLabel = narrative?.provider ?? null;
 
   const doc: ReportDocument = {
     classification: null, // non-CUI workspace: no CUI banners, ever

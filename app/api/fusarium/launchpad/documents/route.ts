@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import { requireTenant } from '@/lib/launchpad/tenant-context';
 import { appendAuditEvent } from '@/lib/launchpad/audit';
+import { entitlementDenied, jsonError } from '@/lib/launchpad/http';
+import { loadDerivedEntitlements } from '@/lib/launchpad/entitlement-guard';
 import { POLICY_FAMILIES } from '@/lib/reports/policy';
-import { buildTenantPolicy } from '@/lib/launchpad/docs/policy-factory';
+import { buildTenantPolicy, policyDraftPrompts } from '@/lib/launchpad/docs/policy-factory';
 import { profileFromCompanyData } from '@/lib/launchpad/docs/tenant-profile';
 import { RULE_PACK_V1 } from '@/lib/launchpad/scoring/engine';
+import { routeCompletion } from '@/lib/launchpad/ai/router';
 
 /**
  * Document factory endpoint.
@@ -43,9 +46,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const result = await requireTenant({ write: true });
+  const result = await requireTenant({ write: true, ai: true });
   if (result.error) return result.error;
   const { ctx } = result;
+  const derived = await loadDerivedEntitlements(ctx.supabase, ctx.tenantId);
+  if (!derived.entitlements?.documentFactory) {
+    return entitlementDenied('documentFactory', derived.planKey, 'Document factory is not on this plan.');
+  }
 
   let body: { family?: string };
   try {
@@ -66,7 +73,33 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
   const profile = profileFromCompanyData((companyRow?.data as Record<string, unknown>) ?? {});
 
-  const draft = await buildTenantPolicy(family, profile, RULE_PACK_V1.version);
+  const prompts = policyDraftPrompts(family, profile);
+  let narrative: { text: string | null; provider: string | null } = { text: null, provider: null };
+  if (prompts) {
+    const completion = await routeCompletion({
+      tenantId: ctx.tenantId,
+      userId: ctx.user.id,
+      supabase: ctx.supabase,
+      taskType: 'policy_draft',
+      system: prompts.system,
+      user: prompts.user,
+    });
+    if (!completion.ok && completion.code === 'insufficient_credits') {
+      return jsonError(402, 'insufficient_credits', completion.error ?? 'Buy credits to generate this draft.', {
+        buyCreditsPath: '/app/launchpad/billing',
+      });
+    }
+    if (completion.ok && completion.text) {
+      narrative = {
+        text: completion.text,
+        provider: completion.provider && completion.model
+          ? `${completion.provider} (${completion.model})`
+          : completion.provider ?? null,
+      };
+    }
+  }
+
+  const draft = await buildTenantPolicy(family, profile, RULE_PACK_V1.version, narrative);
   if (!draft) return NextResponse.json({ error: 'Generation failed' }, { status: 500 });
 
   const contentHash = createHash('sha256').update(draft.html).digest('hex');

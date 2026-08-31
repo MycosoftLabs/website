@@ -44,9 +44,11 @@ export async function GET() {
   if (gate.error) return gate.error;
   const { ctx } = gate;
   const derived = await loadDerivedEntitlements(ctx.supabase, ctx.tenantId);
-  if (!derived.entitlements?.partnerMesh) {
-    return entitlementDenied('partnerMesh', derived.planKey, 'Partner Mesh is not on this plan.');
+  const paid = derived.mode === 'full' || derived.mode === 'grace';
+  if (!paid) {
+    return jsonError(403, 'paid_plan_required', 'A paid Launchpad plan is required for Partner Mesh.');
   }
+  const canInitiate = Boolean(derived.entitlements?.partnerMesh);
 
   const [profileRes, consentsRes] = await Promise.all([
     ctx.supabase
@@ -68,7 +70,15 @@ export async function GET() {
   const profile = profileRes.data
     ? { ...(profileRes.data.data ?? {}), updated_at: profileRes.data.updated_at }
     : null;
-  return NextResponse.json({ profile, consents: consentsRes.data ?? [] });
+  return NextResponse.json({
+    profile: canInitiate ? profile : null,
+    consents: canInitiate ? consentsRes.data ?? [] : [],
+    canInitiate,
+    paid: true,
+    note: canInitiate
+      ? null
+      : 'This plan can accept a mesh invite. Partner Mesh Pro is required to initiate.',
+  });
 }
 
 export async function PATCH(request: NextRequest) {

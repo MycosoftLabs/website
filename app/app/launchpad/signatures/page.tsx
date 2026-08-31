@@ -27,6 +27,8 @@ export default function SignaturesPage() {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [envelopeCredits, setEnvelopeCredits] = useState(0);
+  const [oauthConfigured, setOauthConfigured] = useState(true);
 
   const load = useCallback(async () => {
     try {
@@ -36,6 +38,8 @@ export default function SignaturesPage() {
         setEnvelopes(d.envelopes ?? []);
         setNote(d.note ?? null);
         setConnected(Boolean(d.connection?.connected));
+        setEnvelopeCredits(typeof d.envelopeCredits === 'number' ? d.envelopeCredits : 0);
+        setOauthConfigured(d.docusign?.oauthClientConfigured !== false);
         setErr(null);
       } else setErr(d?.error || `HTTP ${r.status}`);
     } catch {
@@ -76,9 +80,43 @@ export default function SignaturesPage() {
         <p className="text-sm text-muted-foreground mb-3">
           Customer DocuSign account is the default send path. Mycosoft does not sign for you.
         </p>
-        <GlassButton onClick={connect} disabled={connected}>
-          {connected ? 'DocuSign connected' : 'Connect DocuSign'}
+        <GlassButton onClick={connect} disabled={connected || !oauthConfigured}>
+          {!oauthConfigured
+            ? 'DocuSign OAuth not configured'
+            : connected
+              ? 'DocuSign connected'
+              : 'Connect DocuSign'}
         </GlassButton>
+        <p className="text-xs text-muted-foreground mt-3">
+          Hosted &quot;Send with Mycosoft&quot; stays hidden until you buy the marked-up envelope SKU
+          ($15). Customer OAuth send uses your DocuSign account and does not consume that SKU.
+          {envelopeCredits > 0 ? ` Hosted sends available: ${envelopeCredits}.` : ''}
+        </p>
+        {envelopeCredits > 0 ? (
+          <p className="text-xs text-muted-foreground mt-1">
+            A Mycosoft-hosted send is available because this workspace prepaid the envelope SKU. Send
+            still happens in DocuSign — Launchpad never applies a signature.
+          </p>
+        ) : (
+          <GlassButton
+            className="mt-3"
+            onClick={async () => {
+              const r = await fetch('/api/fusarium/launchpad/billing/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lookupKey: 'fus_launchpad_envelope_send' }),
+              });
+              const d = await r.json().catch(() => ({}));
+              if (r.ok && d.url) {
+                window.location.href = d.url;
+                return;
+              }
+              setErr(d?.error || 'Hosted envelope checkout is unavailable.');
+            }}
+          >
+            Buy hosted envelope send ($15)
+          </GlassButton>
+        )}
         {authorizeUrl && (
           <a href={authorizeUrl} className="ml-3 text-sm underline inline-flex items-center gap-1">
             Open DocuSign <ExternalLink className="h-3.5 w-3.5" />
