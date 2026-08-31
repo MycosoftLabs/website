@@ -61,7 +61,11 @@ export function PageHeader({
         </h1>
         {description && <p className="text-sm text-muted-foreground mt-1.5 max-w-2xl">{description}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+      {/* Not shrink-0. The parent wraps, but a shrink-0 actions slot cannot get
+          narrower than its content, so a wide toolbar pushed the whole page
+          sideways on a phone instead of wrapping — the requirements register
+          measured 551px against a 375px viewport. min-w-0 lets it wrap. */}
+      {actions && <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full">{actions}</div>}
     </div>
   );
 }
