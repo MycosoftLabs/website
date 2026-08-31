@@ -168,7 +168,11 @@ export async function authorizeIngestBearer(
     return { ok: true, mode: 'api_key', key };
   }
 
-  const breakGlass = env.LAUNCHPAD_INGEST_TOKEN?.trim() ?? '';
+  const breakGlass = (
+    env.LAUNCHPAD_INGEST_TOKEN?.trim() ||
+    env.LAUNCHPAD_INGEST_BEARER?.trim() ||
+    ''
+  );
   if (breakGlass && safeEqualUtf8(token, breakGlass)) {
     return { ok: true, mode: 'break_glass' };
   }
