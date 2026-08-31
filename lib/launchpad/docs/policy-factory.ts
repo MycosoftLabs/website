@@ -99,8 +99,8 @@ export async function buildTenantPolicy(
     `\n\n## 4. Review\nOwner: ${PLACEHOLDER} · Approver: ${PLACEHOLDER} · Review cadence: ${PLACEHOLDER}\n\n` +
     `*(No drafting model configured — the structure above is deterministic. Every ${PLACEHOLDER} needs a customer fact.)*`;
 
-  const narrative = narrative?.text ?? null;
-  const { text: filtered, flagged } = filterModelOutput(narrative ?? fallback);
+  const narrativeText = narrative?.text ?? null;
+  const { text: filtered, flagged } = filterModelOutput(narrativeText ?? fallback);
   const providerLabel = narrative?.provider ?? null;
 
   const doc: ReportDocument = {
@@ -133,7 +133,7 @@ export async function buildTenantPolicy(
       generatedAt: new Date().toISOString(),
       firewallRedactions: redactions,
       firewallFlags: flagged,
-      placeholdersPresent: (narrative ?? fallback).includes(PLACEHOLDER) || filtered.includes(PLACEHOLDER),
+      placeholdersPresent: (narrativeText ?? fallback).includes(PLACEHOLDER) || filtered.includes(PLACEHOLDER),
     },
   };
 }

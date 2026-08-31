@@ -1,10 +1,11 @@
 # Launchpad paid services audit — August 31, 2026
 
 **Date:** August 31, 2026  
-**Status:** Code and schema shipped; LLC card test blocked on Morgan’s unused mailbox  
+**Status:** Merged to main as PR #287 (`7ce796c3`); LLC card test still blocked on Morgan’s unused mailbox  
 **CUI:** none. Commercial workspace only. Mycosoft is **pursuing** CMMC L2 — no control is claimed Met.
 
-Related plan: Launchpad fully paid-functional (margin on every service).
+Related plan: Launchpad fully paid-functional (margin on every service).  
+Ship: https://github.com/MycosoftLabs/website/pull/287
 
 ---
 
@@ -16,7 +17,7 @@ Every SKU that stays for sale now has a working path or an honest disable (`bloc
 
 | Area | Delivered |
 |---|---|
-| Money fail-closed | `evaluateBillingReady` + CI step: `LAUNCHPAD_ENABLED=1` without `STRIPE_LAUNCHPAD_WEBHOOK_SECRET` aborts deploy. Probe on 187: webhook secret **is set**. |
+| Money fail-closed | `evaluateBillingReady` + CI step: `LAUNCHPAD_ENABLED=1` without `STRIPE_LAUNCHPAD_WEBHOOK_SECRET` aborts deploy. Probe on 187: webhook secret **is set**. Live Stripe catalog now includes `fus_launchpad_envelope_send` ($15). |
 | Advisory | Cal.com must include webhook secret to be `configured`. Checkout blocked when Cal.com is not redeemable. Advisory page no longer says scheduling is “coordinated by email.” |
 | DocuSign | Customer OAuth remains default. Hosted JWT send consumes `fus_launchpad_envelope_send` ($15). CTA hidden until an unredeemed credit exists. |
 | Radar | Official collectors: SAM (keyed) + SBIR.gov public API (DSIP-class, no scrape, no DSIP login) + Grants.gov Search2 (keyless). Collect route on `/api/fusarium/launchpad/radar/collect`. |
