@@ -123,10 +123,53 @@ async function auditOne(route, theme) {
       sameColour,
       ghost,
       textPrimary: q('[class*="text-primary"]').length,
-      unpairedSlate: q('[class*="text-slate-300"]:not([class*="dark:"]), [class*="text-slate-400"]:not([class*="dark:"])').length,
+      // Measured contrast, not class names. A bare text-slate-400 is fine on a
+      // permanently dark strip and unreadable on a white card, and only the
+      // computed colours can tell those apart.
+      lowContrast: (() => {
+        const lum = (c) => {
+          const m = c.match(/[\d.]+/g);
+          if (!m || m.length < 3) return null;
+          const [r, g, b] = m.slice(0, 3).map(Number).map((v) => {
+            const s = v / 255;
+            return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+          });
+          return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        };
+        const bgOf = (el) => {
+          let n = el;
+          while (n && n !== document.documentElement) {
+            const b = getComputedStyle(n).backgroundColor;
+            if (b && !/rgba\(0, 0, 0, 0\)|transparent/.test(b)) return b;
+            n = n.parentElement;
+          }
+          return getComputedStyle(document.body).backgroundColor;
+        };
+        let bad = 0;
+        for (const el of q('p, span, div, li, td, th, label, a')) {
+          if (!el.textContent || !el.textContent.trim()) continue;
+          if (el.children.length) continue;
+          const st = getComputedStyle(el);
+          const size = parseFloat(st.fontSize) || 16;
+          const lf = lum(st.color);
+          const lb = lum(bgOf(el));
+          if (lf === null || lb === null) continue;
+          const ratio = (Math.max(lf, lb) + 0.05) / (Math.min(lf, lb) + 0.05);
+          const large = size >= 24 || (size >= 18.66 && parseInt(st.fontWeight, 10) >= 700);
+          if (ratio < (large ? 3 : 4.5)) bad++;
+        }
+        return bad;
+      })(),
       glassButtons: q('.myco-glass-button').length,
-      fakeClaims: /lorem ipsum|sample data|demo data|placeholder data|John Doe|Jane Doe|Acme Corp(?!oration)/i.test(txt),
-      certClaim: /\b(is|are) (CMMC )?(certified|compliant)\b/i.test(txt),
+      // Same negation trap as certClaim: these pages promise they will "never
+      // show sample data", and flagging that sentence is worse than useless.
+      fakeClaims: /lorem ipsum|sample data|demo data|placeholder data|John Doe|Jane Doe|Acme Corp(?!oration)/i.test(txt) &&
+        !/(never|not|no|without)[^.]{0,120}(sample|demo|placeholder) data/i.test(txt),
+      // Only an ASSERTION counts. The readiness pages carry disclaimers that
+      // legitimately contain the phrase ("nothing here states that you are CMMC
+      // compliant"), and flagging those just trains you to ignore the check.
+      certClaim: /(is|are) (CMMC )?(certified|compliant)/i.test(txt) &&
+        !/(not|nothing|never|no)[^.]{0,160}(is|are) (CMMC )?(certified|compliant)/i.test(txt),
       deadEnd: /\bno (data|records|results|items|rows)\b/i.test(txt) && q('a[href], button').length === 0,
       bodyScrollX: document.documentElement.scrollWidth > document.documentElement.clientWidth + 4,
     };
@@ -180,7 +223,7 @@ for (const r of rows) {
     if (r.sameColour) p.push(r.sameColour + ' element(s) text-on-own-colour');
     if (r.ghost) p.push(r.ghost + ' ghost button artifact(s)');
     if (r.textPrimary) p.push(r.textPrimary + ' off-accent text-primary');
-    if (r.unpairedSlate) p.push(r.unpairedSlate + ' unpaired slate-300/400');
+    if (r.lowContrast > 2) p.push(r.lowContrast + ' text node(s) under WCAG AA contrast');
     if (r.fakeClaims) p.push('MOCK/SAMPLE DATA SMELL');
     if (r.certClaim) p.push('CERTIFICATION CLAIM');
     if (r.deadEnd) p.push('empty state with no next action');

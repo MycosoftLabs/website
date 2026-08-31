@@ -40,7 +40,11 @@ I fixed these in this tree, but did **not** commit them (they are your files). I
    // button: onClick={() => { const lk = grantChoice[row.id] ?? PLAN_PRODUCTS[0]?.lookupKey; if (lk) void grant(row.id, lk); }}
    ```
    The old `onChange` wrote `e.currentTarget.dataset.lookup` and nothing ever read it.
-2. Three `w-full` GlassButtons → `myco-glass-button--block`, with the toolbar and grant row as grids so they still stack on mobile without stretching the plate past the control.
+2. Four `w-full` GlassButtons → `myco-glass-button--block`, with the toolbar and grant row as grids so they still stack on mobile without stretching the plate past the control. The fourth is **"Open workspace"** inside `tenants.map(...)`, so it ghosts once per tenant row:
+   ```
+   - className="w-full sm:w-auto min-h-[44px]"
+   + className="myco-glass-button--block min-h-[44px] sm:max-w-[12rem]"
+   ```
 
 **Also still failing tsc, and yours:** `app/api/fusarium/launchpad/admin/radar/route.ts:29` — `Property 'error' does not exist on type 'SamCollectResult'`.
 
