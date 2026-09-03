@@ -9,6 +9,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { pathRequiresAuth, pathRequiresCompanyEmail, pathRequiresOwner, OWNER_ALLOWED_EMAILS } from '@/lib/access/routes'
 import { isCompanyEmail } from '@/lib/access/types'
+import { isFusariumOperatorAppPath } from '@/lib/auth/fusarium-owner-gate'
 
 /** Cloudflare / reverse proxies send x-forwarded-proto; force HTTPS on the public site. */
 function isLocalDevHost(host: string): boolean {
@@ -135,7 +136,7 @@ export async function middleware(request: NextRequest) {
   if (pathRequiresAuth(pathname)) {
     if (!user) {
       const url = request.nextUrl.clone()
-      url.pathname = '/login'
+      url.pathname = isFusariumOperatorAppPath(pathname) ? '/fusarium/login' : '/login'
       url.searchParams.set('redirectTo', `${pathname}${request.nextUrl.search}`)
       return NextResponse.redirect(url)
     }
@@ -148,7 +149,11 @@ export async function middleware(request: NextRequest) {
     }
     // Owner gate: single-email allowlist (the Psathyrella GCS is owner-only). A logged-in
     // non-owner (even another @mycosoft.org employee) is bounced back to /natureos.
+    // Fusarium operator paths render an honest 403 on the page instead.
     if (pathRequiresOwner(pathname) && !OWNER_ALLOWED_EMAILS.includes((user.email || '').toLowerCase())) {
+      if (isFusariumOperatorAppPath(pathname)) {
+        return response
+      }
       const url = request.nextUrl.clone()
       url.pathname = '/natureos'
       url.searchParams.set('error', 'owner_only')
@@ -164,6 +169,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   // Skip static media under /assets/ so Supabase getUser() does not run on large video requests.
   matcher: [
-    '/((?!_next/static|_next/image|assets/|auth/login|auth/signup|auth/reset|auth/continue|auth/callback).*)',
+    '/((?!_next/static|_next/image|assets/|auth/login|auth/signup|auth/reset|auth/continue|auth/callback|fusarium/auth/login).*)',
   ],
 }

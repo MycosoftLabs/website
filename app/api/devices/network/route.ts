@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { requireAdmin } from "@/lib/auth/api-auth"
+import { fusariumOperationalDeniedResponse, requireAdmin, requireFusariumOwner } from "@/lib/auth/api-auth"
 import {
   FIELD_MYCOBRAIN_DEPLOYMENTS,
   deploymentByHost,
@@ -127,6 +127,11 @@ async function buildFieldAndOperatorDevices(
  * - include_offline: Include offline devices (default: false)
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireFusariumOwner()
+  if (auth.error) {
+    return fusariumOperationalDeniedResponse(auth.error.status === 403 ? 403 : 401)
+  }
+
   const status = request.nextUrl.searchParams.get("status")
   const includeOffline = request.nextUrl.searchParams.get("include_offline") === "true"
 
