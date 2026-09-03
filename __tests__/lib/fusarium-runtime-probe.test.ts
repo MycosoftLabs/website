@@ -15,4 +15,12 @@ describe("Fusarium runtime probe", () => {
     expect(probe.status).toBe(200)
     expect(probe.originConfigured).toBe(true)
   })
+
+  it("does not treat Windows :8212 as a reachable sidecar", async () => {
+    process.env.FUSARIUM_INTERNAL_ORIGIN = "http://127.0.0.1:8212"
+    const probe = await probeFusariumRuntime()
+    expect(probe.reachable).toBe(true)
+    expect(probe.status).toBe(200)
+    expect(probe.originConfigured).toBe(true)
+  })
 })
