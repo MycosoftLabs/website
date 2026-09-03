@@ -12,6 +12,7 @@ import { FUSARIUM_OPERATOR_APP_PATH } from "@/lib/fusarium-operator-login"
  *
  * It is a route GROUP — (dashboard) adds no URL segment — so the existing
  * /fusarium/launchpad tree keeps its own layout and is untouched by this one.
+ * Public login stays at /fusarium/login; this layout never wraps it.
  */
 export const metadata: Metadata = {
   title: "FUSARIUM Platform — UNCLASSIFIED",
