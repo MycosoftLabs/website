@@ -4,7 +4,7 @@
  */
 
 export const FUSARIUM_OPERATOR_LOGIN_PATH = "/fusarium/login"
-export const FUSARIUM_OPERATOR_APP_PATH = "/fusarium/app"
+export const FUSARIUM_OPERATOR_APP_PATH = "/fusarium"
 export const FUSARIUM_PUBLIC_LOGIN_HREF = "https://mycosoft.com/fusarium/login"
 export const FUSARIUM_SANDBOX_LOGIN_HREF = "https://sandbox.mycosoft.com/fusarium/login"
 export const FUSARIUM_CONSOLE_REDIRECT = FUSARIUM_OPERATOR_APP_PATH

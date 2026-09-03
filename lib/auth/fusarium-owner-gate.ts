@@ -3,16 +3,24 @@ import { OWNER_ALLOWED_EMAILS } from "@/lib/access/routes"
 
 export const FUSARIUM_OWNER_LOGIN_PATH = "/fusarium/login"
 
+const FUSARIUM_PUBLIC_PREFIXES = [
+  "/fusarium/login",
+  "/fusarium/auth",
+  "/fusarium/launchpad",
+  "/fusarium/reset-password",
+]
+
+export function isFusariumPublicPath(path: string): boolean {
+  const pathname = path.split("?")[0] || ""
+  return FUSARIUM_PUBLIC_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  )
+}
+
 export function isFusariumOperatorAppPath(path: string): boolean {
   const pathname = path.split("?")[0] || ""
-  return (
-    pathname === "/fusarium/app" ||
-    pathname.startsWith("/fusarium/app/") ||
-    pathname === "/fusarium/runtime" ||
-    pathname.startsWith("/fusarium/runtime/") ||
-    pathname === "/fusarium/mfa" ||
-    pathname.startsWith("/fusarium/mfa/")
-  )
+  if (isFusariumPublicPath(pathname)) return false
+  return pathname === "/fusarium" || pathname.startsWith("/fusarium/")
 }
 
 export function isFusariumRelativePath(path: string): boolean {

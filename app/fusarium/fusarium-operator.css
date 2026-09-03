@@ -1,0 +1,1472 @@
+/*
+ * FUSARIUM operator chrome — ported from
+ * services/runtime/fusarium_runtime/static/operator/styles.css.
+ *
+ * GENERATED, but checked in and safe to edit by hand; regenerate only if the
+ * runtime stylesheet changes. Every selector is scoped to .fx-chrome so the
+ * chrome cannot reach into the Earth Simulator: CREP is Tailwind-authored and
+ * the operator sheet styles bare elements and generic class names, which is
+ * exactly the bleed that broke the dashboard layout once already.
+ *
+ * The operator's workspace-content rules (.card, .pane, .list, .chips, .grid,
+ * .meta, .action, .search, .assistant, .page-head, the global button rule)
+ * are intentionally NOT ported — on this host the workspace renders React
+ * apps, not the SPA's own markup.
+ */
+
+/* =============================================================================
+   FUSARIUM operator theme
+   -----------------------------------------------------------------------------
+   Slate, graphite and glass, with a desaturated sage accent. The old palette
+   was a saturated teal (#2dd4bf) on near-black, which read as a consumer
+   dashboard; this reads as an instrument.
+
+   Both themes are defined as tokens. An explicit choice stamps
+   data-theme on <html>; with nothing stamped the OS preference decides, and the
+   toggle has to win in both directions — so the dark tokens are declared twice,
+   once under the media query guarded against an explicit light choice, and once
+   under the explicit dark attribute.
+
+   The accent differs per theme on purpose. A single sage cannot clear 4.5:1 on
+   both a white and a near-black ground, and the accent carries state on this
+   surface (a gate holding, a live bind), so it has to stay legible.
+   ============================================================================= */
+.fx-chrome {
+  color-scheme: light;
+
+  --bg: #e9edef;
+  --bg-deep: #dfe5e8;
+  --panel: rgba(255, 255, 255, 0.60);
+  --panel-solid: #f4f7f8;
+  --line: rgba(15, 23, 42, 0.14);
+  --line-strong: rgba(15, 23, 42, 0.22);
+  --text: #18212a;
+  --muted: #56646f;
+
+  /* Deep sage — 6.8:1 on the light ground. */
+  --accent: #3f5c50;
+  --accent-quiet: rgba(63, 92, 80, 0.13);
+  --accent-line: rgba(63, 92, 80, 0.34);
+
+  --gold: #8a6f33;
+  --warn: #9c3f3f;
+  --ok: #3c6b52;
+  --banner: #33403a;
+  --banner-text: #dfe8e2;
+  --nav: rgba(255, 255, 255, 0.44);
+
+  --glass-tint: 255, 255, 255;
+  --glass-a1: 0.72;
+  --glass-a2: 0.44;
+  --glass-a3: 0.32;
+  --glass-shadow: 0 8px 22px rgba(15, 23, 42, 0.09);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+
+  --touch: 44px;
+}
+
+/* The prefers-color-scheme block that used to sit here was removed: with
+   next-themes resolving the OS preference onto html.dark, it was a second
+   source of truth that could contradict the class. */
+
+
+/* html.dark is set by next-themes before first paint and is the signal the
+   cloned app tree already uses. data-theme is kept alongside it so the same
+   stylesheet still works on the standalone runtime SPA, which has no
+   next-themes. Both must be listed or the chrome and the app can disagree. */
+html[data-theme="dark"] .fx-chrome,
+html.dark .fx-chrome {
+  color-scheme: dark;
+
+  --bg: #0b0e11;
+  --bg-deep: #070a0c;
+  --panel: rgba(255, 255, 255, 0.055);
+  --panel-solid: #12181d;
+  --line: rgba(255, 255, 255, 0.11);
+  --line-strong: rgba(255, 255, 255, 0.19);
+  --text: #dbe3e8;
+  --muted: #8b98a3;
+
+  --accent: #a2bcae;
+  --accent-quiet: rgba(162, 188, 174, 0.12);
+  --accent-line: rgba(162, 188, 174, 0.30);
+
+  --gold: #c9ab6d;
+  --warn: #d08585;
+  --ok: #8fbfa4;
+  --banner: #26302b;
+  --banner-text: #cfded5;
+  --nav: rgba(255, 255, 255, 0.035);
+
+  --glass-tint: 255, 255, 255;
+  --glass-a1: 0.085;
+  --glass-a2: 0.040;
+  --glass-a3: 0.022;
+  --glass-shadow: 0 12px 26px rgba(0, 0, 0, 0.45);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.13);
+}
+
+/* -----------------------------------------------------------------------------
+   Glass primitives, ported from the NatureOS chrome and retuned for slate.
+   Applied to the operator's own structural classes below, so the markup does
+   not have to carry a second vocabulary of class names.
+   -------------------------------------------------------------------------- */
+.fx-chrome .workbench {
+  background: linear-gradient(
+    135deg,
+    rgba(var(--glass-tint), var(--glass-a1)),
+    rgba(var(--glass-tint), var(--glass-a2)) 46%,
+    rgba(var(--glass-tint), var(--glass-a3))
+  );
+  box-shadow: var(--glass-shadow), var(--glass-inset);
+  backdrop-filter: blur(10px) saturate(1.14);
+  -webkit-backdrop-filter: blur(10px) saturate(1.14);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+}
+
+/*
+ * Chromium can flash a fixed compositor tile when the root Next template is
+ * entering with a transform while this full-workbench backdrop layer contains
+ * other backdrop-filter surfaces. Standard console pages do not need the
+ * workbench itself to sample the backdrop: its gradient, border, inset and
+ * shadow already provide the outer glass frame, while the child panels retain
+ * their own blur.
+ *
+ * Scope the guard to the padded console workspace mode. Full-bleed app routes
+ * such as Earth Simulator use .workspace--app and keep their existing shell.
+ */
+.animate-in:has(.fx-chrome .workspace:not(.workspace--app)) {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.fx-chrome .workbench:has(.workspace:not(.workspace--app)) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.fx-chrome .glass-tile {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.7rem;
+  background: linear-gradient(
+    -75deg,
+    rgba(var(--glass-tint), 0.05),
+    rgba(var(--glass-tint), 0.18),
+    rgba(var(--glass-tint), 0.05)
+  );
+  border: 1px solid var(--line);
+  backdrop-filter: blur(6px) saturate(1.1);
+  -webkit-backdrop-filter: blur(6px) saturate(1.1);
+}
+
+.fx-chrome .glass-pill {
+  backdrop-filter: blur(8px) saturate(1.2);
+  -webkit-backdrop-filter: blur(8px) saturate(1.2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.fx-chrome, .fx-chrome {
+  margin: 0;
+  height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+.fx-chrome {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.fx-chrome .banner {
+  background: var(--banner);
+  color: var(--banner-text);
+  text-align: center;
+  font: 700 11px/1.2 ui-monospace, "IBM Plex Mono", monospace;
+  letter-spacing: 0.1em;
+  padding: 0.4rem 0.75rem;
+  flex-shrink: 0;
+}
+
+.fx-chrome .topbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-deep);
+  flex-shrink: 0;
+}
+
+.fx-chrome .brand .mark {
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--accent);
+}
+
+.fx-chrome .brand .sub {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.fx-chrome .clocks {
+  display: flex;
+  gap: 1rem;
+  margin-left: auto;
+  font: 700 0.72rem/1.3 ui-monospace, monospace;
+}
+
+.fx-chrome .clocks em {
+  color: var(--muted);
+  font-style: normal;
+  margin-right: 0.35rem;
+}
+
+.fx-chrome .health, .fx-chrome #footer-status {
+  font: 700 0.72rem/1 ui-monospace, monospace;
+  color: var(--warn);
+}
+
+.fx-chrome .health.ok, .fx-chrome #footer-status.ok { color: var(--ok); }
+
+.fx-chrome .icon-btn, .fx-chrome .sidebar a, .fx-chrome .section-toggle {
+  min-height: var(--touch);
+  min-width: var(--touch);
+}
+
+.fx-chrome .icon-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  background: var(--panel-solid);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.fx-chrome .workbench {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.fx-chrome .sidebar {
+  width: min(280px, 86vw);
+  flex-shrink: 0;
+  background: var(--nav);
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+  padding: 0.5rem 0 1rem;
+}
+
+.fx-chrome .sidebar-head {
+  padding: 0.65rem 0.9rem 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.fx-chrome .sidebar-head strong {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.fx-chrome .sidebar-head span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.fx-chrome .section-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.9rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.fx-chrome .section-toggle:hover { color: var(--text); }
+
+.fx-chrome .sidebar a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.9rem 0.35rem 1.1rem;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.82rem;
+}
+
+.fx-chrome .sidebar a:hover, .fx-chrome .sidebar a.active {
+  color: var(--accent);
+  background: rgba(45, 212, 191, 0.06);
+}
+
+.fx-chrome .sidebar a.active {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.fx-chrome .nav-section.collapsed .nav-items { display: none; }
+
+.fx-chrome .workspace {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 0.85rem;
+}
+
+.fx-chrome .scrim {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 5;
+}
+
+@media (max-width: 1024px) {
+  .fx-chrome .icon-btn { display: inline-flex; }
+  .fx-chrome .sidebar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 6;
+    transform: translateX(-105%);
+    transition: transform 0.2s ease;
+  }
+  .fx-chrome .sidebar.open { transform: none; }
+  .fx-chrome .scrim.show { display: block; }
+}
+
+@media (max-width: 640px) {
+  .fx-chrome .clocks { width: 100%; margin-left: 0; }
+  .fx-chrome .workspace { padding: 0.7rem; }
+}
+
+/* A visible label would crowd the COP search, but the field still needs a name
+   for assistive tech — a placeholder is not one. */
+.fx-chrome .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* An unavailable layer must read as unavailable at a glance, not merely be
+   unclickable — on this surface an ambiguous control is a safety problem. */
+
+/* Facts that carry state. "holds" marks a protective invariant an operator
+   should be able to confirm at a glance; "unset" is dimmed rather than warned,
+   because unconfigured is the honest default here and colouring it as a fault
+   would teach people to ignore the colour. */
+
+/* Form controls sit on the same ground rather than looking pasted onto it. */
+
+/* Keyboard focus must stay visible on every target, not just fields. */
+
+/* Theme toggle in the top bar. */
+.fx-chrome .theme-toggle {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  min-height: 32px;
+  padding: 0 0.6rem;
+  font: 600 10px/1 ui-monospace, "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.fx-chrome .theme-toggle:hover { color: var(--text); border-color: var(--line-strong); }
+
+.fx-chrome .account-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 32px;
+  max-width: 220px;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  color: var(--text);
+  background: color-mix(in srgb, var(--panel-solid) 82%, transparent);
+  text-decoration: none;
+  font: 600 10px/1.15 ui-monospace, "IBM Plex Mono", monospace;
+}
+.fx-chrome .account-control svg { width: 15px; height: 15px; color: var(--accent); flex: 0 0 auto; }
+.fx-chrome .account-control span { min-width: 0; display: flex; flex-direction: column; }
+.fx-chrome .account-control strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-chrome .account-control small { color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+.fx-chrome .account-page { max-width: 980px; margin: 0 auto; display: grid; gap: 0.85rem; color: var(--text); }
+.fx-chrome .account-page > header { padding: 1rem 1.1rem; border: 1px solid var(--line); border-radius: 0.8rem; background: color-mix(in srgb, var(--panel-solid) 72%, transparent); backdrop-filter: blur(18px); }
+.fx-chrome .account-page > header span, .fx-chrome .account-card small { color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; font: 700 10px/1.2 ui-monospace, monospace; }
+.fx-chrome .account-page h1 { margin: 0.35rem 0; font-size: clamp(1.45rem, 3vw, 2.3rem); }
+.fx-chrome .account-page p, .fx-chrome .account-card span { color: var(--muted); }
+.fx-chrome .account-card { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.85rem; padding: 1rem; border: 1px solid var(--line); border-radius: 0.8rem; background: color-mix(in srgb, var(--panel-solid) 76%, transparent); backdrop-filter: blur(18px); }
+.fx-chrome .account-card > svg { width: 22px; height: 22px; color: var(--accent); }
+.fx-chrome .account-card > div { display: grid; gap: 0.25rem; }
+.fx-chrome .account-card b { color: var(--accent); text-transform: uppercase; }
+.fx-chrome .account-signout { justify-self: start; min-height: 36px; padding: 0 0.8rem; border: 1px solid var(--line); border-radius: 0.5rem; background: var(--panel-solid); color: var(--text); cursor: pointer; }
+
+/* =============================================================================
+   Glass buttons — ported from the Petri simulator chrome in the NatureOS
+   stylesheet (.natureos-glass-page .petri-demo-button*), renamed to fx-btn and
+   rehosted on this console. Same geometry, same 3D depress, same layered
+   shadow; colour comes from this platform's tokens, not the civilian palette.
+
+   Markup the chrome expects:
+     <span class="fx-btn-wrap">
+       <button class="fx-btn"><span>Label</span></button>
+       <div class="fx-btn-shadow"></div>
+     </span>
+   ============================================================================= */
+
+.fx-chrome .fx-btn-stage {
+  --petri-demo-hover-time: 400ms;
+  --petri-demo-hover-ease: cubic-bezier(0.25, 1, 0.5, 1);
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: fit-content;
+  padding: 1rem 1.2rem;
+  font-size: clamp(1.35rem, 2.1vw, 2rem);
+  border-radius: 2rem;
+  background:
+  radial-gradient(ellipse at 150% -50%, rgba(109, 120, 143, 0.35), rgba(255, 255, 255, 0.92)),
+  rgba(215, 215, 215, 0.92);
+  box-shadow:
+  inset 0 1px 0 rgba(255, 255, 255, 0.85),
+  0 1.2rem 2.6rem rgba(0, 0, 0, 0.2);
+  perspective: 700px;
+  transform-style: preserve-3d;
+  transition:
+  transform var(--petri-demo-hover-time) var(--petri-demo-hover-ease),
+  filter var(--petri-demo-hover-time) var(--petri-demo-hover-ease),
+  box-shadow var(--petri-demo-hover-time) var(--petri-demo-hover-ease);
+  will-change: transform, filter, box-shadow;
+  isolation: isolate;
+  overflow: hidden;
+}
+.fx-chrome .fx-btn-stage:has(.fx-btn:hover) {
+  transform: translateY(1px) scale(0.992);
+  filter: brightness(0.98);
+  box-shadow:
+  inset 0 1px 0 rgba(255, 255, 255, 0.9),
+  0 0.8rem 1.8rem rgba(0, 0, 0, 0.18);
+}
+.fx-chrome .fx-btn-stage:has(.fx-btn:active) {
+  transform: rotateX(10deg) translateY(2px) scale(0.985);
+}
+.fx-chrome .fx-btn-wrap {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  width: fit-content;
+  min-width: 0;
+  border-radius: 999vw;
+  background: transparent;
+  pointer-events: none;
+  transition: all var(--petri-demo-hover-time) var(--petri-demo-hover-ease);
+  transform-style: preserve-3d;
+  will-change: transform;
+  overflow: visible;
+}
+.fx-chrome .fx-btn-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  opacity: 0.72;
+  pointer-events: none;
+  overflow: hidden;
+  transition:
+  opacity var(--petri-demo-hover-time) var(--petri-demo-hover-ease),
+  transform var(--petri-demo-hover-time) var(--petri-demo-hover-ease),
+  filter var(--petri-demo-hover-time) var(--petri-demo-hover-ease);
+}
+.fx-chrome .fx-btn-stage:has(.fx-btn:hover) .fx-btn-grid {
+  opacity: 0.9;
+  transform: scale(1.025);
+  filter: brightness(0.98) contrast(1.04);
+}
+.fx-chrome .fx-btn-stage:has(.fx-btn:active) .fx-btn-grid {
+  transform: scale(1.055) rotateX(8deg);
+  filter: brightness(0.92) contrast(1.08);
+}
+.fx-chrome .fx-btn-shadow {
+  --shadow-cutoff-fix: 2em;
+  position: absolute;
+  top: calc(0% - var(--shadow-cutoff-fix) / 2);
+  left: calc(0% - var(--shadow-cutoff-fix) / 2);
+  width: calc(100% + var(--shadow-cutoff-fix));
+  height: calc(100% + var(--shadow-cutoff-fix));
+  overflow: visible;
+  pointer-events: none;
+  filter: blur(clamp(2px, 0.125em, 12px));
+  -webkit-filter: blur(clamp(2px, 0.125em, 12px));
+  transform: translate3d(0, 0, -1px);
+  transition:
+  filter var(--petri-demo-hover-time) var(--petri-demo-hover-ease),
+  transform var(--petri-demo-hover-time) var(--petri-demo-hover-ease);
+  will-change: filter, transform;
+}
+.fx-chrome .fx-btn-shadow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  top: calc(var(--shadow-cutoff-fix) - 0.5em);
+  left: calc(var(--shadow-cutoff-fix) - 0.875em);
+  width: calc(100% - var(--shadow-cutoff-fix) - 0.25em);
+  height: calc(100% - var(--shadow-cutoff-fix) - 0.25em);
+  box-sizing: border-box;
+  padding: 0.125em;
+  border-radius: 999vw;
+  background:
+  linear-gradient(180deg, rgba(0, 0, 0, 0.24), rgba(0, 0, 0, 0.08)),
+  radial-gradient(ellipse at 50% 80%, rgba(255, 255, 255, 0.42), transparent 54%);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  opacity: 1;
+  transition: all var(--petri-demo-hover-time) var(--petri-demo-hover-ease);
+  will-change: top, opacity, transform, background;
+}
+.fx-chrome .fx-btn {
+  --border-width: clamp(1px, 0.0625em, 4px);
+  all: unset;
+  position: relative;
+  z-index: 3;
+  box-sizing: border-box;
+  display: inline-flex;
+  width: auto;
+  min-width: 10.5rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999vw;
+  background: linear-gradient(
+  -75deg,
+  rgba(255, 255, 255, 0.05),
+  rgba(255, 255, 255, 0.2),
+  rgba(255, 255, 255, 0.05)
+  );
+  box-shadow:
+  inset 0 0.125em 0.125em rgba(0, 0, 0, 0.05),
+  inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.5),
+  0 0.25em 0.125em -0.125em rgba(0, 0, 0, 0.2),
+  0 0 0.1em 0.25em inset rgba(255, 255, 255, 0.2),
+  0 0 0 0 rgba(255, 255, 255, 1),
+  0 0.65em 1.25em rgba(0, 0, 0, 0.14);
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(clamp(1px, 0.125em, 4px));
+  -webkit-backdrop-filter: blur(clamp(1px, 0.125em, 4px));
+  transition: all var(--petri-demo-hover-time) var(--petri-demo-hover-ease);
+  transform: translateZ(0);
+  will-change: transform, box-shadow, backdrop-filter;
+}
+.fx-chrome .fx-btn:hover {
+  transform: scale(0.975);
+  box-shadow:
+  inset 0 0.125em 0.125em rgba(0, 0, 0, 0.05),
+  inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.5),
+  0 0.15em 0.05em -0.1em rgba(0, 0, 0, 0.25),
+  0 0 0.05em 0.1em inset rgba(255, 255, 255, 0.5),
+  0 0 0 0 rgba(255, 255, 255, 1);
+  backdrop-filter: blur(0.01em);
+  -webkit-backdrop-filter: blur(0.01em);
+}
+.fx-chrome .fx-btn:active {
+  transform: translateY(0.08em) scale(0.968);
+}
+.fx-chrome .fx-btn span {
+  position: relative;
+  z-index: 2;
+  display: block;
+  padding: 0.875em 1.5em;
+  color: rgba(50, 50, 50, 1);
+  font-family: "Inter", sans-serif;
+  font-size: 1em;
+  font-weight: 500;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  text-shadow: 0 0.25em 0.05em rgba(0, 0, 0, 0.1);
+  user-select: none;
+  transition: all var(--petri-demo-hover-time) var(--petri-demo-hover-ease);
+}
+.fx-chrome .fx-btn:hover span {
+  text-shadow: 0.025em 0.025em 0.025em rgba(0, 0, 0, 0.12);
+}
+.fx-chrome .fx-btn span::after {
+  content: "";
+  position: absolute;
+  top: calc(0% + var(--border-width) / 2);
+  left: calc(0% + var(--border-width) / 2);
+  z-index: 3;
+  display: block;
+  width: calc(100% - var(--border-width));
+  height: calc(100% - var(--border-width));
+  box-sizing: border-box;
+  overflow: clip;
+  border-radius: 999vw;
+  background: linear-gradient(
+  var(--petri-demo-angle-2),
+  rgba(255, 255, 255, 0) 0%,
+  rgba(255, 255, 255, 0.5) 40% 50%,
+  rgba(255, 255, 255, 0) 55%
+  );
+  background-repeat: no-repeat;
+  background-position: 0% 50%;
+  background-size: 200% 200%;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  transition:
+  background-position calc(var(--petri-demo-hover-time) * 1.25) var(--petri-demo-hover-ease),
+  --petri-demo-angle-2 calc(var(--petri-demo-hover-time) * 1.25) var(--petri-demo-hover-ease);
+  will-change: background-position;
+}
+.fx-chrome .fx-btn:hover span::after {
+  background-position: 25% 50%;
+}
+.fx-chrome .fx-btn:active span::after {
+  --petri-demo-angle-2: -15deg;
+  background-position: 50% 15%;
+}
+.fx-chrome .fx-btn::after {
+  content: "";
+  position: absolute;
+  top: calc(0% - var(--border-width) / 2);
+  left: calc(0% - var(--border-width) / 2);
+  z-index: 1;
+  width: calc(100% + var(--border-width));
+  height: calc(100% + var(--border-width));
+  box-sizing: border-box;
+  padding: var(--border-width);
+  border-radius: 999vw;
+  background:
+  conic-gradient(
+  from var(--petri-demo-angle-1) at 50% 50%,
+  rgba(0, 0, 0, 0.5),
+  rgba(0, 0, 0, 0) 5% 40%,
+  rgba(0, 0, 0, 0.5) 50%,
+  rgba(0, 0, 0, 0) 60% 95%,
+  rgba(0, 0, 0, 0.5)
+  ),
+  linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5));
+  box-shadow: inset 0 0 0 calc(var(--border-width) / 2) rgba(255, 255, 255, 0.5);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  transition:
+  all var(--petri-demo-hover-time) var(--petri-demo-hover-ease),
+  --petri-demo-angle-1 500ms ease;
+}
+.fx-chrome .fx-btn:hover::after {
+  --petri-demo-angle-1: -125deg;
+}
+.fx-chrome .fx-btn:active::after {
+  --petri-demo-angle-1: -75deg;
+}
+.fx-chrome .fx-btn-wrap:has(.fx-btn:hover) .fx-btn-shadow {
+  filter: blur(clamp(2px, 0.0625em, 6px));
+  transform: translate3d(0, -0.16em, -1px);
+}
+.fx-chrome .fx-btn-wrap:has(.fx-btn:hover) .fx-btn-shadow::after {
+  top: calc(var(--shadow-cutoff-fix) - 0.875em);
+  transform: translateY(-0.12em) scale(0.985);
+}
+.fx-chrome .fx-btn-wrap:has(.fx-btn:active) {
+  transform: rotate3d(1, 0, 0, 25deg);
+}
+.fx-chrome .fx-btn-wrap:has(.fx-btn:active) .fx-btn {
+  box-shadow:
+  inset 0 0.125em 0.125em rgba(0, 0, 0, 0.05),
+  inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.5),
+  0 0.125em 0.125em -0.125em rgba(0, 0, 0, 0.2),
+  0 0 0.1em 0.25em inset rgba(255, 255, 255, 0.2),
+  0 0.225em 0.05em 0 rgba(0, 0, 0, 0.05),
+  0 0.25em 0 0 rgba(255, 255, 255, 0.75),
+  inset 0 0.25em 0.05em 0 rgba(0, 0, 0, 0.15);
+}
+.fx-chrome .fx-btn-wrap:has(.fx-btn:active) .fx-btn-shadow {
+  filter: blur(clamp(2px, 0.125em, 12px));
+  transform: translate3d(0, 0.1em, -1px);
+}
+.fx-chrome .fx-btn-wrap:has(.fx-btn:active) .fx-btn-shadow::after {
+  top: calc(var(--shadow-cutoff-fix) - 0.5em);
+  opacity: 0.75;
+  transform: translateY(0.18em) scale(1.02);
+}
+.fx-chrome .fx-btn-wrap:has(.fx-btn:active) span {
+  text-shadow: 0.025em 0.25em 0.05em rgba(0, 0, 0, 0.12);
+}
+.fx-chrome .fx-btn span::after, .fx-chrome .fx-btn:active span::after {
+  --petri-demo-angle-2: -45deg;
+}
+.fx-chrome .fx-btn::after, .fx-chrome .fx-btn:hover::after, .fx-chrome .fx-btn:active::after {
+  --petri-demo-angle-1: -75deg;
+}
+.fx-chrome .fx-btn-stage:has(.fx-btn:hover), .fx-chrome .fx-btn-stage:has(.fx-btn:active) {
+  transform: none !important;
+  filter: none !important;
+}
+.fx-chrome .fx-btn-stage:has(.fx-btn:hover) .fx-btn-grid, .fx-chrome .fx-btn-stage:has(.fx-btn:active) .fx-btn-grid {
+  opacity: 1;
+  transform: none !important;
+  filter: none !important;
+}
+.fx-chrome button:not([data-state="active"]):not(.fx-btn):not(.petri-codepen-button-demo button), .fx-chrome a[role="button"] {
+  backdrop-filter: blur(14px) saturate(1.18);
+}
+
+/* Dark half of the same chrome. */
+html.dark .fx-chrome .fx-btn span {
+  color: rgba(255, 255, 255, 0.96) !important;
+  text-shadow:
+  0 0.12em 0.08em rgba(0, 0, 0, 0.26),
+  0 0 1.2rem rgba(255, 255, 255, 0.18);
+}
+html.dark .fx-chrome .fx-btn-stage {
+  background:
+  radial-gradient(ellipse at 150% -50%, rgba(109, 120, 143, 0.5), rgba(255, 255, 255, 0.86)),
+  rgba(215, 215, 215, 0.86);
+  box-shadow:
+  inset 0 1px 0 rgba(255, 255, 255, 0.72),
+  0 1.35rem 3rem rgba(0, 0, 0, 0.42);
+}
+html.dark .fx-chrome .fx-btn-grid {
+  opacity: 0.64;
+  filter: none;
+}
+html.dark .fx-chrome .fx-btn::after {
+  background:
+  conic-gradient(
+  from var(--petri-demo-angle-1) at 50% 50%,
+  rgba(255, 255, 255, 0.64),
+  rgba(255, 255, 255, 0) 5% 40%,
+  rgba(255, 255, 255, 0.68) 50%,
+  rgba(255, 255, 255, 0) 60% 95%,
+  rgba(255, 255, 255, 0.64)
+  ),
+  linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.18));
+}
+
+/* -----------------------------------------------------------------------------
+   Ported-chrome corrections.
+
+   The Petri buttons were authored for a light civilian page, so the label span
+   carries a near-black colour (#323232). On this console that is unreadable on
+   the dark plate, and it does not follow the theme. Bind the label to the same
+   token as the rest of the surface so it tracks light and dark together.
+   -------------------------------------------------------------------------- */
+.fx-chrome .fx-btn,
+.fx-chrome .fx-btn > span {
+  color: var(--text) !important;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+}
+
+/* The wrap is the layout box; keep it inline so a row of actions reads as a
+   row and not a column. */
+.fx-chrome .fx-btn-wrap {
+  display: inline-flex;
+  position: relative;
+  vertical-align: middle;
+}
+
+/* Row of actions. */
+
+/* The accent-carrying action reads as the primary one without a second chrome. */
+.fx-chrome .fx-btn.fx-btn--accent > span {
+  color: var(--accent) !important;
+  font-weight: 600;
+}
+
+/* The ported rules reference the Petri timing variables by their original
+   names; define them here rather than rewriting 36 rules. */
+.fx-chrome .fx-btn-wrap,
+.fx-chrome .fx-btn,
+.fx-chrome .fx-btn-shadow {
+  --petri-demo-hover-time: 400ms;
+  --petri-demo-hover-ease: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* The shadow is absolutely positioned against the wrap; without an explicit
+   containing block it resolves against the workspace and drags the page width
+   with it. */
+.fx-chrome .fx-btn-wrap {
+  position: relative;
+  display: inline-flex;
+  isolation: isolate;
+}
+.fx-chrome .fx-btn-shadow {
+  display: block;
+  z-index: -1;
+}
+
+/* -----------------------------------------------------------------------------
+   Twin frame. The cloned apps are full Next trees on their own host; they are
+   framed into the chrome rather than reimplemented. The frame is deliberately
+   given the whole workspace, because these are the apps an operator works in.
+   -------------------------------------------------------------------------- */
+
+
+/* -----------------------------------------------------------------------------
+   App routes (Earth Simulator and the other twinned apps).
+
+   The default .workspace pads its content and owns the scroll. A full-viewport
+   WebGL dashboard needs neither: the padding shrinks the map and the extra
+   scroll context makes CREP measure the wrong height, which showed up as a
+   second scrollbar and a globe cut off at the bottom. An app route gets the
+   frame itself and manages its own scrolling.
+   -------------------------------------------------------------------------- */
+.fx-chrome .workspace--app {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.fx-chrome .workspace--app > * {
+  flex: 1;
+  min-height: 0;
+}
+
+/* The brand mark is a link here (the SPA had it as a span), so it needs the
+   anchor reset the sidebar links get. */
+.fx-chrome .brand .mark {
+  text-decoration: none;
+}
+
+/* -----------------------------------------------------------------------------
+   Console page content.
+
+   The operator SPA styled its workspace with generic class names (.card, .pane,
+   .grid). Those were not ported — on this host the workspace also holds the
+   Tailwind-authored twin apps, and a bare `.card` rule would reach into them.
+   These fx-* names do the same job without that risk.
+   -------------------------------------------------------------------------- */
+.fx-chrome .fx-page {
+  max-width: 72rem;
+}
+
+.fx-chrome .fx-page h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.fx-chrome .fx-page h2 {
+  margin: 1.6rem 0 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fx-chrome .fx-lede {
+  margin: 0 0 1rem;
+  max-width: 62ch;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.fx-chrome .fx-notice {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--warn);
+  border-radius: 6px;
+  background: var(--panel);
+  font-size: 0.78rem;
+  color: var(--text);
+}
+
+.fx-chrome .fx-tiles {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.fx-chrome .tile-label {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fx-chrome .tile-value {
+  margin-top: 0.3rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.fx-chrome .tile-hint {
+  margin-top: 0.25rem;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.fx-chrome .fx-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.fx-chrome a.glass-pill {
+  text-decoration: none;
+  color: var(--text);
+}
+
+.fx-chrome .fx-gaps {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* The SPA's status banner separated its three spans with plain HTML whitespace.
+   JSX strips whitespace between elements, so the words ran together
+   ("UNCLASSIFIEDSYSTEM OPERATIONALLaunchpad..."). Space them explicitly. */
+.fx-chrome .banner-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+}
+
+/* .glass-tile and .glass-pill are bare surface primitives — centred inline-flex
+   with no padding, meant to be wrapped around a single element. The Overview
+   stacks a label, a value and a hint inside them, so give those instances the
+   box they need without changing the primitives everything else uses. */
+.fx-chrome .fx-tiles .glass-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 0.7rem 0.8rem;
+  min-height: 5.2rem;
+}
+
+.fx-chrome .fx-pills .glass-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.76rem;
+  font-weight: 500;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.fx-chrome .fx-pills a.glass-pill:hover {
+  border-color: var(--accent-line);
+  background: var(--accent-quiet);
+}
+
+/* =============================================================================
+   Console surfaces — glass panels, transparent tiles, meta rows.
+
+   The operator SPA styled its workspace with generic names (.card, .pane,
+   .list, .meta). Those were not ported: on this host the workspace also holds
+   the Tailwind-authored twin apps, and a bare `.card` rule would reach into
+   them. These fx-* names do the same job with no chance of collision.
+   ========================================================================== */
+
+.fx-chrome .fx-page-head {
+  margin-bottom: 1.1rem;
+}
+
+.fx-chrome .fx-page-head h1 {
+  margin: 0 0 0.4rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.fx-chrome .fx-hint {
+  margin: 0.25rem 0 0;
+  max-width: 74ch;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.fx-chrome .fx-panel {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: linear-gradient(
+    -75deg,
+    rgba(var(--glass-tint), 0.05),
+    rgba(var(--glass-tint), 0.16),
+    rgba(var(--glass-tint), 0.05)
+  );
+  backdrop-filter: blur(8px) saturate(1.15);
+  -webkit-backdrop-filter: blur(8px) saturate(1.15);
+  overflow: hidden;
+}
+
+.fx-chrome .fx-panel + .fx-panel,
+.fx-chrome .fx-tiles + .fx-panel,
+.fx-chrome .fx-panel + .fx-tiles {
+  margin-top: 0.75rem;
+}
+
+.fx-chrome .fx-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.fx-chrome .fx-panel-head h2 {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fx-chrome .fx-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fx-chrome .fx-panel-body {
+  padding: 0.85rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.fx-chrome .fx-panel-body p {
+  margin: 0 0 0.6rem;
+  max-width: 74ch;
+  color: var(--muted);
+}
+
+.fx-chrome .fx-panel-body p:last-child {
+  margin-bottom: 0;
+}
+
+.fx-chrome .fx-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 0.7rem 0.8rem;
+  min-height: 5.2rem;
+}
+
+/* Label / value rows. */
+.fx-chrome .fx-meta {
+  margin: 0;
+  display: grid;
+  gap: 0.35rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.fx-chrome .fx-meta-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px dotted var(--line);
+}
+
+.fx-chrome .fx-meta dt {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fx-chrome .fx-meta dd {
+  margin: 0;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* A value that is holding reads differently from one that was never set —
+   "0 because we measured 0" is not "0 because nothing reported". */
+.fx-chrome .fx-meta-value.fx-meta-holds {
+  color: var(--ok);
+}
+
+.fx-chrome .fx-meta-value.fx-meta-unset {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Glass buttons need room to lift on hover and sink on press; a tight flex row
+   clips the shadow sibling and the motion reads as a glitch. */
+.fx-chrome .fx-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.15rem 0 0.35rem;
+  overflow: visible;
+}
+
+.fx-chrome .fx-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.fx-chrome .fx-list li {
+  padding: 0.25rem 0;
+  border-bottom: 1px dotted var(--line);
+}
+
+.fx-chrome .fx-list li:last-child {
+  border-bottom: 0;
+}
+
+.fx-chrome .fx-empty {
+  margin: 0;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--muted);
+}
+
+/* =============================================================================
+   Classification capability
+   -----------------------------------------------------------------------------
+   The commercial host is fixed at U until a future server-verified decision
+   and accredited boundary exist. Higher tiers remain visible in the control,
+   but there are intentionally no elevated active palettes in this stylesheet.
+   ========================================================================== */
+.fx-chrome[data-classification] {
+  --cls: #16a34a;
+  --cls-ink: #04180c;
+}
+
+/* The banners carry the marking. Overriding the ported .banner background is
+   deliberate: the marking colour outranks the theme. */
+.fx-chrome .banner {
+  background: var(--cls);
+  color: var(--cls-ink);
+  font-weight: 800;
+}
+
+/* A hairline of the marking colour down both edges of the console. Cheap to
+   read at a glance and it survives scrolling, which a header alone does not. */
+.fx-chrome .workbench {
+  border-left: 3px solid var(--cls);
+  border-right: 3px solid var(--cls);
+}
+
+.fx-chrome .fx-classification {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-left: 0.4rem;
+}
+
+.fx-chrome .fx-classification-label {
+  font-size: 0.55rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fx-chrome .fx-classification-value {
+  color: var(--text);
+  font: 700 0.64rem/1.3 ui-monospace, "IBM Plex Mono", monospace;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.fx-chrome .fx-classification-seg {
+  display: flex;
+  gap: 2px;
+}
+
+.fx-chrome .fx-classification-btn {
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  font: 600 0.6rem/1.4 ui-monospace, "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.fx-chrome .fx-classification-btn:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+
+.fx-chrome .fx-classification-btn.active { color: var(--cls-ink); }
+.fx-chrome .fx-classification-btn.active[data-level="U"] { background: #16a34a; border-color: #16a34a; }
+
+.fx-chrome .fx-classification-notice {
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--cls);
+  border-left-width: 3px;
+  border-radius: 5px;
+  background: var(--panel);
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* =============================================================================
+   Icon rail — the sidebar collapsed to icons, as NatureOS does it.
+   ========================================================================== */
+.fx-chrome .sidebar {
+  transition: width 0.2s ease;
+}
+
+.fx-chrome .sidebar.collapsed {
+  /* width alone does not collapse a flex item. The sidebar is a flex child with
+     min-width:auto, whose automatic minimum size is its min-content width — so
+     the rail kept the expanded width even with the class applied and the rule
+     matching. Pinning flex-basis and the min/max removes the ambiguity. */
+  width: 56px;
+  min-width: 56px;
+  max-width: 56px;
+  flex-basis: 56px;
+  overflow-x: hidden;
+}
+
+.fx-chrome .sidebar-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.fx-chrome .sidebar-head-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* At 56px there is no room for the title; the toggle stays and centres. */
+.fx-chrome .sidebar.collapsed .sidebar-head-text {
+  display: none;
+}
+
+.fx-chrome .sidebar.collapsed .sidebar-head {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.fx-chrome .rail-toggle {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.fx-chrome .rail-toggle:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+
+.fx-chrome .nav-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.25rem 0;
+}
+
+/* Groups keep their separation once the headers are gone. */
+.fx-chrome .nav-rail-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.3rem 0;
+  width: 100%;
+}
+
+.fx-chrome .nav-rail-group + .nav-rail-group {
+  border-top: 1px solid var(--line);
+}
+
+.fx-chrome .nav-rail a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  color: var(--muted);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.fx-chrome .nav-rail a svg {
+  width: 18px;
+  height: 18px;
+}
+
+.fx-chrome .nav-rail a:hover {
+  color: var(--text);
+  background: var(--accent-quiet);
+}
+
+.fx-chrome .nav-rail a.active {
+  color: var(--accent);
+  background: var(--accent-quiet);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* Expanded nav: icons sit beside the labels. */
+.fx-chrome .sidebar a .nav-icon {
+  width: 15px;
+  height: 15px;
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+}
+
+.fx-chrome .sidebar a {
+  display: flex;
+  align-items: center;
+}
+
+/* The six senses index. */
+.fx-chrome .fx-sense-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.fx-chrome .fx-sense-tool {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+.fx-chrome .fx-sense-tool a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.fx-chrome .fx-sense-tool a:hover {
+  text-decoration: underline;
+}
+
+.fx-chrome .fx-sense-gap {
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--warn);
+  color: var(--text) !important;
+}
+
+.fx-chrome .fx-status {
+  padding: 0.12rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font: 600 0.6rem/1.5 ui-monospace, "IBM Plex Mono", monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.fx-chrome .fx-status--built { color: var(--ok); border-color: var(--ok); }
+.fx-chrome .fx-status--partial { color: var(--gold); border-color: var(--gold); }
+.fx-chrome .fx-status--scaffold { color: var(--warn); border-color: var(--warn); }
+
+/* A sense with no tool gets a dashed edge — visibly unfinished, on purpose. */
+.fx-chrome .fx-sense--scaffold {
+  border-style: dashed;
+}
+
+/* Locked classification levels.
+   Visible, so the console shows the capability it will have, but plainly
+   unavailable — dimmed, lock glyph, not-allowed cursor, and no hover lift. An
+   operator should be able to tell at a glance that the level exists and that
+   they cannot set it. */
+.fx-chrome .fx-classification-btn.locked {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.45;
+  cursor: not-allowed;
+  gap: 0.2rem;
+}
+
+.fx-chrome .fx-classification-btn.locked:hover {
+  color: var(--muted);
+  border-color: var(--line);
+}
+
+.fx-chrome .fx-classification-lock {
+  width: 0.6rem;
+  height: 0.6rem;
+  flex-shrink: 0;
+}
+
+.fx-chrome .fx-classification-locked-hint {
+  color: var(--gold);
+  font-weight: 700;
+}

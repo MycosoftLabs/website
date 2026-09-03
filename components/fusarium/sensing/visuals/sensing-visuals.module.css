@@ -1,0 +1,19 @@
+.panel { min-width:0; border:1px solid rgba(148,163,184,.2); border-radius:16px; background:linear-gradient(145deg,rgba(17,24,21,.88),rgba(5,9,8,.74)); box-shadow:inset 0 1px rgba(255,255,255,.04),0 12px 32px rgba(0,0,0,.22); backdrop-filter:blur(18px); overflow:hidden; color:#e5e7eb; }
+.header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:12px 14px 8px; }
+.title { margin:0; font-size:12px; font-weight:750; letter-spacing:.12em; text-transform:uppercase; color:#d1fae5; }
+.subtitle,.meta { margin:3px 0 0; font-size:10px; line-height:1.35; color:#94a3b8; }
+.badge { flex:0 0 auto; border:1px solid rgba(52,211,153,.28); border-radius:999px; padding:3px 7px; font:700 9px/1.2 ui-monospace,monospace; letter-spacing:.08em; text-transform:uppercase; color:#6ee7b7; background:rgba(16,185,129,.08); }
+.badge[data-state="unbound"],.badge[data-state="unavailable"],.badge[data-state="error"] { color:#fbbf24; border-color:rgba(251,191,36,.3); background:rgba(120,53,15,.14); }
+.badge[data-state="stale"] { color:#fdba74; border-color:rgba(251,146,60,.3); }
+.chart { position:relative; padding:0 10px 8px; min-height:140px; }
+.svg { display:block; width:100%; height:auto; min-height:132px; }
+.grid { stroke:rgba(148,163,184,.1); stroke-width:1; vector-effect:non-scaling-stroke; }
+.axis { stroke:rgba(148,163,184,.3); stroke-width:1; vector-effect:non-scaling-stroke; }
+.trace { fill:none; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+.idle { position:absolute; inset:0 10px 8px; display:grid; place-items:center; text-align:center; padding:18px; color:#94a3b8; font-size:11px; line-height:1.45; background:repeating-linear-gradient(0deg,transparent 0 23px,rgba(148,163,184,.055) 24px),repeating-linear-gradient(90deg,transparent 0 39px,rgba(148,163,184,.055) 40px); }
+.legend { display:flex; flex-wrap:wrap; gap:6px 12px; padding:0 14px 11px; font-size:9px; color:#94a3b8; }
+.legendItem { display:inline-flex; align-items:center; gap:5px; }
+.swatch { width:7px; height:7px; border-radius:50%; }
+.value { font:700 11px/1.2 ui-monospace,monospace; color:#e2e8f0; }
+@media (max-width:560px){ .header{padding:10px 11px 7px}.chart{padding-inline:7px;min-height:116px}.svg{min-height:108px}.title{font-size:11px} }
+@media (prefers-reduced-motion:reduce){ .panel,.trace{scroll-behavior:auto;transition:none!important;animation:none!important} }

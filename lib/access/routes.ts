@@ -282,10 +282,29 @@ export const SUPER_ADMIN_ROUTES: RouteAccess[] = [
 // non-owner before the page ever loads.
 export const OWNER_ONLY_ROUTES: RouteAccess[] = [
   { path: '/natureos/psathyrella', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN, features: ['owner-only'] }, description: 'Psathyrella Buoy GCS (Morgan only)' },
-  { path: '/fusarium/app', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN, features: ['owner-only'] }, description: 'FUSARIUM operator dashboard (Morgan only)' },
+  { path: '/fusarium', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN, features: ['owner-only'] }, description: 'FUSARIUM twins-host operator console (Morgan only)' },
+  { path: '/fusarium/app', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN, features: ['owner-only'] }, description: 'FUSARIUM operator dashboard alias (Morgan only)' },
   { path: '/fusarium/runtime', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN, features: ['owner-only'] }, description: 'FUSARIUM runtime BFF (Morgan only)' },
   { path: '/fusarium/mfa', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN, features: ['owner-only'] }, description: 'FUSARIUM owner MFA enroll/challenge (Morgan only)' },
 ]
+
+const FUSARIUM_PUBLIC_PREFIXES = [
+  '/fusarium/login',
+  '/fusarium/auth',
+  '/fusarium/launchpad',
+  '/fusarium/reset-password',
+]
+
+function isFusariumPublicOperatorPath(pathname: string): boolean {
+  return FUSARIUM_PUBLIC_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  )
+}
+
+function isFusariumOwnerConsolePath(pathname: string): boolean {
+  if (isFusariumPublicOperatorPath(pathname)) return false
+  return pathname === '/fusarium' || pathname.startsWith('/fusarium/')
+}
 
 // Email allowlist for OWNER_ONLY_ROUTES (checked in middleware). Mirrors OWNER_EMAILS in lib/auth/api-auth.ts.
 export const OWNER_ALLOWED_EMAILS = [
@@ -397,6 +416,8 @@ const MIDDLEWARE_PUBLIC_EXCEPTIONS = [
 /** True if path requires any authenticated user (middleware use). */
 export function pathRequiresAuth(pathname: string): boolean {
   if (MIDDLEWARE_PUBLIC_EXCEPTIONS.some(p => pathname === p || pathname.startsWith(p + '/'))) return false;
+  if (isFusariumPublicOperatorPath(pathname)) return false
+  if (isFusariumOwnerConsolePath(pathname)) return true
   return AUTH_REQUIRED_PREFIXES.some(
     p => pathname === p || pathname.startsWith(p + '/')
   )
@@ -412,6 +433,8 @@ export function pathRequiresCompanyEmail(pathname: string): boolean {
 
 /** True if path is restricted to the owner allowlist (OWNER_ALLOWED_EMAILS) — middleware use. */
 export function pathRequiresOwner(pathname: string): boolean {
+  if (isFusariumPublicOperatorPath(pathname)) return false
+  if (isFusariumOwnerConsolePath(pathname)) return true
   return OWNER_REQUIRED_PREFIXES.some(
     p => pathname === p || pathname.startsWith(p + '/')
   )

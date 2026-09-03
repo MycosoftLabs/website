@@ -1,0 +1,95 @@
+.page {
+  --life-green: #62e6a8;
+  --life-cyan: #67d8e8;
+  --life-orange: #f2a65a;
+  min-height: 100%;
+  padding: clamp(16px, 2vw, 30px);
+  color: #f3f8f5;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(37, 126, 91, 0.2), transparent 34%),
+    radial-gradient(circle at 88% 14%, rgba(242, 166, 90, 0.08), transparent 28%),
+    linear-gradient(145deg, #070a09 0%, #0d1210 48%, #080b0a 100%);
+}
+
+.hero,
+.searchBar,
+.workspaceSection,
+.footerNote {
+  border: 1px solid rgba(201, 229, 216, 0.14);
+  background: linear-gradient(145deg, rgba(19, 27, 24, 0.86), rgba(8, 12, 10, 0.74));
+  box-shadow: 0 22px 55px rgba(0, 0, 0, 0.22), inset 0 1px rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(18px);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 22px;
+  align-items: center;
+  padding: clamp(22px, 2.5vw, 34px);
+  border-radius: 22px;
+}
+
+.hero h1 { margin: 6px 0 9px; font-size: clamp(38px, 5vw, 66px); line-height: 0.96; letter-spacing: -0.05em; }
+.heroCopy > p { max-width: 980px; margin: 0; color: rgba(226, 238, 232, 0.72); font-size: clamp(14px, 1.15vw, 17px); line-height: 1.52; }
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; color: var(--life-green); font-size: 10px; font-weight: 800; letter-spacing: 0.16em; }
+.eyebrow svg { width: 14px; height: 14px; }
+.heroMark { position: relative; width: 150px; height: 150px; justify-self: end; border-radius: 50%; border: 1px solid rgba(98, 230, 168, 0.22); background: radial-gradient(circle at 35% 32%, rgba(98, 230, 168, 0.24), rgba(4, 10, 7, 0.38) 58%); box-shadow: inset 0 0 38px rgba(98, 230, 168, 0.08), 0 18px 50px rgba(0,0,0,.25); }
+.heroMark svg { position: absolute; color: var(--life-green); filter: drop-shadow(0 0 14px rgba(98, 230, 168, 0.35)); }
+.heroMark svg:first-child { width: 70px; height: 70px; left: 26px; top: 27px; }
+.heroMark svg:last-child { width: 45px; height: 45px; right: 22px; bottom: 25px; color: var(--life-orange); }
+.missionTags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 15px; }
+.missionTags span { padding: 5px 8px; border: 1px solid rgba(98, 230, 168, 0.16); border-radius: 999px; background: rgba(7, 17, 12, 0.48); color: rgba(230, 240, 235, 0.65); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+
+.searchBar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; margin-top: 15px; padding: 8px 8px 8px 16px; border-radius: 15px; }
+.searchBar > svg { width: 19px; height: 19px; color: var(--life-cyan); }
+.searchBar input { width: 100%; min-height: 42px; border: 0; outline: 0; background: transparent; color: #f4faf6; font-size: 15px; }
+.searchBar input::placeholder { color: rgba(222, 235, 228, 0.42); }
+.searchBar button { min-height: 40px; padding: 0 16px; border: 0; border-radius: 10px; display: inline-flex; align-items: center; gap: 7px; color: #06100c; background: var(--life-green); font-weight: 800; cursor: pointer; }
+.searchBar button svg { width: 15px; height: 15px; }
+
+.workspaceSection { margin-top: 15px; padding: 20px; border-radius: 19px; }
+.sectionHeader { display: flex; justify-content: space-between; align-items: end; gap: 18px; margin-bottom: 14px; }
+.sectionHeader h2 { margin: 4px 0 0; font-size: clamp(21px, 2.2vw, 29px); letter-spacing: -0.025em; }
+.sectionHeader > p { max-width: 430px; margin: 0; color: rgba(226, 238, 232, 0.56); text-align: right; }
+.workspaceGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.workspaceCard { --tone: var(--life-green); min-height: 176px; padding: 18px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 13px; border: 1px solid color-mix(in srgb, var(--tone) 24%, transparent); border-radius: 16px; background: linear-gradient(150deg, color-mix(in srgb, var(--tone) 9%, rgba(6, 11, 8, 0.78)), rgba(5, 9, 7, 0.55)); box-shadow: inset 0 1px rgba(255,255,255,.03); transition: transform 160ms ease, border-color 160ms ease, background 160ms ease; }
+.workspaceCard[data-tone="cyan"] { --tone: var(--life-cyan); }
+.workspaceCard[data-tone="orange"] { --tone: var(--life-orange); }
+.workspaceCard[data-tone="green"] { --tone: var(--life-green); }
+.workspaceCard:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--tone) 58%, transparent); background: linear-gradient(150deg, color-mix(in srgb, var(--tone) 14%, rgba(6, 11, 8, 0.82)), rgba(5, 9, 7, 0.68)); }
+.iconWell { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--tone) 34%, transparent); border-radius: 13px; background: color-mix(in srgb, var(--tone) 12%, rgba(0,0,0,.38)); color: var(--tone); }
+.iconWell svg { width: 23px; height: 23px; }
+.cardCopy { display: flex; flex-direction: column; gap: 9px; }
+.cardCopy strong { color: #f4f9f6; font-size: 19px; }
+.cardCopy small { color: rgba(226, 238, 232, 0.55); line-height: 1.48; }
+.cardArrow { width: 17px; height: 17px; color: color-mix(in srgb, var(--tone) 78%, white); }
+.footerNote { margin-top: 15px; padding: 14px 16px; border-radius: 14px; display: flex; align-items: center; gap: 11px; }
+.footerNote > svg { flex: 0 0 auto; color: var(--life-green); }
+.footerNote span { display: flex; flex-direction: column; gap: 3px; }
+.footerNote small { color: rgba(226, 238, 232, 0.52); }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+@media (max-width: 980px) {
+  .hero { grid-template-columns: minmax(0, 1fr) 120px; }
+  .heroMark { width: 110px; height: 110px; }
+  .heroMark svg:first-child { width: 54px; height: 54px; left: 16px; top: 19px; }
+  .heroMark svg:last-child { width: 34px; height: 34px; right: 13px; bottom: 16px; }
+  .workspaceGrid { grid-template-columns: 1fr; }
+  .workspaceCard { min-height: 124px; }
+}
+
+@media (max-width: 680px) {
+  .page { padding: 11px; }
+  .hero { grid-template-columns: 1fr; padding: 20px 16px; }
+  .heroMark { display: none; }
+  .hero h1 { font-size: 44px; }
+  .searchBar { grid-template-columns: auto minmax(0, 1fr); padding: 9px 11px; }
+  .searchBar button { grid-column: 1 / -1; }
+  .sectionHeader { align-items: start; flex-direction: column; }
+  .sectionHeader > p { text-align: left; }
+  .workspaceSection { padding: 15px; }
+  .workspaceCard { min-height: 138px; }
+}
+
+@media (prefers-reduced-motion: reduce) { .workspaceCard { transition: none; } }

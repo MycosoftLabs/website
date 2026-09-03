@@ -1,0 +1,14 @@
+import type { AiSurface } from "./catalog"
+
+export type OperationalSurface = Exclude<AiSurface, "nlm-training">
+export interface OperationalSource { label: string; endpoint: string; purpose: string }
+export interface OperationalDefinition { title: string; eyebrow: string; summary: string; sources: readonly OperationalSource[]; boundary: string }
+
+export const AI_OPERATIONAL_DEFINITIONS: Record<OperationalSurface, OperationalDefinition> = {
+  "ai-studio": { title: "MYCA AI Studio", eyebrow: "Conversation systems and evidence", summary: "Read-only operating picture of MYCA routing, connectivity, consciousness, grounding, agents, services, devices, and world context.", sources: [{ label: "MYCA live activity", endpoint: "/api/myca/live-activity", purpose: "Aggregated same-origin health and activity evidence" }], boundary: "No prompt is submitted, no tool runs, no memory is written, and no agent is dispatched from this surface." },
+  workflows: { title: "Workflow Operations", eyebrow: "n8n runtime and export inventory", summary: "Separates observed n8n runtime state from the repository's known workflow exports, so a definition is never mistaken for a running automation.", sources: [{ label: "n8n runtime", endpoint: "/api/myca/workflows?executions=true", purpose: "Read-only workflows and recent execution evidence" }, { label: "Export inventory", endpoint: "/api/natureos/n8n/workflows-list", purpose: "Known repository workflow definitions" }], boundary: "Activation, execution, editing, deletion, and publication are not exposed." },
+  mas: { title: "MAS Operations", eyebrow: "Orchestrator health and registry", summary: "Read-only view of orchestrator reachability and the declared agent registry. Registry entries are not treated as proof that a process is executing.", sources: [{ label: "MAS health", endpoint: "/api/mas/health", purpose: "Observed orchestrator reachability and health" }, { label: "Agent registry", endpoint: "/api/mas/agents", purpose: "Declared agent identities and reported states" }], boundary: "No start, stop, restart, configuration, task routing, or agent dispatch is available." },
+  avani: { title: "AVANI Guardian", eyebrow: "Governance evidence and authority boundary", summary: "Read-only view of the embedded policy engine, rule inventory, and authoritative-backend connection state.", sources: [{ label: "AVANI status", endpoint: "/api/avani/status", purpose: "Embedded engine state and backend connection evidence" }, { label: "Constitutional rules", endpoint: "/api/avani/rules", purpose: "Active embedded rule inventory" }], boundary: "This surface does not evaluate or authorize an action. Embedded policy is evidence, not accredited authority." },
+}
+
+export function getOperationalDefinition(surface: OperationalSurface) { return AI_OPERATIONAL_DEFINITIONS[surface] }
