@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { ArrowRight, Globe, Radio, Shield, Server } from "lucide-react"
 import { requireFusariumOwner } from "@/lib/auth/api-auth"
+import { FUSARIUM_MFA_ENROLL_PATH } from "@/lib/auth/fusarium-mfa"
 import { probeFusariumRuntime } from "@/lib/fusarium-runtime-probe"
 
 export const dynamic = "force-dynamic"
@@ -50,6 +51,14 @@ export default async function FusariumOperatorAppPage() {
         <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
           Signed in as {auth.user.email}. This path is the public Fusarium dashboard on
           mycosoft.com. Loopback twins-host on 8212 remains the local rollback and is not exposed.
+        </p>
+        <p className="mt-4">
+          <Link
+            href={`${FUSARIUM_MFA_ENROLL_PATH}?redirectTo=${encodeURIComponent("/fusarium/app")}`}
+            className="inline-flex min-h-[44px] items-center text-sm text-emerald-400 underline-offset-4 hover:underline"
+          >
+            Enroll authenticator 2FA
+          </Link>
         </p>
 
         <section className="mt-8 rounded-2xl border border-white/10 bg-zinc-950 p-5">

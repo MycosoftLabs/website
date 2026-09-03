@@ -69,10 +69,21 @@ export default async function FusariumOperatorLoginPage({
   }
 
   const initialError = typeof params.error === "string" ? params.error : null
+  const initialMessage = typeof params.message === "string" ? params.message : null
+  const requestedMode = typeof params.mode === "string" ? params.mode : null
+  const initialMode =
+    requestedMode === "magic" || requestedMode === "forgot" || requestedMode === "password"
+      ? requestedMode
+      : "password"
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-black px-4 py-10">
-      <FusariumLoginForm redirectTo={safeNext} initialError={initialError} />
+      <FusariumLoginForm
+        redirectTo={safeNext}
+        initialError={initialError}
+        initialMessage={initialMessage}
+        initialMode={initialMode}
+      />
     </main>
   )
 }

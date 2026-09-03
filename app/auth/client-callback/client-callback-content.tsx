@@ -23,11 +23,12 @@ function getStoredRedirect(): string | null {
 }
 
 function redirectToLogin(error: string, next: string) {
+  const loginPath = next.startsWith("/fusarium") ? "/fusarium/login" : "/login"
   const params = new URLSearchParams({
     error,
     redirectTo: next,
   })
-  window.location.replace(`/login?${params.toString()}`)
+  window.location.replace(`${loginPath}?${params.toString()}`)
 }
 
 export function ClientCallbackContent() {

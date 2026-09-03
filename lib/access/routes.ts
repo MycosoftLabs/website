@@ -24,6 +24,7 @@ export const PUBLIC_ROUTES: RouteAccess[] = [
   { path: '/apps', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Apps hub' },
   { path: '/apps/[slug]', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'App page' },
   { path: '/fusarium/login', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'FUSARIUM operator login (public path; owner session required to continue)' },
+  { path: '/fusarium/reset-password', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'FUSARIUM owner password reset from recovery email' },
   { path: '/fusarium/launchpad', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'FUSARIUM Launchpad marketing (commercial, non-CUI product)' },
   { path: '/devices', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Devices catalog' },
   { path: '/devices/[id]', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device product page' },
@@ -283,6 +284,7 @@ export const OWNER_ONLY_ROUTES: RouteAccess[] = [
   { path: '/natureos/psathyrella', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN, features: ['owner-only'] }, description: 'Psathyrella Buoy GCS (Morgan only)' },
   { path: '/fusarium/app', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN, features: ['owner-only'] }, description: 'FUSARIUM operator dashboard (Morgan only)' },
   { path: '/fusarium/runtime', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN, features: ['owner-only'] }, description: 'FUSARIUM runtime BFF (Morgan only)' },
+  { path: '/fusarium/mfa', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN, features: ['owner-only'] }, description: 'FUSARIUM owner MFA enroll/challenge (Morgan only)' },
 ]
 
 // Email allowlist for OWNER_ONLY_ROUTES (checked in middleware). Mirrors OWNER_EMAILS in lib/auth/api-auth.ts.

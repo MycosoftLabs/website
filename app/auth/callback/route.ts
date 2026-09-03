@@ -5,6 +5,7 @@
  * (required for OAuth flow - standard createClient doesn't attach cookies to redirects).
  */
 import { getAuthOrigin } from '@/lib/auth/get-auth-origin'
+import { fusariumAuthErrorPath } from '@/lib/auth/fusarium-owner-gate'
 import { createClient, createClientForRedirect } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -66,17 +67,19 @@ export async function GET(request: Request) {
 
   const origin = getAuthOrigin(request)
 
+  const loginPath = fusariumAuthErrorPath(next)
+
   // Handle OAuth errors
   if (error) {
     console.error('Auth callback error:', error, error_description)
     return NextResponse.redirect(
-      `${origin}/login?error=${encodeURIComponent(error_description || error)}`
+      `${origin}${loginPath}?error=${encodeURIComponent(error_description || error)}&redirectTo=${encodeURIComponent(next)}`
     )
   }
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return NextResponse.redirect(
-      `${origin}/login?error=${encodeURIComponent('Sign-in is not configured. Missing Supabase env.')}&redirectTo=${encodeURIComponent(next)}`
+      `${origin}${loginPath}?error=${encodeURIComponent('Sign-in is not configured. Missing Supabase env.')}&redirectTo=${encodeURIComponent(next)}`
     )
   }
 
@@ -98,7 +101,7 @@ export async function GET(request: Request) {
 
     console.error('Code exchange error:', exchangeError)
     return NextResponse.redirect(
-      `${origin}/login?error=${encodeURIComponent(exchangeError.message)}&redirectTo=${encodeURIComponent(next)}`
+      `${origin}${loginPath}?error=${encodeURIComponent(exchangeError.message)}&redirectTo=${encodeURIComponent(next)}`
     )
   }
 
@@ -109,6 +112,6 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}${next}`)
   }
   return NextResponse.redirect(
-    `${origin}/login?error=${encodeURIComponent('Session not found')}&redirectTo=${encodeURIComponent(next)}`
+    `${origin}${loginPath}?error=${encodeURIComponent('Session not found')}&redirectTo=${encodeURIComponent(next)}`
   )
 }
