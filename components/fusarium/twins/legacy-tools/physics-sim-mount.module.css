@@ -1,0 +1,42 @@
+.physicsMount {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
+/*
+ * The inherited simulator stays byte-identical. This Fusarium-only mount
+ * adapter releases its desktop min-content constraints on narrow screens so
+ * the header, controls, and result grids reflow instead of widening Workspace.
+ */
+@media (max-width: 640px) {
+  .physicsMount :global(.max-w-7xl),
+  .physicsMount :global(.grid),
+  .physicsMount :global(.grid > *) {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .physicsMount :global(.sticky > .max-w-7xl > .flex.items-center.justify-between) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .physicsMount :global(.sticky > .max-w-7xl > .flex.items-center.justify-between > *) {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .physicsMount :global(.whitespace-nowrap) {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .physicsMount :global(.grid.grid-cols-3) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

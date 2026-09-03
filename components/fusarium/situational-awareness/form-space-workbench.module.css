@@ -1,0 +1,933 @@
+.workbench {
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(77, 224, 168, 0.2);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 82% 0%, rgba(0, 196, 255, 0.08), transparent 34%),
+    linear-gradient(145deg, rgba(7, 18, 20, 0.98), rgba(3, 10, 13, 0.98));
+  color: #eefcf7;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.header h2,
+.cardTitle h3,
+.bindingList h3 {
+  margin: 0;
+  color: #f6fffb;
+}
+
+.header h2 {
+  margin-top: 4px;
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  letter-spacing: -0.02em;
+}
+
+.header p {
+  max-width: 820px;
+  margin: 7px 0 0;
+  color: #a9c8bd;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.eyebrow,
+.cardTitle span {
+  color: #69e2b1;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.headerActions > span,
+.cardTitle > b {
+  padding: 6px 9px;
+  border: 1px solid rgba(255, 194, 92, 0.3);
+  border-radius: 999px;
+  color: #ffd58c;
+  background: rgba(109, 74, 11, 0.2);
+  font-size: 0.62rem;
+  letter-spacing: 0.09em;
+}
+
+.headerActions > span[data-state="available"] {
+  border-color: rgba(77, 224, 168, 0.32);
+  color: #89f2c7;
+  background: rgba(20, 104, 73, 0.2);
+}
+
+.headerActions button,
+.probeButton,
+.mycaActions button,
+.proposalForm > button,
+.controls fieldset button {
+  min-height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #d8eee6;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.headerActions button,
+.probeButton,
+.mycaActions button,
+.proposalForm > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 11px;
+}
+
+.headerActions button:hover,
+.probeButton:hover,
+.mycaActions button:hover,
+.proposalForm > button:hover,
+.controls fieldset button:hover {
+  border-color: rgba(77, 224, 168, 0.45);
+  background: rgba(77, 224, 168, 0.08);
+}
+
+.headerActions button:focus-visible,
+.probeButton:focus-visible,
+.mycaActions button:focus-visible,
+.proposalForm > button:focus-visible,
+.controls button:focus-visible,
+.controls select:focus-visible,
+.proposalForm textarea:focus-visible,
+.compareGrid button:focus-visible,
+.proposalDecision a:focus-visible,
+.earthFooter a:focus-visible {
+  outline: 2px solid #72eabb;
+  outline-offset: 2px;
+}
+
+.headerActions svg,
+.probeButton svg,
+.mycaActions svg,
+.proposalForm > button svg,
+.earthFooter svg {
+  width: 14px;
+  height: 14px;
+}
+
+.boundaryNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 14px 22px 0;
+  padding: 11px 13px;
+  border: 1px solid rgba(255, 194, 92, 0.2);
+  border-radius: 10px;
+  background: rgba(93, 61, 8, 0.12);
+  color: #d8c9a9;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.boundaryNotice svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  color: #ffd58c;
+}
+
+.boundaryNotice span {
+  display: grid;
+  gap: 2px;
+}
+
+.boundaryNotice strong {
+  color: #ffe4af;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(280px, 1.2fr);
+  gap: 14px;
+  padding: 16px 22px;
+}
+
+.controls label,
+.controls fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.controls label > span,
+.controls legend,
+.proposalForm > label {
+  display: block;
+  margin-bottom: 6px;
+  color: #99b9ae;
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.controls select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 34px 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 9px;
+  background: #081417;
+  color: #effaf6;
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.controls small {
+  display: block;
+  margin-top: 5px;
+  color: #78968c;
+  font-size: 0.67rem;
+}
+
+.controls fieldset > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.controls fieldset button[aria-pressed="true"] {
+  border-color: rgba(77, 224, 168, 0.6);
+  background: rgba(47, 190, 134, 0.17);
+  color: #9af3cf;
+}
+
+.content {
+  padding: 0 22px 18px;
+}
+
+.loading,
+.unavailable {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 180px;
+  margin: 0 22px 18px;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  color: #a7c3b9;
+}
+
+.unavailable {
+  flex-direction: column;
+}
+
+.modelView {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.9fr);
+  gap: 12px;
+}
+
+.modelCard,
+.formStateCard,
+.bindingList,
+.mycaIntro,
+.proposalForm {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  background: rgba(2, 9, 12, 0.62);
+}
+
+.modelCard[data-state="source_present"] {
+  border-color: rgba(77, 224, 168, 0.25);
+}
+
+.formStateCard[data-state="unbound"] {
+  border-color: rgba(255, 194, 92, 0.2);
+}
+
+.cardTitle {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.cardTitle > svg {
+  width: 23px;
+  height: 23px;
+  color: #65e2b0;
+}
+
+.cardTitle h3 {
+  margin-top: 2px;
+  font-size: 1rem;
+}
+
+.modelCard > p,
+.formStateCard > p,
+.mycaIntro > p {
+  margin: 12px 0;
+  color: #a8c3ba;
+  font-size: 0.77rem;
+  line-height: 1.55;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 13px;
+}
+
+.chips span {
+  padding: 4px 7px;
+  border: 1px solid rgba(101, 226, 176, 0.17);
+  border-radius: 999px;
+  color: #a9dbca;
+  background: rgba(101, 226, 176, 0.06);
+  font-size: 0.65rem;
+}
+
+.modelCard dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0 0 12px;
+}
+
+.modelCard dl div {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+}
+
+.modelCard dt {
+  color: #77968b;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.modelCard dd {
+  overflow-wrap: anywhere;
+  margin: 3px 0 0;
+  color: #d9eee6;
+  font-size: 0.7rem;
+}
+
+.unboundLine {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #ddb977 !important;
+}
+
+.unboundLine svg {
+  width: 15px;
+}
+
+.formStateCard details,
+.mycaIntro details,
+.catalogFooter details {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.formStateCard summary,
+.mycaIntro summary,
+.catalogFooter summary {
+  padding: 9px 11px;
+  color: #d5eae2;
+  font-size: 0.72rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.formStateCard ul {
+  columns: 2;
+  margin: 0;
+  padding: 0 28px 12px;
+  color: #91afa4;
+  font-size: 0.68rem;
+}
+
+.probeResult {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 10px;
+  border-left: 3px solid #8d7951;
+  background: rgba(141, 121, 81, 0.08);
+  color: #9db8af;
+  font-size: 0.69rem;
+}
+
+.probeResult[data-state="available"] {
+  border-color: #55d9a4;
+  color: #bdebd9;
+}
+
+.probeResult[data-state="unavailable"] {
+  border-color: #e07878;
+}
+
+.probeResult strong {
+  color: #eefbf6;
+  letter-spacing: 0.06em;
+}
+
+.probeResult small {
+  color: #718f84;
+}
+
+.compareGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.compareGrid button {
+  display: grid;
+  min-width: 0;
+  min-height: 112px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+  color: #e8f7f1;
+  text-align: left;
+  cursor: pointer;
+}
+
+.compareGrid button[data-selected="true"] {
+  border-color: rgba(77, 224, 168, 0.55);
+  background: rgba(77, 224, 168, 0.08);
+}
+
+.compareGrid button > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #d8b572;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.compareGrid button > span svg {
+  width: 12px;
+}
+
+.compareGrid button strong {
+  align-self: end;
+  font-size: 0.82rem;
+}
+
+.compareGrid button small {
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  color: #809f94;
+  font-size: 0.63rem;
+}
+
+.interactionView {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+  gap: 12px;
+}
+
+.topologyPane {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.selectedTopologyModel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid rgba(77, 224, 168, 0.2);
+  border-radius: 10px;
+  background: rgba(23, 93, 69, 0.08);
+}
+
+.selectedTopologyModel > svg {
+  width: 19px;
+  color: #68e3b2;
+}
+
+.selectedTopologyModel > span {
+  display: grid;
+  gap: 1px;
+}
+
+.selectedTopologyModel small {
+  color: #76968b;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.selectedTopologyModel strong {
+  font-size: 0.75rem;
+}
+
+.selectedTopologyModel > b {
+  color: #d9b66e;
+  font-size: 0.56rem;
+}
+
+.selectedTopologyModel > p {
+  grid-column: 2 / -1;
+  margin: 0;
+  color: #829f95;
+  font-size: 0.61rem;
+}
+
+.topology {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background:
+    linear-gradient(rgba(68, 173, 137, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(68, 173, 137, 0.035) 1px, transparent 1px),
+    rgba(2, 9, 12, 0.62);
+  background-size: 24px 24px;
+}
+
+.topologyStep {
+  display: contents;
+}
+
+.topologyStep > article {
+  display: grid;
+  min-height: 96px;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9px;
+  background: rgba(4, 14, 17, 0.9);
+}
+
+.topologyStep > article > span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #d7b776;
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.topologyStep > article > span svg {
+  width: 11px;
+}
+
+.topologyStep > article strong {
+  align-self: end;
+  font-size: 0.72rem;
+}
+
+.topologyStep > article small {
+  margin-top: 3px;
+  color: #79978c;
+  font-size: 0.58rem;
+}
+
+.edgeLedger {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.edgeLedger > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 0.85fr) auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  color: #8eada2;
+  font-size: 0.57rem;
+}
+
+.edgeLedger > div > span,
+.edgeLedger > div > strong {
+  overflow-wrap: anywhere;
+}
+
+.edgeLedger > div > strong {
+  color: #cee7dd;
+  text-align: center;
+}
+
+.edgeLedger > div > svg {
+  width: 11px;
+  color: #5fcda3;
+}
+
+.edgeLedger > div > small {
+  color: #d5b675;
+  font-size: 0.5rem;
+  font-weight: 800;
+}
+
+.bindingList h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 9px;
+  font-size: 0.85rem;
+}
+
+.bindingList h3 svg {
+  width: 16px;
+  color: #65e2b0;
+}
+
+.bindingList article {
+  padding: 9px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.bindingList article > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bindingList article strong,
+.bindingList article span {
+  font-size: 0.67rem;
+}
+
+.bindingList article span {
+  color: #d6b46f;
+}
+
+.bindingList article p {
+  margin: 4px 0;
+  color: #819f95;
+  font-size: 0.63rem;
+  line-height: 1.35;
+}
+
+.bindingList code,
+.codeGrid code,
+.proposalDecision code {
+  overflow-wrap: anywhere;
+  color: #82cdb2;
+  font-size: 0.59rem;
+}
+
+.catalogFooter {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.catalogFooter p {
+  margin: 0;
+  padding: 0 10px 8px;
+  color: #78978c;
+  font-size: 0.64rem;
+}
+
+.catalogFooter ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0 10px 10px;
+  list-style: none;
+}
+
+.catalogFooter li {
+  display: grid;
+  gap: 2px;
+  color: #cfe5dd;
+  font-size: 0.65rem;
+}
+
+.catalogFooter li span {
+  color: #78978c;
+}
+
+.codeGrid {
+  display: grid;
+  gap: 4px;
+  max-height: 190px;
+  overflow: auto;
+  padding: 0 10px 10px;
+}
+
+.mycaPanel {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(340px, 1.1fr);
+  gap: 12px;
+  padding: 18px 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(13, 31, 35, 0.34);
+}
+
+.mycaActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+
+.mycaIntro pre {
+  max-height: 240px;
+  margin: 0;
+  overflow: auto;
+  padding: 0 11px 11px;
+  color: #9ed8c3;
+  font-size: 0.62rem;
+  white-space: pre-wrap;
+}
+
+.proposalForm textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 164px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.32);
+  color: #dff6ed;
+  font: 0.68rem/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.proposalForm > button {
+  margin-top: 8px;
+}
+
+.proposalForm > button:disabled,
+.headerActions button:disabled,
+.probeButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.prohibited {
+  margin: 9px 0 0;
+  color: #b4986d;
+  font-size: 0.62rem;
+  line-height: 1.4;
+}
+
+.proposalDecision {
+  display: grid;
+  gap: 5px;
+  margin-top: 9px;
+  padding: 10px;
+  border: 1px solid rgba(224, 120, 120, 0.25);
+  border-radius: 9px;
+  background: rgba(111, 31, 31, 0.1);
+  color: #d9c8c8;
+  font-size: 0.68rem;
+}
+
+.proposalDecision[data-state="accepted"] {
+  border-color: rgba(77, 224, 168, 0.28);
+  background: rgba(25, 103, 75, 0.1);
+  color: #c8e8dc;
+}
+
+.proposalDecision strong {
+  color: #effcf7;
+  letter-spacing: 0.06em;
+}
+
+.proposalDecision a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  color: #7ce8bc;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.proposalDecision a svg {
+  width: 13px;
+}
+
+.proposalDecision small {
+  color: #78988d;
+}
+
+.earthFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: #86a69a;
+  font-size: 0.7rem;
+}
+
+.earthFooter span,
+.earthFooter a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.earthFooter a {
+  color: #77e4b8;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 1050px) {
+  .modelView,
+  .interactionView,
+  .mycaPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .compareGrid,
+  .catalogFooter,
+  .edgeLedger {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .header,
+  .earthFooter {
+    flex-direction: column;
+  }
+
+  .headerActions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .headerActions button {
+    min-height: 44px;
+  }
+
+  .controls,
+  .compareGrid,
+  .catalogFooter,
+  .edgeLedger {
+    grid-template-columns: 1fr;
+  }
+
+  .controls fieldset button,
+  .mycaActions button,
+  .proposalForm > button {
+    min-height: 44px;
+  }
+
+  .topology {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .edgeLedger > div {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 0.85fr) auto minmax(0, 1fr);
+  }
+
+  .edgeLedger > div > small {
+    grid-column: 1 / -1;
+  }
+
+  .modelCard dl {
+    grid-template-columns: 1fr;
+  }
+
+  .formStateCard ul {
+    columns: 1;
+  }
+}
+
+@media (max-width: 460px) {
+  .header,
+  .controls,
+  .content,
+  .mycaPanel,
+  .earthFooter {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .boundaryNotice,
+  .loading,
+  .unavailable {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+
+  .controls fieldset > div,
+  .topology {
+    grid-template-columns: 1fr;
+  }
+
+  .cardTitle {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .selectedTopologyModel {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .selectedTopologyModel > b,
+  .selectedTopologyModel > p {
+    grid-column: 1 / -1;
+  }
+
+  .cardTitle > b {
+    grid-column: 1 / -1;
+    width: fit-content;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}

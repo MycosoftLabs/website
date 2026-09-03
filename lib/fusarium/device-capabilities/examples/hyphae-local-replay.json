@@ -1,0 +1,18 @@
+{
+  "manifest": {
+    "schema": "fusarium-device-capability-manifest/v1",
+    "classification": "UNCLASSIFIED",
+    "device": { "id": "hyphae-replay-1", "registryId": "local-replay/hyphae-1", "name": "Hyphae Replay 1", "type": "edge-node", "status": "replay", "identityEvidence": "Operator-imported bounded replay manifest." },
+    "boards": [{ "id": "mycobrain-replay", "family": "mycobrain", "model": "MycoBrain", "revision": "v2", "processors": [{ "id": "esp32-replay", "family": "esp32", "model": "ESP32", "role": "sensor acquisition" }, { "id": "jetson-replay", "family": "jetson", "model": "Jetson", "role": "edge processing" }] }],
+    "sensors": [
+      { "id": "hyphae-replay-1/mic-1", "modality": "microphone", "model": "Acoustic replay", "boardRef": "mycobrain-replay", "processorRef": "jetson-replay", "transport": { "kind": "usb", "endpointRef": null, "adapterState": "unbound" }, "calibration": { "state": "unknown", "calibratedAt": null, "expiresAt": null, "method": null }, "provenance": { "sourceRef": "local-replay", "sourceRecordId": "mic-1", "observedAt": "2026-09-01T20:00:00Z", "receivedAt": "2026-09-01T20:00:01Z" } },
+      { "id": "hyphae-replay-1/voc-1", "modality": "gas-voc", "model": "BME690 replay", "boardRef": "mycobrain-replay", "processorRef": "esp32-replay", "transport": { "kind": "i2c", "endpointRef": "replay/i2c-1", "adapterState": "unbound" }, "calibration": { "state": "unknown", "calibratedAt": null, "expiresAt": null, "method": null }, "provenance": { "sourceRef": "local-replay", "sourceRecordId": "voc-1", "observedAt": "2026-09-01T20:00:00Z", "receivedAt": "2026-09-01T20:00:01Z" } }
+    ],
+    "mission": { "id": "replay-mission", "label": "Replay verification" }, "location": { "id": "replay-lab", "label": "Replay lab" }, "environment": { "id": "bench", "label": "Bench" },
+    "provenance": { "sourceRef": "local-replay", "sourceRecordId": "hyphae-replay-1", "receivedAt": "2026-09-01T20:00:01Z" }
+  },
+  "sampleSeries": [
+    { "deviceId": "hyphae-replay-1", "sensorId": "hyphae-replay-1/mic-1", "modality": "microphone", "unit": "normalized amplitude", "timestamps": ["2026-09-01T20:00:00.000Z", "2026-09-01T20:00:00.001Z", "2026-09-01T20:00:00.002Z", "2026-09-01T20:00:00.003Z"], "values": [0, 0.5, -0.25, 0], "provenance": { "sourceId": "local-replay", "observedAt": "2026-09-01T20:00:00Z", "receivedAt": "2026-09-01T20:00:01Z", "evidenceId": "mic-replay", "mode": "REPLAY" }, "state": "available", "sampleRateHz": 1000 },
+    { "deviceId": "hyphae-replay-1", "sensorId": "hyphae-replay-1/voc-1", "modality": "gas-voc", "unit": "relative response", "timestamps": ["2026-09-01T20:00:00Z", "2026-09-01T20:00:01Z", "2026-09-01T20:00:02Z", "2026-09-01T20:00:03Z"], "values": [0.1, 0.2, 0.4, 0.3], "channels": ["gas response"], "provenance": { "sourceId": "local-replay", "observedAt": "2026-09-01T20:00:00Z", "receivedAt": "2026-09-01T20:00:01Z", "evidenceId": "voc-replay", "mode": "REPLAY" }, "state": "available" }
+  ]
+}
