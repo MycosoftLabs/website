@@ -7316,7 +7316,7 @@ const CREPMycaPanel = memo(function CREPMycaPanel({
 
   const getLiveMapSnapshot = useCallback(() => {
     const map =
-      mapRef.current ||
+      mapRef?.current ||
       (typeof window !== "undefined" ? (window as any).__crep_map : null);
     const liveCenter = map?.getCenter?.();
     const liveBounds = map?.getBounds?.();
@@ -7485,7 +7485,7 @@ const CREPMycaPanel = memo(function CREPMycaPanel({
 
     if (target && typeof window !== "undefined") {
       const map =
-        mapRef.current ||
+        mapRef?.current ||
         (typeof window !== "undefined" ? (window as any).__crep_map : null);
       try {
         crepMapFlyTo(map, {
@@ -23838,14 +23838,14 @@ export default function CREPDashboardPage({
           {/* BlueSite v2 — wildfire FLAMES + volumetric SMOKE (Earth-2 fire feed) and
               SPORE DISPERSAL. These were built but dormant (unimported); wired here and
               gated OFF by default — ?bluesite=1&smoke=1 / &spores3d=1. */}
-          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && mapRef.current && getBlueSiteFlags().smoke && (
+          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && mapRef && getBlueSiteFlags().smoke && (
             <>
-              <FireLayer map={mapRef.current} visible opacity={0.9} showAnimation showHeatShimmer />
-              <SmokeLayer map={mapRef.current} visible forecastHours={earth2Filter.forecastHours} opacity={0.75} showAnimation />
+              <FireLayer map={mapRef} visible opacity={0.9} showAnimation showHeatShimmer />
+              <SmokeLayer map={mapRef} visible forecastHours={earth2Filter.forecastHours} opacity={0.75} showAnimation />
             </>
           )}
-          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && mapRef.current && getBlueSiteFlags().spores3d && (
-            <SporeDispersalLayer map={mapRef.current} visible forecastHours={earth2Filter.forecastHours} opacity={0.7} showConcentrationGradient />
+          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && mapRef && getBlueSiteFlags().spores3d && (
+            <SporeDispersalLayer map={mapRef} visible forecastHours={earth2Filter.forecastHours} opacity={0.7} showConcentrationGradient />
           )}
 
           {/* Right-click waypoint / places-saving system (Apr 20, 2026).

@@ -21,7 +21,8 @@
  * message — deleted.
  */
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 import { MYCAProvider } from "@/contexts/myca-context"
 import { CREPProvider } from "@/contexts/crep-context"
 import { GroundStationProvider } from "@/lib/ground-station/context"
@@ -147,6 +148,12 @@ export interface CREPDashboardEmbedProps {
 }
 
 export default function CREPDashboardLoader(props: CREPDashboardEmbedProps) {
+  const pathname = usePathname() || ""
+  const isFusariumMount = pathname.includes("/fusarium/")
+  const [clientReady, setClientReady] = useState(!isFusariumMount)
+  useEffect(() => {
+    if (isFusariumMount) setClientReady(true)
+  }, [isFusariumMount])
   useEffect(() => {
     const key = "crep-chunk-reload-attempted"
     function isChunkLoadError(reason: unknown): boolean {
@@ -182,6 +189,10 @@ export default function CREPDashboardLoader(props: CREPDashboardEmbedProps) {
       window.removeEventListener("unhandledrejection", onRejection)
     }
   }, [])
+
+  if (!clientReady) {
+    return <CrepLoadingGlobe />
+  }
 
   return (
     <MYCAProvider>
