@@ -3,8 +3,9 @@
  * Never expose this origin in NEXT_PUBLIC_* or the browser.
  *
  * Public Fusarium is this Next.js website BFF (same container). When
- * FUSARIUM_INTERNAL_ORIGIN is unset, the BFF is in-process — do not
- * HTTP-self-fetch (deadlock) and do not claim Windows :8212 is live.
+ * FUSARIUM_INTERNAL_ORIGIN is unset, empty, or a known-dead Windows
+ * sidecar (127.0.0.1:8212), the BFF is in-process — do not HTTP-self-fetch
+ * (deadlock) and do not claim :8212 is live.
  */
 
 export interface FusariumRuntimeProbe {
@@ -18,15 +19,30 @@ function websiteLoopbackOrigin(): string {
   return `http://127.0.0.1:${port}`
 }
 
+/** Windows twins-host / dead container-localhost. Never a public or in-container bind. */
+function isDeadSidecarOrigin(origin: string): boolean {
+  const normalized = origin.trim().toLowerCase().replace(/\/$/, "")
+  if (!normalized) return true
+  if (/^https?:\/\/(127\.0\.0\.1|localhost|\[::1\]):8212$/i.test(normalized)) return true
+  if (normalized.includes("0.0.0.0")) return true
+  return false
+}
+
 export function fusariumInternalOrigin(): string {
   const configured = process.env.FUSARIUM_INTERNAL_ORIGIN?.trim()
-  if (configured) return configured.replace(/\/$/, "")
+  if (configured && !isDeadSidecarOrigin(configured)) {
+    return configured.replace(/\/$/, "")
+  }
   return websiteLoopbackOrigin()
 }
 
+export function hasUsableFusariumSidecar(): boolean {
+  const configured = process.env.FUSARIUM_INTERNAL_ORIGIN?.trim()
+  return Boolean(configured && !isDeadSidecarOrigin(configured))
+}
+
 export async function probeFusariumRuntime(): Promise<FusariumRuntimeProbe> {
-  const configured = Boolean(process.env.FUSARIUM_INTERNAL_ORIGIN?.trim())
-  if (!configured) {
+  if (!hasUsableFusariumSidecar()) {
     return {
       reachable: true,
       status: 200,

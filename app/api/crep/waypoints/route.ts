@@ -82,7 +82,20 @@ export async function GET() {
 
     if (error) {
       console.error("[crep/waypoints GET]", error.message)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json(
+        {
+          available: false,
+          data_state: "not_bound",
+          waypoints: [],
+        },
+        {
+          status: 503,
+          headers: {
+            "Cache-Control": "no-store",
+            "X-CREP-Waypoints-Source": "not_bound",
+          },
+        }
+      )
     }
 
     return NextResponse.json({
@@ -156,7 +169,10 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error("[crep/waypoints POST]", error.message)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json(
+        { available: false, data_state: "not_bound", waypoints: [] },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      )
     }
 
     return NextResponse.json({
@@ -164,6 +180,9 @@ export async function POST(request: Request) {
     })
   } catch (e) {
     console.error("[crep/waypoints POST]", e)
-    return NextResponse.json({ error: "Server error" }, { status: 500 })
+    return NextResponse.json(
+      { available: false, data_state: "not_bound", error: "not_bound" },
+      { status: 503, headers: { "Cache-Control": "no-store" } }
+    )
   }
 }

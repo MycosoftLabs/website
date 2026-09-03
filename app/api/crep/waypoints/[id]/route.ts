@@ -79,7 +79,10 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
 
     if (error) {
       console.error("[crep/waypoints PATCH]", error.message)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json(
+        { available: false, data_state: "not_bound" },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      )
     }
     if (!data) {
       return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -88,7 +91,10 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
     return NextResponse.json({ waypoint: rowToClient(data as Parameters<typeof rowToClient>[0]) })
   } catch (e) {
     console.error("[crep/waypoints PATCH]", e)
-    return NextResponse.json({ error: "Server error" }, { status: 500 })
+    return NextResponse.json(
+      { available: false, data_state: "not_bound" },
+      { status: 503, headers: { "Cache-Control": "no-store" } }
+    )
   }
 }
 
@@ -109,12 +115,18 @@ export async function DELETE(_request: Request, ctx: { params: Promise<{ id: str
 
     if (error) {
       console.error("[crep/waypoints DELETE]", error.message)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json(
+        { available: false, data_state: "not_bound" },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      )
     }
 
     return NextResponse.json({ ok: true })
   } catch (e) {
     console.error("[crep/waypoints DELETE]", e)
-    return NextResponse.json({ error: "Server error" }, { status: 500 })
+    return NextResponse.json(
+      { available: false, data_state: "not_bound" },
+      { status: 503, headers: { "Cache-Control": "no-store" } }
+    )
   }
 }

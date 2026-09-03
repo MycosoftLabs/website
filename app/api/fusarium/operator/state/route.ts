@@ -14,14 +14,26 @@ export async function GET() {
     return fusariumOperationalDeniedResponse(status)
   }
 
-  const runtime = await probeFusariumRuntime()
-  return NextResponse.json(
-    {
-      status: runtime.reachable ? "live" : "unreachable",
-      data_state: runtime.reachable ? "bound" : "unbound",
-      originConfigured: runtime.originConfigured,
-      httpStatus: runtime.status,
-    },
-    { headers: { "Cache-Control": "private, no-store, max-age=0" } },
-  )
+  try {
+    const runtime = await probeFusariumRuntime()
+    return NextResponse.json(
+      {
+        status: runtime.reachable ? "live" : "unreachable",
+        data_state: runtime.reachable ? "bound" : "unbound",
+        originConfigured: runtime.originConfigured,
+        httpStatus: runtime.status,
+      },
+      { headers: { "Cache-Control": "private, no-store, max-age=0" } },
+    )
+  } catch {
+    return NextResponse.json(
+      {
+        status: "not_bound",
+        data_state: "unbound",
+        originConfigured: false,
+        httpStatus: 503,
+      },
+      { status: 503, headers: { "Cache-Control": "private, no-store, max-age=0" } },
+    )
+  }
 }

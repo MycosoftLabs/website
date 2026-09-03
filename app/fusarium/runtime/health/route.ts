@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { fusariumOperationalDeniedResponse, requireFusariumOwner } from "@/lib/auth/api-auth"
-import { probeFusariumRuntime } from "@/lib/fusarium-runtime-probe"
+import { hasUsableFusariumSidecar, probeFusariumRuntime } from "@/lib/fusarium-runtime-probe"
 
 export const dynamic = "force-dynamic"
 
@@ -16,7 +16,9 @@ export async function GET() {
     return fusariumOperationalDeniedResponse(auth.error.status === 403 ? 403 : 401)
   }
 
-  const configured = (process.env.FUSARIUM_INTERNAL_ORIGIN || "http://127.0.0.1:3000").replace(/\/$/, "")
+  const configured = hasUsableFusariumSidecar()
+    ? (process.env.FUSARIUM_INTERNAL_ORIGIN || "").replace(/\/$/, "")
+    : "http://127.0.0.1:3000"
   if (!isAllowedInternalOrigin(configured)) {
     return NextResponse.json(
       {
