@@ -112,6 +112,62 @@ export async function requireOwner(): Promise<
 }
 
 /**
+ * Fusarium operational console: existing Supabase project only.
+ * Local-dev admin cookies are not owner proof.
+ */
+export async function requireFusariumOwner(): Promise<
+  { user: AuthenticatedUser; error?: never } | { user?: never; error: NextResponse }
+> {
+  const supabase = await createClient()
+  const { data: { user }, error } = await supabase.auth.getUser()
+
+  if (!user || error) {
+    return {
+      error: NextResponse.json({ error: 'Authentication required' }, { status: 401 }),
+    }
+  }
+
+  const email = (user.email || "").toLowerCase().trim()
+  if (!OWNER_EMAILS.includes(email)) {
+    return {
+      error: NextResponse.json({ error: 'Owner access required' }, { status: 403 }),
+    }
+  }
+
+  return {
+    user: {
+      id: user.id,
+      email,
+      role: 'owner',
+      isAdmin: true,
+      isOwner: true,
+    },
+  }
+}
+
+const OPERATIONAL_DENY_HEADERS = {
+  "Cache-Control": "private, no-store, max-age=0",
+  Vary: "Cookie, Authorization",
+} as const
+
+/** 401/403 JSON for operational telemetry and LAN topology. Never includes device rows. */
+export function fusariumOperationalDeniedResponse(status: 401 | 403): NextResponse {
+  return NextResponse.json(
+    {
+      error: status === 403 ? "Owner access required" : "Authentication required",
+      data_state: "withheld",
+      access: {
+        scope: "public",
+        operational_device_data: "withheld",
+        required_role: "owner",
+        read_only: true,
+      },
+    },
+    { status, headers: OPERATIONAL_DENY_HEADERS },
+  )
+}
+
+/**
  * Require company email authentication (@mycosoft.org or @mycosoft.com).
  * Used for infrastructure API routes.
  */

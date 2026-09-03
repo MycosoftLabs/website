@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { fusariumOperationalDeniedResponse, requireFusariumOwner } from "@/lib/auth/api-auth"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { resolveMycoBrainServiceUrl } from "@/lib/mycobrain-service-url"
 import { deploymentByHost } from "@/lib/devices/field-deployments"
@@ -345,6 +346,11 @@ async function fetchRealDeviceTelemetry(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireFusariumOwner()
+  if (auth.error) {
+    return fusariumOperationalDeniedResponse(auth.error.status === 403 ? 403 : 401)
+  }
+
   const telemetry = await fetchRealDeviceTelemetry(request)
   return NextResponse.json(telemetry)
 }

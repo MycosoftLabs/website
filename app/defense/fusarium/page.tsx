@@ -58,6 +58,7 @@ import {
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { GlassButton, GlassChip } from "@/components/ui/glass-button"
 import { deviceHeroVideoSources } from "@/lib/asset-video-sources"
+import { FusariumExploreCta } from "./explore-platform-cta"
 
 // ---------------------------------------------------------------------------
 // Section 05 backdrop. Large media lives on the NAS bind mount under
@@ -395,12 +396,7 @@ export default function FusariumPage() {
               </p>
 
               <div className="flex flex-wrap gap-4 justify-center">
-                <a href="#nlm" data-analytics="fusarium_hero_explore_click">
-                  <NeuButton variant="primary" className="text-base px-6 py-3">
-                    Explore the Platform
-                    <ArrowRight className="ml-2 h-5 w-5 text-current" />
-                  </NeuButton>
-                </a>
+                <FusariumExploreCta />
                 <Link href="/defense/request-briefing" data-analytics="fusarium_hero_briefing_click">
                   <NeuButton variant="default" className="text-base px-6 py-3">
                     Request a Briefing
