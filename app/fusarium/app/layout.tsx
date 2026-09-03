@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { requireFusariumOwner } from "@/lib/auth/api-auth"
 import { FUSARIUM_OWNER_LOGIN_PATH } from "@/lib/auth/fusarium-owner-gate"
+import { FUSARIUM_MFA_CHALLENGE_PATH } from "@/lib/auth/fusarium-mfa"
 import { FUSARIUM_OPERATOR_APP_PATH } from "@/lib/fusarium-operator-login"
 
 export const metadata: Metadata = {
@@ -18,6 +19,9 @@ export default async function FusariumOperatorAppLayout({
   children: React.ReactNode
 }) {
   const auth = await requireFusariumOwner()
+  if (auth.mfaRequired) {
+    redirect(`${FUSARIUM_MFA_CHALLENGE_PATH}?redirectTo=${encodeURIComponent(FUSARIUM_OPERATOR_APP_PATH)}`)
+  }
   if (auth.error?.status === 401) {
     redirect(`${FUSARIUM_OWNER_LOGIN_PATH}?redirectTo=${encodeURIComponent(FUSARIUM_OPERATOR_APP_PATH)}`)
   }

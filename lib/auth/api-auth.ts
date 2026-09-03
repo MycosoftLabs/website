@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server'
 import { isCompanyEmail } from '@/lib/access/types'
 import { cookies } from 'next/headers'
 import { LOCAL_DEV_ADMIN_COOKIE, verifyLocalDevAdminSession } from '@/lib/auth/local-dev-session'
+import { getFusariumMfaState } from '@/lib/auth/fusarium-mfa'
 
 export interface AuthenticatedUser {
   id: string
@@ -115,8 +116,11 @@ export async function requireOwner(): Promise<
  * Fusarium operational console: existing Supabase project only.
  * Local-dev admin cookies are not owner proof.
  */
-export async function requireFusariumOwner(): Promise<
-  { user: AuthenticatedUser; error?: never } | { user?: never; error: NextResponse }
+export async function requireFusariumOwner(options?: {
+  allowAal1?: boolean
+}): Promise<
+  | { user: AuthenticatedUser; mfaRequired?: never; error?: never }
+  | { user?: never; mfaRequired?: boolean; error: NextResponse }
 > {
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
@@ -131,6 +135,16 @@ export async function requireFusariumOwner(): Promise<
   if (!OWNER_EMAILS.includes(email)) {
     return {
       error: NextResponse.json({ error: 'Owner access required' }, { status: 403 }),
+    }
+  }
+
+  if (!options?.allowAal1) {
+    const mfa = await getFusariumMfaState(supabase)
+    if (mfa.needsChallenge) {
+      return {
+        mfaRequired: true,
+        error: NextResponse.json({ error: 'MFA challenge required', code: 'mfa_required' }, { status: 401 }),
+      }
     }
   }
 

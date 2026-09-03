@@ -125,7 +125,7 @@ export default function ResetPasswordPage() {
 
       // Redirect to login after 2 seconds
       setTimeout(() => {
-        router.push('/auth/login?reset=success')
+        router.push('/login?reset=success')
       }, 2000)
     } catch (err) {
       console.error('[Reset Password] Error:', err)

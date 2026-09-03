@@ -9,8 +9,18 @@ export function isFusariumOperatorAppPath(path: string): boolean {
     pathname === "/fusarium/app" ||
     pathname.startsWith("/fusarium/app/") ||
     pathname === "/fusarium/runtime" ||
-    pathname.startsWith("/fusarium/runtime/")
+    pathname.startsWith("/fusarium/runtime/") ||
+    pathname === "/fusarium/mfa" ||
+    pathname.startsWith("/fusarium/mfa/")
   )
+}
+
+export function isFusariumRelativePath(path: string): boolean {
+  return path.startsWith("/fusarium/") || path === "/fusarium"
+}
+
+export function fusariumAuthErrorPath(next: string): string {
+  return isFusariumRelativePath(next) ? FUSARIUM_OWNER_LOGIN_PATH : "/login"
 }
 
 export function isFusariumOwnerEmail(email: string | null | undefined): boolean {
