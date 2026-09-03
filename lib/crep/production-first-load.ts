@@ -13,6 +13,7 @@ import {
   TELECOM_CITY_MIN_ZOOM,
   TELECOM_DETAIL_MIN_ZOOM,
 } from "@/lib/crep/lod-policy"
+import { isEarthSimulatorPathname } from "@/lib/crep/earth-simulator-boot"
 
 export {
   DATA_CENTER_MIN_ZOOM,
@@ -26,7 +27,7 @@ export function isProductionFirstLoadRoute(): boolean {
   if (typeof window === "undefined") return false
   try {
     const path = window.location.pathname
-    return path.includes("/natureos/earth-simulator") || path.includes("/dashboard/crep")
+    return isEarthSimulatorPathname(path) || path.includes("/dashboard/crep")
   } catch {
     return false
   }
@@ -35,7 +36,7 @@ export function isProductionFirstLoadRoute(): boolean {
 export function isEarthSimulatorProductionRoute(): boolean {
   if (typeof window === "undefined") return false
   try {
-    return window.location.pathname.includes("/natureos/earth-simulator")
+    return isEarthSimulatorPathname(window.location.pathname)
   } catch {
     return false
   }

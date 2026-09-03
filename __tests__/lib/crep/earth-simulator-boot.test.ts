@@ -3,6 +3,9 @@ import {
   EARTH_SIM_DEFAULT_FUNGAL_LAYER_ID,
   EARTH_SIM_INSTANT_LIVE_LAYER_IDS,
   getEarthSimInitialFungalLayerIds,
+  getEarthSimulatorEventDomCap,
+  isEarthSimulatorPathname,
+  isGlobeCrepPathname,
 } from "@/lib/crep/earth-simulator-boot"
 
 describe("earth-simulator-boot fungal defaults", () => {
@@ -40,5 +43,19 @@ describe("earth-simulator-boot fungal defaults", () => {
     expect(layers.find((l) => l.id === "ships")?.enabled).toBe(false)
     expect(layers.find((l) => l.id === "satellites")?.enabled).toBe(false)
     expect(layers.find((l) => l.id === "eagleEyeCameras")?.enabled).toBe(false)
+  })
+
+  it("treats Fusarium Earth Simulator as the same globe surface as NatureOS", () => {
+    expect(isEarthSimulatorPathname("/natureos/earth-simulator")).toBe(true)
+    expect(isEarthSimulatorPathname("/fusarium/earth-simulator")).toBe(true)
+    expect(isEarthSimulatorPathname("/fusarium/aerosol")).toBe(false)
+    expect(isGlobeCrepPathname("/fusarium/earth-simulator")).toBe(true)
+    expect(isGlobeCrepPathname("/dashboard/crep")).toBe(true)
+  })
+
+  it("caps high-zoom event DOM so city zoom does not keep climbing", () => {
+    expect(getEarthSimulatorEventDomCap(2)).toBe(160)
+    expect(getEarthSimulatorEventDomCap(10)).toBeLessThanOrEqual(280)
+    expect(getEarthSimulatorEventDomCap(12)).toBe(getEarthSimulatorEventDomCap(10))
   })
 })

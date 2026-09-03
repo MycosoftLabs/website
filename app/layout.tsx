@@ -57,7 +57,7 @@ const crepMapLibreDevGuard = `
   if (window.__crepMapLibreDevGuard) return;
   window.__crepMapLibreDevGuard = true;
   function isCrepRoute() {
-    return /\\/(natureos\\/earth-simulator|natureos\\/crep|dashboard\\/crep)(\\/|$)/.test(window.location.pathname);
+    return /\\/(natureos\\/earth-simulator|fusarium\\/earth-simulator|natureos\\/crep|dashboard\\/crep)(\\/|$)/.test(window.location.pathname);
   }
   function isNonFatalMapLibreError(message, stack) {
     if (!isCrepRoute()) return false;

@@ -56,10 +56,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(url)
   }
 
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set("x-mycosoft-pathname", pathname)
   const response =
     pathname === "/MYCA"
       ? NextResponse.redirect(new URL("/myca", request.url), 302)
-      : NextResponse.next({ request })
+      : NextResponse.next({ request: { headers: requestHeaders } })
 
   // Apr 23, 2026 — Explicit public-prefix bypass for Worldview v1.
   // Route handlers in /api/worldview/v1/* do their own Bearer auth via

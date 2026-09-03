@@ -34,6 +34,7 @@ import {
   layerSpecForMode,
 } from "@/lib/crep/static-infra-loader"
 import { applyInfraPointIconMinZoom } from "@/lib/crep/production-first-load"
+import { isEarthSimulatorPathname } from "@/lib/crep/earth-simulator-boot"
 import { POWER_PLANT_MIN_ZOOM, RAILWAY_MIN_ZOOM, TELECOM_DETAIL_MIN_ZOOM } from "@/lib/crep/lod-policy"
 import { getBlueSiteFlags } from "@/lib/crep/bluesite/flags"
 import { getNexradStations } from "@/lib/crep/registries/radar-registry"
@@ -222,7 +223,7 @@ function bboxFromUrl(zoom = 0): [number, number, number, number] | null {
 
 function shouldSkipEarthSimulatorTabletBboxDetail() {
   if (typeof window === "undefined") return false
-  if (!window.location.pathname.includes("/natureos/earth-simulator")) return false
+  if (!isEarthSimulatorPathname(window.location.pathname)) return false
   return window.innerWidth <= 1180 || window.innerHeight <= 820 || Boolean(window.matchMedia?.("(pointer: coarse)")?.matches)
 }
 

@@ -39,7 +39,12 @@ import { FusariumAccountControl } from "@/components/fusarium/fusarium-account-c
 
 /** Routes whose workspace is a full-bleed app and must not get chrome padding. */
 function isAppRoute(pathname: string): boolean {
-  return pathname.startsWith("/fusarium/earth-simulator")
+  return (
+    pathname.startsWith("/fusarium/earth-simulator") ||
+    pathname.startsWith("/fusarium/aerosol") ||
+    pathname.startsWith("/fusarium/crep") ||
+    pathname.startsWith("/fusarium/gcs")
+  )
 }
 
 /**
@@ -179,6 +184,15 @@ function FusariumChrome({ children }: { children: React.ReactNode }) {
       setRailCollapsed(localStorage.getItem("fusarium-rail") === "collapsed")
     } catch {
       /* storage blocked — default expanded */
+    }
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.classList.add("fusarium-operator")
+    document.body.classList.add("fusarium-operator")
+    return () => {
+      document.documentElement.classList.remove("fusarium-operator")
+      document.body.classList.remove("fusarium-operator")
     }
   }, [])
 

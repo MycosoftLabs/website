@@ -13,6 +13,7 @@ import { Footer } from "@/components/footer"
 import { NavigationClickRescue } from "@/components/navigation-click-rescue"
 import { SiteVoiceStubProvider } from "@/components/voice/UnifiedVoiceProvider"
 import { Toaster } from "sonner"
+import { isFusariumOperatorAppPath } from "@/lib/auth/fusarium-paths"
 
 const MYCAFloatingButton = dynamic(
   () => import("@/components/myca/MYCAFloatingButton").then((m) => ({ default: m.MYCAFloatingButton })),
@@ -114,11 +115,13 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
     activePathname === "/app/launchpad" ||
     activePathname.startsWith("/app/launchpad/")
 
-  // Full-bleed standalone surfaces: no site Header/Footer/chrome, no scroll —
-  // a dedicated application controller that fills the viewport (iPad-first).
+  // Full-bleed uses the real pathname, not the hydration placeholder `/`.
+  // Fusarium dashboard routes are force-dynamic; flashing the public Header
+  // until hydrate is what covered the operator chrome on iPad.
   const isFullBleed =
-    activePathname === "/natureos/psathyrella" ||
-    activePathname.startsWith("/natureos/psathyrella/")
+    pathname === "/natureos/psathyrella" ||
+    pathname.startsWith("/natureos/psathyrella/") ||
+    isFusariumOperatorAppPath(pathname)
 
   let content: React.ReactNode = children
 

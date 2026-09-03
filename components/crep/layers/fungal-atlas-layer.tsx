@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import type maplibregl from "maplibre-gl"
+import { isEarthSimulatorPathname } from "@/lib/crep/earth-simulator-boot"
 
 type HeatLayer = "mycelium" | "am" | "ecm" | "rarity" | "endemic" | "fci" | "protected" | "uncertainty"
 type FungalLayerEnabled = Partial<Record<HeatLayer, boolean>> & { samples?: boolean }
@@ -158,7 +159,7 @@ function mapReady(map: maplibregl.Map | null): map is maplibregl.Map {
 
 function shouldWarmInactiveSpunRasters() {
   if (typeof window === "undefined") return true
-  if (window.location.pathname.includes("/natureos/earth-simulator")) return false
+  if (isEarthSimulatorPathname(window.location.pathname)) return false
   const width = window.innerWidth || 1440
   const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false
   return !(width <= 1180 || coarsePointer)
