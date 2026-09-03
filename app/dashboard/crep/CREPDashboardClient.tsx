@@ -417,6 +417,7 @@ import {
   applyEarthSimulatorBootToLayers,
   getEarthSimInitialFungalLayerIds,
   isEarthSimulatorPathFromWindow,
+  isGlobeCrepPathname,
   getEarthSimulatorEventDomCap,
   publishEarthSimBootDebug,
   isEarthSimStagedBootActive,
@@ -3343,24 +3344,14 @@ function getInitialMapFocusFromUrl(): { lat: number; lng: number; zoom?: number 
 }
 
 function isEarthSimulatorPath(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.location.pathname.includes("/natureos/earth-simulator");
-  } catch {
-    return false;
-  }
+  return isEarthSimulatorPathFromWindow();
 }
 
 /** CREP + Earth Simulator share globe marker behavior (keep DOM markers mounted while panning). */
 function isGlobeCrepRoute(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    const p = window.location.pathname;
-    return (
-      p.includes("/natureos/earth-simulator") ||
-      p.includes("/dashboard/crep") ||
-      p.includes("/natureos/crep")
-    );
+    return isGlobeCrepPathname(window.location.pathname);
   } catch {
     return false;
   }
@@ -7854,7 +7845,7 @@ export default function CREPDashboardPage({
   useEffect(() => {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return
     // Earth Simulator uses a different route; skip SW to avoid stale fungal/event cache.
-    if (typeof window !== "undefined" && window.location.pathname.includes("/natureos/earth-simulator")) return
+    if (typeof window !== "undefined" && isEarthSimulatorPathFromWindow()) return
     // Register the SW but don't block the page on it.
     navigator.serviceWorker
       .register("/crep-sw.js", { scope: "/dashboard/crep/" })

@@ -1,11 +1,18 @@
 import type { Metadata } from "next"
+import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import "../fusarium-operator.css"
 import FusariumLayoutClient from "@/components/fusarium/fusarium-layout-client"
 import { requireFusariumOwner } from "@/lib/auth/api-auth"
-import { FUSARIUM_OWNER_LOGIN_PATH } from "@/lib/auth/fusarium-owner-gate"
+import { FUSARIUM_OWNER_LOGIN_PATH, isFusariumOperatorAppPath } from "@/lib/auth/fusarium-owner-gate"
 import { FUSARIUM_MFA_CHALLENGE_PATH } from "@/lib/auth/fusarium-mfa"
 import { FUSARIUM_OPERATOR_APP_PATH } from "@/lib/fusarium-operator-login"
+
+async function fusariumReturnPath(): Promise<string> {
+  const raw = (await headers()).get("x-mycosoft-pathname") || ""
+  if (isFusariumOperatorAppPath(raw)) return raw
+  return FUSARIUM_OPERATOR_APP_PATH
+}
 
 /**
  * The FUSARIUM console lives at /fusarium.
@@ -25,11 +32,12 @@ export const dynamic = "force-dynamic"
 
 export default async function FusariumDashboardLayout({ children }: { children: React.ReactNode }) {
   const auth = await requireFusariumOwner()
+  const returnPath = await fusariumReturnPath()
   if (auth.mfaRequired) {
-    redirect(`${FUSARIUM_MFA_CHALLENGE_PATH}?redirectTo=${encodeURIComponent(FUSARIUM_OPERATOR_APP_PATH)}`)
+    redirect(`${FUSARIUM_MFA_CHALLENGE_PATH}?redirectTo=${encodeURIComponent(returnPath)}`)
   }
   if (auth.error?.status === 401) {
-    redirect(`${FUSARIUM_OWNER_LOGIN_PATH}?redirectTo=${encodeURIComponent(FUSARIUM_OPERATOR_APP_PATH)}`)
+    redirect(`${FUSARIUM_OWNER_LOGIN_PATH}?redirectTo=${encodeURIComponent(returnPath)}`)
   }
   if (auth.error) {
     return (

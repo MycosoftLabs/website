@@ -1,6 +1,7 @@
 /**
  * Earth Simulator staged boot profile (May 24, 2026).
- * Single source of truth for first-paint layer/pump behavior on /natureos/earth-simulator.
+ * Single source of truth for first-paint layer/pump behavior on
+ * /natureos/earth-simulator and /fusarium/earth-simulator.
  */
 
 /** Set NEXT_PUBLIC_EARTH_SIM_STAGED_BOOT=0 to revert to legacy mount behavior. */
@@ -286,10 +287,10 @@ export const EARTH_SIM_FUNGAL_DOM_MIN_ZOOM = 3
 /** Event DOM caps on Earth Simulator (always capped, even at city zoom). */
 export function getEarthSimulatorEventDomCap(zoom: number): number {
   if (zoom < 3) return 160
-  if (zoom < 5) return 220
-  if (zoom < 7) return 280
-  if (zoom < 9) return 340
-  return 420
+  if (zoom < 5) return 200
+  if (zoom < 7) return 240
+  if (zoom < 9) return 260
+  return 280
 }
 
 /** Browser-memory cap only. MINDEX remains the source of truth for full iNat history. */
@@ -317,10 +318,22 @@ export interface LayerConfigLike {
   opacity?: number
 }
 
+export function isEarthSimulatorPathname(pathname: string): boolean {
+  return pathname.includes("/natureos/earth-simulator") || pathname.includes("/fusarium/earth-simulator")
+}
+
+export function isGlobeCrepPathname(pathname: string): boolean {
+  return (
+    isEarthSimulatorPathname(pathname) ||
+    pathname.includes("/dashboard/crep") ||
+    pathname.includes("/natureos/crep")
+  )
+}
+
 export function isEarthSimulatorPathFromWindow(): boolean {
   if (typeof window === "undefined") return false
   try {
-    return window.location.pathname.includes("/natureos/earth-simulator")
+    return isEarthSimulatorPathname(window.location.pathname)
   } catch {
     return false
   }

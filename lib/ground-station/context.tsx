@@ -35,6 +35,7 @@ import type {
   GSSystemInfo,
   GSConnectionConfig,
 } from "./types"
+import { isEarthSimulatorPathname } from "@/lib/crep/earth-simulator-boot"
 
 // ============================================================================
 // State
@@ -197,7 +198,7 @@ function isFungaIsolationUrl() {
   if (typeof window === "undefined") return false
   const params = new URLSearchParams(window.location.search)
   if (
-    window.location.pathname.includes("/natureos/earth-simulator") &&
+    isEarthSimulatorPathname(window.location.pathname) &&
     params.get("groundStation") !== "1"
   ) {
     return true

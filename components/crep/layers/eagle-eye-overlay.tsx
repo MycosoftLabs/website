@@ -32,6 +32,7 @@
 import { useEffect, useRef } from "react"
 import type { Map as MapLibreMap } from "maplibre-gl"
 import { filterEagleVideoSources } from "@/lib/crep/eagle-camera-normalize"
+import { isEarthSimulatorPathname } from "@/lib/crep/earth-simulator-boot"
 import {
   EAGLE_CAMERA_CLICK_LAYER_IDS,
   EAGLE_CAMERA_LAYER_IDS,
@@ -213,7 +214,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
   const bboxKey = bbox ? bbox.map((n) => n.toFixed(6)).join(",") : ""
   const cameraLodVisible = mapZoom >= 7
   const isEarthSimulatorSurface =
-    typeof window !== "undefined" && window.location.pathname.includes("/natureos/earth-simulator")
+    typeof window !== "undefined" && isEarthSimulatorPathname(window.location.pathname)
 
   // ─── Permanent camera plane ─────────────────────────────────────────
   useEffect(() => {

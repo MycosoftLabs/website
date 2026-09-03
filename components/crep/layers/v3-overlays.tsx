@@ -46,6 +46,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { Map as MapLibreMap } from "maplibre-gl"
+import { isEarthSimulatorPathname } from "@/lib/crep/earth-simulator-boot"
 
 export interface V3Enabled {
   earthquakes?: boolean
@@ -627,7 +628,7 @@ function compactBboxKey(bbox: [number, number, number, number]) {
 }
 
 function isEarthSimulatorRoute() {
-  return typeof window !== "undefined" && window.location.pathname.startsWith("/natureos/earth-simulator")
+  return typeof window !== "undefined" && isEarthSimulatorPathname(window.location.pathname)
 }
 
 function capFacilityPoints(points: any[]) {

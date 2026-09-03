@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
+import { isEarthSimulatorPathname } from "@/lib/crep/earth-simulator-boot"
 import { Badge } from "@/components/ui/badge"
 import { useState, useEffect, useCallback, useRef, type KeyboardEvent } from "react"
 import {
@@ -97,14 +98,14 @@ export function TopNav() {
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifError, setNotifError] = useState<string | null>(null)
   const [notifPollPaused, setNotifPollPaused] = useState(false)
-  const isEarthSimulatorRoute =
-    pathname?.startsWith("/natureos/earth-simulator") ||
-    (typeof window !== "undefined" && window.location.pathname.startsWith("/natureos/earth-simulator"))
+  const isEarthSimulatorRoute = isEarthSimulatorPathname(
+    pathname || (typeof window !== "undefined" ? window.location.pathname : "")
+  )
 
   const fetchNotifications = useCallback(async () => {
-    const onEarthSimulator =
-      pathname?.startsWith("/natureos/earth-simulator") ||
-      (typeof window !== "undefined" && window.location.pathname.startsWith("/natureos/earth-simulator"))
+    const onEarthSimulator = isEarthSimulatorPathname(
+      pathname || (typeof window !== "undefined" ? window.location.pathname : "")
+    )
     if (onEarthSimulator && !showNotifications) return
 
     try {

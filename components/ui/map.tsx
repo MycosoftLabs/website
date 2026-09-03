@@ -24,6 +24,7 @@ import { createPortal } from "react-dom";
 import { X, Minus, Plus, Locate, Navigation2, Maximize, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { isEarthSimulatorPathname } from "@/lib/crep/earth-simulator-boot";
 
 type MapContextValue = {
   map: MapLibreGL.Map | null;
@@ -139,7 +140,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
   const initialCameraReadyRef = useRef(false);
   const isEarthSimulatorRouteForRender =
     typeof window !== "undefined" &&
-    (window.location.pathname.includes("/natureos/earth-simulator") ||
+    (isEarthSimulatorPathname(window.location.pathname) ||
       window.location.pathname.includes("/dashboard/crep"));
 
   const mapStyles = useMemo(
@@ -163,7 +164,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
 
     const isEarthSimulatorRoute =
       typeof window !== "undefined" &&
-      (window.location.pathname.includes("/natureos/earth-simulator") ||
+      (isEarthSimulatorPathname(window.location.pathname) ||
         window.location.pathname.includes("/dashboard/crep"));
     const earthSimulatorDefaultCenter: [number, number] = [-98.5, 39.8];
     const earthSimulatorDefaultZoom = 3;

@@ -171,9 +171,20 @@ html.dark .fx-chrome {
   border-radius: 999px;
 }
 
+html.fusarium-operator,
+html.fusarium-operator body {
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
 .fx-chrome, .fx-chrome {
   margin: 0;
   height: 100dvh;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
   background: var(--bg);
   color: var(--text);
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
@@ -183,6 +194,8 @@ html.dark .fx-chrome {
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .fx-chrome .banner {
@@ -339,17 +352,44 @@ html.dark .fx-chrome {
   z-index: 5;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1180px) {
+  .fx-chrome {
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+  }
+  .fx-chrome .topbar {
+    padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+    min-height: var(--touch);
+  }
   .fx-chrome .icon-btn { display: inline-flex; }
   .fx-chrome .sidebar {
     position: absolute;
     inset: 0 auto 0 0;
-    z-index: 6;
+    z-index: 40;
     transform: translateX(-105%);
     transition: transform 0.2s ease;
   }
   .fx-chrome .sidebar.open { transform: none; }
+  .fx-chrome .scrim {
+    z-index: 30;
+  }
   .fx-chrome .scrim.show { display: block; }
+  .fx-chrome .workspace,
+  .fx-chrome .workspace--app {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .fx-chrome .theme-toggle,
+  .fx-chrome .account-control,
+  .fx-chrome .account-signout,
+  .fx-chrome .rail-toggle,
+  .fx-chrome .nav-rail a,
+  .fx-chrome .fx-classification-btn {
+    min-height: var(--touch);
+    min-width: var(--touch);
+  }
 }
 
 @media (max-width: 640px) {
