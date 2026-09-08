@@ -1,0 +1,31 @@
+/* JavaScript view unit tests against real API response fixtures. No browser automation. */
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
+const root=path.resolve(__dirname,'..'),fixtures=JSON.parse(fs.readFileSync(path.join(root,'sample_results/ui_test_fixtures.json'),'utf8'));
+const index=fs.readFileSync(path.join(root,'web/index.html'),'utf8');
+const elements={};for(const m of index.matchAll(/id="([^"]+)"/g))elements['#'+m[1]]={innerHTML:'',style:{},classList:{toggle(){}},querySelector(){return {focus(){}}},querySelectorAll(){return []},focus(){}};
+const events={},windowEvents={};const context={console,structuredClone,Date,Math,Map,Set,Number,String,Object,Array,JSON,URL,Blob,Uint8Array,setTimeout:()=>0,clearTimeout(){},location:{hash:'#overview'},window:{addEventListener(k,fn){windowEvents[k]=fn},scrollTo(){}},document:{querySelector(s){return elements[s]||null},addEventListener(k,fn){events[k]=fn},activeElement:null},__fixtures:fixtures,fetch:async()=>{throw new Error('Unexpected network call in view unit test')},MouseEvent:function(){}};vm.createContext(context);
+const native=fs.readFileSync(path.join(root,'web/earth-grid.js'),'utf8').replace(/^export /gm,'');
+const source=fs.readFileSync(path.join(root,'web/app.js'),'utf8').replace(/^import .*\n/,'').replace(/\ninit\(\);\s*$/,'');
+vm.runInContext(native+'\n'+source,context);const exec=code=>vm.runInContext(code,context);exec('state.boot=__fixtures.boot;state.run=__fixtures.run;state.suite=__fixtures.suite;');
+const checks=[];function test(name,fn){fn();checks.push({check:name,passed:true});}
+function inspect(html){assert(html.length>80 && /<(?:h[1-3]|div|section)/.test(html));assert(!/(?:undefined|NaN|Infinity)/.test(html),'Undefined or non-finite value in view');assert(!/<script/i.test(html),'No injected script element');}
+for(const page of ['overview','walkthrough','data','patterns','links','options','earth','formspace','tests','evidence','integrations'])test('Render '+page,()=>{exec('state.page='+JSON.stringify(page)+';render()');inspect(elements['#app'].innerHTML);assert(elements['#app'].innerHTML.includes('aria-current="page"'));});
+for(let i=0;i<7;i++)test('Walkthrough step '+(i+1),()=>inspect(exec(`state.guide=${i};walkthrough()`)));
+test('All empty states render',()=>{exec('state.run=null');for(const p of ['overview','patternsPage','linksPage','optionsPage','earthPage','formSpacePage','evidencePage'])inspect(exec(p+'()'));exec('state.run=__fixtures.run');});
+test('Benchmark metrics render',()=>{exec('state.suite=__fixtures.benchmark');inspect(exec('testsPage()'));exec('state.suite=__fixtures.suite');});
+test('Stress trials expose quality findings and all 205 rows',()=>{exec('state.suite=__fixtures.stress');const h=exec('testsPage()');inspect(h);assert(h.includes('DEGRADATION_OBSERVED'));assert.equal((h.match(/data-action="suite-row"/g)||[]).length,205);exec('state.suite=__fixtures.suite');});
+test('Imported suite shows prerequisite skips and no invented accuracy',()=>{exec('state.suite=__fixtures.import_suite');const h=exec('testsPage()');inspect(h);assert(h.includes('NO_GROUND_TRUTH'));assert(h.includes('SKIP'));exec('state.suite=__fixtures.suite');});
+test('Scenario exports and saved run actions are reachable',()=>{const h=exec('testsPage()');assert(h.includes('format=csv'));assert(h.includes('format=html'));assert(h.includes('data-action="open-case"'));});
+test('Coverage and missed positives appear beside eligible F1',()=>{const h=exec('patternsPage()');assert(h.includes('Recall including abstentions'));assert(h.includes('False alerts'));assert(h.includes('Prediction coverage'));});
+test('Unlabeled import has no NaN metrics',()=>{exec('state.run=__fixtures.imported');for(const p of ['patternsPage','linksPage','optionsPage','earthPage','formSpacePage'])inspect(exec(p+'()'));exec('state.run=__fixtures.run');});
+test('Scenario family filter is exact',()=>{exec("state.testFilter='Core / Pattern'");const h=exec('testsPage()');assert(h.includes('S12-1'));exec("state.testFilter='all'");});
+test('Native Earth grid numeric control point',()=>{assert(Math.abs(exec('metersPerPixel(0,0)')-156543.03515625)<1e-8);assert.equal(exec('getCellId(0,0,18)'), '0.00000137_0.00000137_18');});
+test('Map replay cutoff changes record count',()=>{const full=exec('mapFeatures().length');exec('state.mapTime=0');assert(exec('mapFeatures().length')<full);exec('state.mapTime=100');});
+test('Map click action selects evidence',()=>{exec("action({dataset:{action:'map-marker',id:state.run.task14.geojson.features[0].properties.id}})");assert.equal(exec('state.mapSelected'),fixtures.run.task14.geojson.features[0].properties.id);});
+test('Observed-only and stale filters respond',()=>{exec("state.mapObserved=true;state.page='earth';render()");assert(elements['#app'].innerHTML.includes('Observed-only view'));exec('state.mapObserved=false');});
+test('Modal mount exists and envelope opens',()=>{exec("action({dataset:{action:'option',id:'coa-1'}})");assert.equal(elements['#modal'].style.display,'block');assert(elements['#modal'].innerHTML.includes('ADVISORY_ONLY'));exec('closeModal()');});
+test('Untrusted text is HTML escaped',()=>{const h=exec("esc('<img src=x onerror=alert(1)>')");assert(!h.includes('<img'));assert(h.includes('&lt;img'));});
+test('All rendered action names have handlers',()=>{exec('state.run=__fixtures.run;state.suite=__fixtures.suite');let html='';for(const p of ['overview','walkthrough','dataPage','patternsPage','linksPage','optionsPage','earthPage','formSpacePage','testsPage','evidencePage','integrationsPage'])html+=exec(p+'()');for(const m of html.matchAll(/data-action="([^"]+)"/g))assert(source.includes("a==='"+m[1]+"'"),'Missing action handler: '+m[1]);});
+test('File schema matches backend sensor columns',()=>{const csv=exec('sampleCSV');assert(csv.includes('temperature_c'));assert(csv.includes(',lat,lon,'));});
+fs.writeFileSync(path.join(root,'sample_results/javascript_view_tests.json'),JSON.stringify({scope:'Source-level JavaScript view and action unit tests with real HTTP response fixtures. No browser visual/layout validation.',passed:checks.length,checks},null,2));
+console.log(JSON.stringify({passed:checks.length,scope:'JavaScript view unit tests, not browser QA'},null,2));

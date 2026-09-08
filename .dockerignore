@@ -47,6 +47,7 @@ Thumbs.db
 *.log
 
 # Heavy components to segregate
+itdx
 services
 videos
 screenshots

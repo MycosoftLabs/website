@@ -1,0 +1,274 @@
+127.0.0.1 - - [08/Sep/2026 09:26:54] "GET /api/evidence?run_id=run-a3306885224e4bdc&index=9999 HTTP/1.1" 400 -
+Traceback (most recent call last):
+  File "/workspace/scratch/e69b67217740/itdx-local/run.py", line 49, in work
+    if kind in ['benchmark','stress'] and dataset is not None:raise ValueError('Five-seed comparisons use the controlled synthetic generator. Use the selected-dataset scenario sweep for imported measurements.')
+                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: Five-seed comparisons use the controlled synthetic generator. Use the selected-dataset scenario sweep for imported measurements.
+127.0.0.1 - - [08/Sep/2026 09:26:55] "POST /api/benchmark HTTP/1.1" 400 -
+{
+  "scope": "Actual Python HTTP server and API tests; browser access blocked by platform policy",
+  "checks": [
+    {
+      "check": "Bootstrap sources, scenario catalog and signing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Local startup measured",
+      "passed": true,
+      "detail": "0.06955382700107293 seconds; app initialization only"
+    },
+    {
+      "check": "Host header validation",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Cross-origin writes rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Missing request token rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Unknown path rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Static asset /",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Static asset /app.js",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Static asset /styles.css",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Static asset /earth-grid.js",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Real API job completes all four tasks",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "Actual four products in response",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Raw input proof verifies",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Invalid evidence index rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Native MYCA document query",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Text search links to originals",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Original document export",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Extracted text export",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "DOCX table CSV export",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Observation file imports with provenance",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Imported observations execute",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "No labels means no claimed accuracy",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Selected import suite completes",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "Suite uses selected import and explicit skips",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Imported sweep has no invented accuracy",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Saved suite case exposes labeled software overlay",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Import cannot be silently replaced in generator benchmark",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Source document import",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Overlapping job rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "41-scenario HTTP sweep completes",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "All 41 functional scenarios",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Quality degradation disclosed independently",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Every suite case can be reopened",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Scenario export csv",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Scenario export html",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Scenario export json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "205-trial stress job completes",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "205 measured functional stress trials",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Five-seed stress export csv",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Five-seed stress export html",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Five-seed HTTP benchmark completes",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Exactly five recorded seed trials",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Export zip",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Export pdf",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Export html",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Export csv",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Export geojson",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Export json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Independent evidence verifier",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Pinned Ed25519 signature",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Cancellation preserved",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "Persisted run survives reopening store",
+      "passed": true,
+      "detail": ""
+    }
+  ],
+  "passed": 52,
+  "startup_seconds": 0.06955382700107293
+}

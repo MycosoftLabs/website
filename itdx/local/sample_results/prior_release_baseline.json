@@ -1,0 +1,1271 @@
+[
+  {
+    "scenario": "clean",
+    "app_version": "1.0.0",
+    "model_sha256": "364c1c79d9bf4f94e622b88b38e59af14825c673ba3c02ffd53acf0e571eab93",
+    "input_root": "189698db0f18a99c92828eb3f258a9e8e92218a1e8ff17775f71be60d11ede9d",
+    "task12": {
+      "robust_baseline": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 111,
+        "fp": 5,
+        "fn": 0,
+        "tn": 204,
+        "precision": 0.9568965517241379,
+        "recall": 1.0,
+        "f1": 0.9779735682819383,
+        "average_precision": 1.0,
+        "auroc": 1.0,
+        "brier": 0.021778011995315757,
+        "ece": 0.08198242333211977,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "native_encoder": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 7,
+        "fp": 1,
+        "fn": 104,
+        "tn": 208,
+        "precision": 0.875,
+        "recall": 0.06306306306306306,
+        "f1": 0.1176470588235294,
+        "average_precision": 0.3801801801801801,
+        "auroc": 0.5291391870339239,
+        "brier": 0.33599999999999997,
+        "ece": 0.339375,
+        "threshold": 0.25,
+        "status": "MEASURED"
+      },
+      "temporal_readout": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 111,
+        "fp": 0,
+        "fn": 0,
+        "tn": 209,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "average_precision": 1.0,
+        "auroc": 1.0,
+        "brier": 0.00124642793395336,
+        "ece": 0.02033844867768855,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task13": {
+      "spatial_baseline": {
+        "n": 480,
+        "positive_count": 159,
+        "negative_count": 321,
+        "tp": 159,
+        "fp": 321,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.33125,
+        "recall": 1.0,
+        "f1": 0.4976525821596244,
+        "average_precision": 0.33523322851153037,
+        "auroc": 0.5117557162170105,
+        "brier": 0.5549757538259757,
+        "ece": 0.5770790130414047,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "temporal_corroboration": {
+        "n": 480,
+        "positive_count": 159,
+        "negative_count": 321,
+        "tp": 159,
+        "fp": 0,
+        "fn": 0,
+        "tn": 321,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "average_precision": 0.9999999999999999,
+        "auroc": 1.0,
+        "brier": 0.0044649651931144745,
+        "ece": 0.04629166095942575,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task8": {
+      "options": 3,
+      "ungoverned_proposals": 3,
+      "ungoverned_hard_violations": 0,
+      "distinct_options": 3,
+      "pass": 3,
+      "gate": 0,
+      "veto": 0,
+      "evidence_reference_completeness": 1.0,
+      "unsupported_assertion_rate": null,
+      "unsupported_assertion_status": "SME adjudication required; reference presence is not entailment",
+      "model_calls": 0,
+      "revision_rounds": 0,
+      "hard_violations_in_passing_options": 0
+    },
+    "task14": {
+      "mapped_records": 320,
+      "missing_geometry": 0,
+      "stale_records": 0
+    },
+    "functional": {
+      "passed": true,
+      "checks": [
+        {
+          "name": "Input inclusion proof",
+          "passed": true,
+          "detail": "Recomputed with the native NLM Merkle implementation."
+        },
+        {
+          "name": "Four products generated",
+          "passed": true,
+          "detail": "Local reference configuration"
+        },
+        {
+          "name": "No hard violations in PASS options",
+          "passed": true,
+          "detail": "Hard cost/time/action checks remain outside the estimator."
+        }
+      ],
+      "criterion_scope": "Functional invariant checks; performance targets and SME judgments remain separate."
+    }
+  },
+  {
+    "scenario": "S12-3",
+    "app_version": "1.0.0",
+    "model_sha256": "364c1c79d9bf4f94e622b88b38e59af14825c673ba3c02ffd53acf0e571eab93",
+    "input_root": "d90e5ea7fc9e0e9498394272ddf395a3b212158916e933a64d0253e1fa4cdeb3",
+    "task12": {
+      "robust_baseline": {
+        "n": 274,
+        "positive_count": 94,
+        "negative_count": 180,
+        "tp": 94,
+        "fp": 4,
+        "fn": 0,
+        "tn": 176,
+        "precision": 0.9591836734693877,
+        "recall": 1.0,
+        "f1": 0.9791666666666666,
+        "average_precision": 0.9999999999999983,
+        "auroc": 1.0,
+        "brier": 0.020906567814008875,
+        "ece": 0.08121019072296519,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "native_encoder": {
+        "n": 274,
+        "positive_count": 94,
+        "negative_count": 180,
+        "tp": 7,
+        "fp": 1,
+        "fn": 87,
+        "tn": 179,
+        "precision": 0.875,
+        "recall": 0.07446808510638298,
+        "f1": 0.1372549019607843,
+        "average_precision": 0.38267782264326755,
+        "auroc": 0.5344562647754137,
+        "brier": 0.33036496350364963,
+        "ece": 0.3343065693430657,
+        "threshold": 0.25,
+        "status": "MEASURED"
+      },
+      "temporal_readout": {
+        "n": 274,
+        "positive_count": 94,
+        "negative_count": 180,
+        "tp": 94,
+        "fp": 0,
+        "fn": 0,
+        "tn": 180,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "average_precision": 0.9999999999999983,
+        "auroc": 1.0,
+        "brier": 0.0013430170629073468,
+        "ece": 0.020737857495611724,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task13": {
+      "spatial_baseline": {
+        "n": 480,
+        "positive_count": 159,
+        "negative_count": 321,
+        "tp": 159,
+        "fp": 321,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.33125,
+        "recall": 1.0,
+        "f1": 0.4976525821596244,
+        "average_precision": 0.33523322851153037,
+        "auroc": 0.5117557162170105,
+        "brier": 0.5549757538259757,
+        "ece": 0.5770790130414047,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "temporal_corroboration": {
+        "n": 480,
+        "positive_count": 159,
+        "negative_count": 321,
+        "tp": 108,
+        "fp": 0,
+        "fn": 51,
+        "tn": 321,
+        "precision": 1.0,
+        "recall": 0.6792452830188679,
+        "f1": 0.8089887640449438,
+        "average_precision": 0.7854952830188678,
+        "auroc": 0.7227120437312643,
+        "brier": 0.109530381235647,
+        "ece": 0.12396549273110403,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task8": {
+      "options": 3,
+      "ungoverned_proposals": 3,
+      "ungoverned_hard_violations": 0,
+      "distinct_options": 3,
+      "pass": 3,
+      "gate": 0,
+      "veto": 0,
+      "evidence_reference_completeness": 1.0,
+      "unsupported_assertion_rate": null,
+      "unsupported_assertion_status": "SME adjudication required; reference presence is not entailment",
+      "model_calls": 0,
+      "revision_rounds": 0,
+      "hard_violations_in_passing_options": 0
+    },
+    "task14": {
+      "mapped_records": 320,
+      "missing_geometry": 0,
+      "stale_records": 0
+    },
+    "functional": {
+      "passed": true,
+      "checks": [
+        {
+          "name": "Input inclusion proof",
+          "passed": true,
+          "detail": "Recomputed with the native NLM Merkle implementation."
+        },
+        {
+          "name": "Unknown ontology abstains",
+          "passed": true,
+          "detail": "46 test records abstained"
+        },
+        {
+          "name": "No hard violations in PASS options",
+          "passed": true,
+          "detail": "Hard cost/time/action checks remain outside the estimator."
+        }
+      ],
+      "criterion_scope": "Functional invariant checks; performance targets and SME judgments remain separate."
+    }
+  },
+  {
+    "scenario": "S13-3",
+    "app_version": "1.0.0",
+    "model_sha256": "364c1c79d9bf4f94e622b88b38e59af14825c673ba3c02ffd53acf0e571eab93",
+    "input_root": "189698db0f18a99c92828eb3f258a9e8e92218a1e8ff17775f71be60d11ede9d",
+    "task12": {
+      "robust_baseline": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 111,
+        "fp": 5,
+        "fn": 0,
+        "tn": 204,
+        "precision": 0.9568965517241379,
+        "recall": 1.0,
+        "f1": 0.9779735682819383,
+        "average_precision": 1.0,
+        "auroc": 1.0,
+        "brier": 0.021778011995315757,
+        "ece": 0.08198242333211977,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "native_encoder": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 7,
+        "fp": 1,
+        "fn": 104,
+        "tn": 208,
+        "precision": 0.875,
+        "recall": 0.06306306306306306,
+        "f1": 0.1176470588235294,
+        "average_precision": 0.3801801801801801,
+        "auroc": 0.5291391870339239,
+        "brier": 0.33599999999999997,
+        "ece": 0.339375,
+        "threshold": 0.25,
+        "status": "MEASURED"
+      },
+      "temporal_readout": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 111,
+        "fp": 0,
+        "fn": 0,
+        "tn": 209,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "average_precision": 1.0,
+        "auroc": 1.0,
+        "brier": 0.00124642793395336,
+        "ece": 0.02033844867768855,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task13": {
+      "spatial_baseline": {
+        "n": 480,
+        "positive_count": 159,
+        "negative_count": 321,
+        "tp": 159,
+        "fp": 321,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.33125,
+        "recall": 1.0,
+        "f1": 0.4976525821596244,
+        "average_precision": 0.33523322851153037,
+        "auroc": 0.5117557162170105,
+        "brier": 0.5549757538259757,
+        "ece": 0.5770790130414047,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "temporal_corroboration": {
+        "n": 480,
+        "positive_count": 159,
+        "negative_count": 321,
+        "tp": 159,
+        "fp": 0,
+        "fn": 0,
+        "tn": 321,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "average_precision": 0.9999999999999999,
+        "auroc": 1.0,
+        "brier": 0.0044649651931144745,
+        "ece": 0.04629166095942575,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task8": {
+      "options": 3,
+      "ungoverned_proposals": 3,
+      "ungoverned_hard_violations": 0,
+      "distinct_options": 3,
+      "pass": 3,
+      "gate": 0,
+      "veto": 0,
+      "evidence_reference_completeness": 1.0,
+      "unsupported_assertion_rate": null,
+      "unsupported_assertion_status": "SME adjudication required; reference presence is not entailment",
+      "model_calls": 0,
+      "revision_rounds": 0,
+      "hard_violations_in_passing_options": 0
+    },
+    "task14": {
+      "mapped_records": 320,
+      "missing_geometry": 0,
+      "stale_records": 0
+    },
+    "functional": {
+      "passed": true,
+      "checks": [
+        {
+          "name": "Input inclusion proof",
+          "passed": true,
+          "detail": "Recomputed with the native NLM Merkle implementation."
+        },
+        {
+          "name": "Relation counts exposed",
+          "passed": true,
+          "detail": "{'corroborates': 6, 'source_of': 20}"
+        },
+        {
+          "name": "No hard violations in PASS options",
+          "passed": true,
+          "detail": "Hard cost/time/action checks remain outside the estimator."
+        }
+      ],
+      "criterion_scope": "Functional invariant checks; performance targets and SME judgments remain separate."
+    }
+  },
+  {
+    "scenario": "S14-2",
+    "app_version": "1.0.0",
+    "model_sha256": "364c1c79d9bf4f94e622b88b38e59af14825c673ba3c02ffd53acf0e571eab93",
+    "input_root": "1cf3c01a57bce226dce1dabcd2c6b8925b7a6d29a0f6349181d000a570f0796d",
+    "task12": {
+      "robust_baseline": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 111,
+        "fp": 5,
+        "fn": 0,
+        "tn": 204,
+        "precision": 0.9568965517241379,
+        "recall": 1.0,
+        "f1": 0.9779735682819383,
+        "average_precision": 1.0,
+        "auroc": 1.0,
+        "brier": 0.021778011995315757,
+        "ece": 0.08198242333211977,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "native_encoder": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 7,
+        "fp": 1,
+        "fn": 104,
+        "tn": 208,
+        "precision": 0.875,
+        "recall": 0.06306306306306306,
+        "f1": 0.1176470588235294,
+        "average_precision": 0.3801801801801801,
+        "auroc": 0.5291391870339239,
+        "brier": 0.33599999999999997,
+        "ece": 0.339375,
+        "threshold": 0.25,
+        "status": "MEASURED"
+      },
+      "temporal_readout": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 111,
+        "fp": 0,
+        "fn": 0,
+        "tn": 209,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "average_precision": 1.0,
+        "auroc": 1.0,
+        "brier": 0.00124642793395336,
+        "ece": 0.02033844867768855,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task13": {
+      "spatial_baseline": {
+        "n": 240,
+        "positive_count": 77,
+        "negative_count": 163,
+        "tp": 77,
+        "fp": 163,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.32083333333333336,
+        "recall": 1.0,
+        "f1": 0.4858044164037855,
+        "average_precision": 0.31826298701298705,
+        "auroc": 0.5,
+        "brier": 0.5448689680359318,
+        "ece": 0.5702046283913674,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "temporal_corroboration": {
+        "n": 240,
+        "positive_count": 77,
+        "negative_count": 163,
+        "tp": 77,
+        "fp": 0,
+        "fn": 0,
+        "tn": 163,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "average_precision": 1.0,
+        "auroc": 1.0,
+        "brier": 0.005881290582408082,
+        "ece": 0.052446785403962456,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task8": {
+      "options": 3,
+      "ungoverned_proposals": 3,
+      "ungoverned_hard_violations": 0,
+      "distinct_options": 3,
+      "pass": 3,
+      "gate": 0,
+      "veto": 0,
+      "evidence_reference_completeness": 1.0,
+      "unsupported_assertion_rate": null,
+      "unsupported_assertion_status": "SME adjudication required; reference presence is not entailment",
+      "model_calls": 0,
+      "revision_rounds": 0,
+      "hard_violations_in_passing_options": 0
+    },
+    "task14": {
+      "mapped_records": 320,
+      "missing_geometry": 0,
+      "stale_records": 80
+    },
+    "functional": {
+      "passed": true,
+      "checks": [
+        {
+          "name": "Input inclusion proof",
+          "passed": true,
+          "detail": "Recomputed with the native NLM Merkle implementation."
+        },
+        {
+          "name": "Stale layer labeled",
+          "passed": true,
+          "detail": "80"
+        },
+        {
+          "name": "No hard violations in PASS options",
+          "passed": true,
+          "detail": "Hard cost/time/action checks remain outside the estimator."
+        }
+      ],
+      "criterion_scope": "Functional invariant checks; performance targets and SME judgments remain separate."
+    }
+  },
+  {
+    "scenario": "M-1",
+    "app_version": "1.0.0",
+    "model_sha256": "364c1c79d9bf4f94e622b88b38e59af14825c673ba3c02ffd53acf0e571eab93",
+    "input_root": "cbfe9b3e0d10ea542fda065d42becebc62aa79d1e868921e9cda57f2a11425fb",
+    "task12": {
+      "robust_baseline": {
+        "n": 320,
+        "positive_count": 130,
+        "negative_count": 190,
+        "tp": 130,
+        "fp": 4,
+        "fn": 0,
+        "tn": 186,
+        "precision": 0.9701492537313433,
+        "recall": 1.0,
+        "f1": 0.9848484848484849,
+        "average_precision": 0.9986628834017444,
+        "auroc": 0.9991093117408907,
+        "brier": 0.01808472120980926,
+        "ece": 0.06972055414595914,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "native_encoder": {
+        "n": 320,
+        "positive_count": 130,
+        "negative_count": 190,
+        "tp": 26,
+        "fp": 1,
+        "fn": 104,
+        "tn": 189,
+        "precision": 0.9629629629629629,
+        "recall": 0.2,
+        "f1": 0.33121019108280253,
+        "average_precision": 0.5175925925925926,
+        "auroc": 0.5973684210526315,
+        "brier": 0.36509375,
+        "ece": 0.38093750000000004,
+        "threshold": 0.25,
+        "status": "MEASURED"
+      },
+      "temporal_readout": {
+        "n": 320,
+        "positive_count": 130,
+        "negative_count": 190,
+        "tp": 112,
+        "fp": 0,
+        "fn": 18,
+        "tn": 190,
+        "precision": 1.0,
+        "recall": 0.8615384615384616,
+        "f1": 0.9256198347107438,
+        "average_precision": 0.9792472451529263,
+        "auroc": 0.9767206477732794,
+        "brier": 0.048328446282224956,
+        "ece": 0.037363987517610615,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task13": {
+      "spatial_baseline": {
+        "n": 480,
+        "positive_count": 129,
+        "negative_count": 351,
+        "tp": 129,
+        "fp": 351,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.26875,
+        "recall": 1.0,
+        "f1": 0.4236453201970443,
+        "average_precision": 0.2711143410852713,
+        "auroc": 0.5079507056251242,
+        "brier": 0.6064491567390689,
+        "ece": 0.6395790130414047,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "temporal_corroboration": {
+        "n": 480,
+        "positive_count": 129,
+        "negative_count": 351,
+        "tp": 129,
+        "fp": 30,
+        "fn": 0,
+        "tn": 321,
+        "precision": 0.8113207547169812,
+        "recall": 1.0,
+        "f1": 0.8958333333333334,
+        "average_precision": 0.8008927728787506,
+        "auroc": 0.9536650544402482,
+        "brier": 0.055577957353767964,
+        "ece": 0.047077520537390186,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task8": {
+      "options": 3,
+      "ungoverned_proposals": 3,
+      "ungoverned_hard_violations": 0,
+      "distinct_options": 3,
+      "pass": 3,
+      "gate": 0,
+      "veto": 0,
+      "evidence_reference_completeness": 1.0,
+      "unsupported_assertion_rate": null,
+      "unsupported_assertion_status": "SME adjudication required; reference presence is not entailment",
+      "model_calls": 0,
+      "revision_rounds": 0,
+      "hard_violations_in_passing_options": 0
+    },
+    "task14": {
+      "mapped_records": 320,
+      "missing_geometry": 0,
+      "stale_records": 0
+    },
+    "functional": {
+      "passed": true,
+      "checks": [
+        {
+          "name": "Input inclusion proof",
+          "passed": true,
+          "detail": "Recomputed with the native NLM Merkle implementation."
+        },
+        {
+          "name": "Controlled injection replayed",
+          "passed": true,
+          "detail": "See measured detector metrics; successful execution is not a detection-quality pass."
+        },
+        {
+          "name": "No hard violations in PASS options",
+          "passed": true,
+          "detail": "Hard cost/time/action checks remain outside the estimator."
+        }
+      ],
+      "criterion_scope": "Functional invariant checks; performance targets and SME judgments remain separate."
+    }
+  },
+  {
+    "scenario": "M-2",
+    "app_version": "1.0.0",
+    "model_sha256": "364c1c79d9bf4f94e622b88b38e59af14825c673ba3c02ffd53acf0e571eab93",
+    "input_root": "b6032ef8a28812590da73b6eceefece2d3aa4bbbf9f37fbec48b5b57f11f03d0",
+    "task12": {
+      "robust_baseline": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 111,
+        "fp": 5,
+        "fn": 0,
+        "tn": 204,
+        "precision": 0.9568965517241379,
+        "recall": 1.0,
+        "f1": 0.9779735682819383,
+        "average_precision": 1.0,
+        "auroc": 1.0,
+        "brier": 0.021778011995315757,
+        "ece": 0.08198242333211977,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "native_encoder": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 7,
+        "fp": 1,
+        "fn": 104,
+        "tn": 208,
+        "precision": 0.875,
+        "recall": 0.06306306306306306,
+        "f1": 0.1176470588235294,
+        "average_precision": 0.3801801801801801,
+        "auroc": 0.5291391870339239,
+        "brier": 0.33599999999999997,
+        "ece": 0.339375,
+        "threshold": 0.25,
+        "status": "MEASURED"
+      },
+      "temporal_readout": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 111,
+        "fp": 0,
+        "fn": 0,
+        "tn": 209,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "average_precision": 1.0,
+        "auroc": 1.0,
+        "brier": 0.00124642793395336,
+        "ece": 0.02033844867768855,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task13": {
+      "spatial_baseline": {
+        "n": 480,
+        "positive_count": 159,
+        "negative_count": 321,
+        "tp": 159,
+        "fp": 321,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.33125,
+        "recall": 1.0,
+        "f1": 0.4976525821596244,
+        "average_precision": 0.33523322851153037,
+        "auroc": 0.5117557162170105,
+        "brier": 0.5549757538259757,
+        "ece": 0.5770790130414047,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "temporal_corroboration": {
+        "n": 480,
+        "positive_count": 159,
+        "negative_count": 321,
+        "tp": 159,
+        "fp": 0,
+        "fn": 0,
+        "tn": 321,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "average_precision": 0.9999999999999999,
+        "auroc": 1.0,
+        "brier": 0.0044649651931144745,
+        "ece": 0.04629166095942575,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task8": {
+      "options": 3,
+      "ungoverned_proposals": 3,
+      "ungoverned_hard_violations": 0,
+      "distinct_options": 3,
+      "pass": 3,
+      "gate": 0,
+      "veto": 0,
+      "evidence_reference_completeness": 1.0,
+      "unsupported_assertion_rate": null,
+      "unsupported_assertion_status": "SME adjudication required; reference presence is not entailment",
+      "model_calls": 0,
+      "revision_rounds": 0,
+      "hard_violations_in_passing_options": 0
+    },
+    "task14": {
+      "mapped_records": 320,
+      "missing_geometry": 0,
+      "stale_records": 0
+    },
+    "functional": {
+      "passed": true,
+      "checks": [
+        {
+          "name": "Input inclusion proof",
+          "passed": true,
+          "detail": "Recomputed with the native NLM Merkle implementation."
+        },
+        {
+          "name": "Controlled injection replayed",
+          "passed": true,
+          "detail": "See measured detector metrics; successful execution is not a detection-quality pass."
+        },
+        {
+          "name": "No hard violations in PASS options",
+          "passed": true,
+          "detail": "Hard cost/time/action checks remain outside the estimator."
+        }
+      ],
+      "criterion_scope": "Functional invariant checks; performance targets and SME judgments remain separate."
+    }
+  },
+  {
+    "scenario": "M-3",
+    "app_version": "1.0.0",
+    "model_sha256": "364c1c79d9bf4f94e622b88b38e59af14825c673ba3c02ffd53acf0e571eab93",
+    "input_root": "6d581281b8eeeb04e3528267ed5a7d2f9b00ce85d4abf916d7272c632d31e288",
+    "task12": {
+      "robust_baseline": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 111,
+        "fp": 5,
+        "fn": 0,
+        "tn": 204,
+        "precision": 0.9568965517241379,
+        "recall": 1.0,
+        "f1": 0.9779735682819383,
+        "average_precision": 1.0,
+        "auroc": 1.0,
+        "brier": 0.021778011995315757,
+        "ece": 0.08198242333211977,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "native_encoder": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 7,
+        "fp": 1,
+        "fn": 104,
+        "tn": 208,
+        "precision": 0.875,
+        "recall": 0.06306306306306306,
+        "f1": 0.1176470588235294,
+        "average_precision": 0.3801801801801801,
+        "auroc": 0.5291391870339239,
+        "brier": 0.33599999999999997,
+        "ece": 0.339375,
+        "threshold": 0.25,
+        "status": "MEASURED"
+      },
+      "temporal_readout": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 111,
+        "fp": 0,
+        "fn": 0,
+        "tn": 209,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "average_precision": 1.0,
+        "auroc": 1.0,
+        "brier": 0.00124642793395336,
+        "ece": 0.02033844867768855,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task13": {
+      "spatial_baseline": {
+        "n": 480,
+        "positive_count": 159,
+        "negative_count": 321,
+        "tp": 159,
+        "fp": 321,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.33125,
+        "recall": 1.0,
+        "f1": 0.4976525821596244,
+        "average_precision": 0.33523322851153037,
+        "auroc": 0.5117557162170105,
+        "brier": 0.5549757538259757,
+        "ece": 0.5770790130414047,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "temporal_corroboration": {
+        "n": 480,
+        "positive_count": 159,
+        "negative_count": 321,
+        "tp": 159,
+        "fp": 0,
+        "fn": 0,
+        "tn": 321,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "average_precision": 0.9999999999999999,
+        "auroc": 1.0,
+        "brier": 0.0044649651931144745,
+        "ece": 0.04629166095942575,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task8": {
+      "options": 3,
+      "ungoverned_proposals": 3,
+      "ungoverned_hard_violations": 0,
+      "distinct_options": 3,
+      "pass": 3,
+      "gate": 0,
+      "veto": 0,
+      "evidence_reference_completeness": 1.0,
+      "unsupported_assertion_rate": null,
+      "unsupported_assertion_status": "SME adjudication required; reference presence is not entailment",
+      "model_calls": 0,
+      "revision_rounds": 0,
+      "hard_violations_in_passing_options": 0
+    },
+    "task14": {
+      "mapped_records": 320,
+      "missing_geometry": 0,
+      "stale_records": 0
+    },
+    "functional": {
+      "passed": true,
+      "checks": [
+        {
+          "name": "Input inclusion proof",
+          "passed": true,
+          "detail": "Recomputed with the native NLM Merkle implementation."
+        },
+        {
+          "name": "Controlled injection replayed",
+          "passed": true,
+          "detail": "See measured detector metrics; successful execution is not a detection-quality pass."
+        },
+        {
+          "name": "No hard violations in PASS options",
+          "passed": true,
+          "detail": "Hard cost/time/action checks remain outside the estimator."
+        }
+      ],
+      "criterion_scope": "Functional invariant checks; performance targets and SME judgments remain separate."
+    }
+  },
+  {
+    "scenario": "M-4",
+    "app_version": "1.0.0",
+    "model_sha256": "364c1c79d9bf4f94e622b88b38e59af14825c673ba3c02ffd53acf0e571eab93",
+    "input_root": "80060dd98e48976b466b7ecb64cc8ca71f37c50e032237941d49e364cd8b55df",
+    "task12": {
+      "robust_baseline": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 111,
+        "fp": 23,
+        "fn": 0,
+        "tn": 186,
+        "precision": 0.8283582089552238,
+        "recall": 1.0,
+        "f1": 0.9061224489795917,
+        "average_precision": 1.0,
+        "auroc": 1.0,
+        "brier": 0.07255299798864974,
+        "ece": 0.18273181754983414,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "native_encoder": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 7,
+        "fp": 1,
+        "fn": 104,
+        "tn": 208,
+        "precision": 0.875,
+        "recall": 0.06306306306306306,
+        "f1": 0.1176470588235294,
+        "average_precision": 0.3801801801801801,
+        "auroc": 0.5291391870339239,
+        "brier": 0.33599999999999997,
+        "ece": 0.339375,
+        "threshold": 0.25,
+        "status": "MEASURED"
+      },
+      "temporal_readout": {
+        "n": 320,
+        "positive_count": 111,
+        "negative_count": 209,
+        "tp": 111,
+        "fp": 4,
+        "fn": 0,
+        "tn": 205,
+        "precision": 0.9652173913043478,
+        "recall": 1.0,
+        "f1": 0.9823008849557522,
+        "average_precision": 1.0,
+        "auroc": 1.0,
+        "brier": 0.014846828340807907,
+        "ece": 0.05577171497651311,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task13": {
+      "spatial_baseline": {
+        "n": 480,
+        "positive_count": 159,
+        "negative_count": 321,
+        "tp": 159,
+        "fp": 321,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.33125,
+        "recall": 1.0,
+        "f1": 0.4976525821596244,
+        "average_precision": 0.33523322851153037,
+        "auroc": 0.5117557162170105,
+        "brier": 0.5549757538259757,
+        "ece": 0.5770790130414047,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "temporal_corroboration": {
+        "n": 480,
+        "positive_count": 159,
+        "negative_count": 321,
+        "tp": 159,
+        "fp": 6,
+        "fn": 0,
+        "tn": 315,
+        "precision": 0.9636363636363636,
+        "recall": 1.0,
+        "f1": 0.9814814814814815,
+        "average_precision": 0.9999211364265653,
+        "auroc": 0.9999608142792766,
+        "brier": 0.011690583192547016,
+        "ece": 0.05421276669622144,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task8": {
+      "options": 3,
+      "ungoverned_proposals": 3,
+      "ungoverned_hard_violations": 0,
+      "distinct_options": 3,
+      "pass": 3,
+      "gate": 0,
+      "veto": 0,
+      "evidence_reference_completeness": 1.0,
+      "unsupported_assertion_rate": null,
+      "unsupported_assertion_status": "SME adjudication required; reference presence is not entailment",
+      "model_calls": 0,
+      "revision_rounds": 0,
+      "hard_violations_in_passing_options": 0
+    },
+    "task14": {
+      "mapped_records": 320,
+      "missing_geometry": 0,
+      "stale_records": 0
+    },
+    "functional": {
+      "passed": true,
+      "checks": [
+        {
+          "name": "Input inclusion proof",
+          "passed": true,
+          "detail": "Recomputed with the native NLM Merkle implementation."
+        },
+        {
+          "name": "Controlled injection replayed",
+          "passed": true,
+          "detail": "See measured detector metrics; successful execution is not a detection-quality pass."
+        },
+        {
+          "name": "No hard violations in PASS options",
+          "passed": true,
+          "detail": "Hard cost/time/action checks remain outside the estimator."
+        }
+      ],
+      "criterion_scope": "Functional invariant checks; performance targets and SME judgments remain separate."
+    }
+  },
+  {
+    "scenario": "M-5",
+    "app_version": "1.0.0",
+    "model_sha256": "364c1c79d9bf4f94e622b88b38e59af14825c673ba3c02ffd53acf0e571eab93",
+    "input_root": "937ab6ed7f159fa0793343a834d8f76cb36fd4678d7e9b4eb7d5f2710918b91b",
+    "task12": {
+      "robust_baseline": {
+        "n": 320,
+        "positive_count": 127,
+        "negative_count": 193,
+        "tp": 127,
+        "fp": 5,
+        "fn": 0,
+        "tn": 188,
+        "precision": 0.9621212121212122,
+        "recall": 1.0,
+        "f1": 0.9806949806949807,
+        "average_precision": 0.9999999999999984,
+        "auroc": 1.0,
+        "brier": 0.020848064917509446,
+        "ece": 0.07555299762399786,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "native_encoder": {
+        "n": 320,
+        "positive_count": 127,
+        "negative_count": 193,
+        "tp": 41,
+        "fp": 1,
+        "fn": 86,
+        "tn": 192,
+        "precision": 0.9761904761904762,
+        "recall": 0.3228346456692913,
+        "f1": 0.4852071005917159,
+        "average_precision": 0.5902723097112861,
+        "auroc": 0.6595202154134878,
+        "brier": 0.301265625,
+        "ece": 0.33093750000000005,
+        "threshold": 0.25,
+        "status": "MEASURED"
+      },
+      "temporal_readout": {
+        "n": 320,
+        "positive_count": 127,
+        "negative_count": 193,
+        "tp": 121,
+        "fp": 0,
+        "fn": 6,
+        "tn": 193,
+        "precision": 1.0,
+        "recall": 0.952755905511811,
+        "f1": 0.9758064516129031,
+        "average_precision": 0.9999999999999984,
+        "auroc": 1.0,
+        "brier": 0.011916213829716471,
+        "ece": 0.041234221441925636,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task13": {
+      "spatial_baseline": {
+        "n": 480,
+        "positive_count": 184,
+        "negative_count": 296,
+        "tp": 184,
+        "fp": 296,
+        "fn": 0,
+        "tn": 0,
+        "precision": 0.38333333333333336,
+        "recall": 1.0,
+        "f1": 0.5542168674698795,
+        "average_precision": 0.38756793478260876,
+        "auroc": 0.5095475910693302,
+        "brier": 0.5127275680940759,
+        "ece": 0.5249956797080715,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      },
+      "temporal_corroboration": {
+        "n": 480,
+        "positive_count": 184,
+        "negative_count": 296,
+        "tp": 170,
+        "fp": 0,
+        "fn": 14,
+        "tn": 296,
+        "precision": 1.0,
+        "recall": 0.9239130434782609,
+        "f1": 0.96045197740113,
+        "average_precision": 1.0,
+        "auroc": 1.0,
+        "brier": 0.01804501676112814,
+        "ece": 0.07097224724489247,
+        "threshold": 0.5,
+        "status": "MEASURED"
+      }
+    },
+    "task8": {
+      "options": 3,
+      "ungoverned_proposals": 3,
+      "ungoverned_hard_violations": 0,
+      "distinct_options": 3,
+      "pass": 3,
+      "gate": 0,
+      "veto": 0,
+      "evidence_reference_completeness": 1.0,
+      "unsupported_assertion_rate": null,
+      "unsupported_assertion_status": "SME adjudication required; reference presence is not entailment",
+      "model_calls": 0,
+      "revision_rounds": 0,
+      "hard_violations_in_passing_options": 0
+    },
+    "task14": {
+      "mapped_records": 320,
+      "missing_geometry": 0,
+      "stale_records": 0
+    },
+    "functional": {
+      "passed": true,
+      "checks": [
+        {
+          "name": "Input inclusion proof",
+          "passed": true,
+          "detail": "Recomputed with the native NLM Merkle implementation."
+        },
+        {
+          "name": "Controlled injection replayed",
+          "passed": true,
+          "detail": "See measured detector metrics; successful execution is not a detection-quality pass."
+        },
+        {
+          "name": "No hard violations in PASS options",
+          "passed": true,
+          "detail": "Hard cost/time/action checks remain outside the estimator."
+        }
+      ],
+      "criterion_scope": "Functional invariant checks; performance targets and SME judgments remain separate."
+    }
+  }
+]

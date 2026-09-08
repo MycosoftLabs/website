@@ -1,0 +1,14 @@
+{
+  "replay_matches": true,
+  "products": {
+    "predictions": true,
+    "graph": true,
+    "options": true,
+    "map": true,
+    "interaction_scores": true
+  },
+  "expected_output_sha256": "9bf44a40d640dccfe854115a93558e1afb73c4a161fd442d38d1a5bdb5a51b89",
+  "replayed_output_sha256": "9bf44a40d640dccfe854115a93558e1afb73c4a161fd442d38d1a5bdb5a51b89",
+  "bundle_signature": "VALID",
+  "scope": "Exact analyst-product recomputation from frozen inputs/model; no fitting or reinjection. Timing, UI layout and physical truth are outside equality."
+}
