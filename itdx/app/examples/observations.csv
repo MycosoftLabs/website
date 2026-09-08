@@ -1,0 +1,2 @@
+id,source_id,modality,observed_at,lat,lon,temperature_c,humidity_percent,pressure_hpa,gas_resistance_ohms,iaq_index,audio_level_db,fci_strength
+field-001,site-a,thermal,2026-09-08T12:00:00Z,32.565,-117.129,23,55,1013,80000,42,35,0.4

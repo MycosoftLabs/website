@@ -1,0 +1,118 @@
+{
+  "schema": "itdx-replay-result/v1",
+  "data_origin": "SYNTHETIC_EXERCISE",
+  "index": 120,
+  "kernel_sha256": "59d49016d76b9185a7b421dd3b9225e8d476db271353414e0d1da5fba2196d89",
+  "measurements_sha256": "c22204eee2f5cf2cebdf54d028a8f3f76c7cfe5b750222c2fc199af2416f8841",
+  "frame_sha256": "4540099cbffac86e13fa03ebd39f135fc231d6e922340bd7025fc2e9921e3ec6",
+  "assets": [
+    {
+      "id": "demo-unit-01",
+      "label": "DEMO UNIT 01",
+      "kind": "fictional unit marker",
+      "color": "#50d6b0",
+      "fault": "none",
+      "position": [
+        0.014036971851691313,
+        0.006272281573514149
+      ],
+      "observed_at": "2026-09-08T12:20:00.000Z",
+      "age_seconds": 0,
+      "current_position_status": "CURRENT_SYNTHETIC_OBSERVATION",
+      "latest_error_at_observation_m": 114.88108546406804,
+      "nominal_radius_m": 85.67113907382857,
+      "received_reports": 121,
+      "valid_reports": 121,
+      "missing_reports": 0,
+      "coverage_count": 117,
+      "empirical_coverage": 0.9669421487603306,
+      "rmse_m": 48.91454200513003,
+      "assumption_status": "SIMULATED_ZERO_MEAN_NOISE",
+      "probability_data_true": null,
+      "probability_deception": null
+    },
+    {
+      "id": "demo-vehicle-02",
+      "label": "DEMO VEHICLE 02",
+      "kind": "fictional transport marker",
+      "color": "#fab85e",
+      "fault": "bias after sample 40",
+      "position": [
+        0.016848033797534537,
+        0.011584268841029713
+      ],
+      "observed_at": "2026-09-08T12:20:00.000Z",
+      "age_seconds": 0,
+      "current_position_status": "CURRENT_SYNTHETIC_OBSERVATION",
+      "latest_error_at_observation_m": 173.82534266165214,
+      "nominal_radius_m": 85.67113907382857,
+      "received_reports": 121,
+      "valid_reports": 121,
+      "missing_reports": 0,
+      "coverage_count": 39,
+      "empirical_coverage": 0.32231404958677684,
+      "rmse_m": 127.25295121297687,
+      "assumption_status": "DECLARED_BIAS_VIOLATES_ZERO_MEAN_MODEL",
+      "probability_data_true": null,
+      "probability_deception": null
+    },
+    {
+      "id": "demo-sensor-03",
+      "label": "DEMO SENSOR 03",
+      "kind": "fictional mobile sensor",
+      "color": "#8cbcff",
+      "fault": "missing every eleventh report",
+      "position": [
+        -0.012705068347217095,
+        0.012190094052983103
+      ],
+      "observed_at": "2026-09-08T12:20:00.000Z",
+      "age_seconds": 0,
+      "current_position_status": "CURRENT_SYNTHETIC_OBSERVATION",
+      "latest_error_at_observation_m": 46.30875367317969,
+      "nominal_radius_m": 85.67113907382857,
+      "received_reports": 121,
+      "valid_reports": 110,
+      "missing_reports": 11,
+      "coverage_count": 107,
+      "empirical_coverage": 0.9727272727272728,
+      "rmse_m": 46.33440949921785,
+      "assumption_status": "SIMULATED_ZERO_MEAN_NOISE",
+      "probability_data_true": null,
+      "probability_deception": null
+    },
+    {
+      "id": "demo-air-04",
+      "label": "DEMO AIR 04",
+      "kind": "fictional air marker",
+      "color": "#ce9eff",
+      "fault": "reports delayed 70 seconds",
+      "position": [
+        0.005609067204213192,
+        -0.010044058846776938
+      ],
+      "observed_at": "2026-09-08T12:18:50.000Z",
+      "age_seconds": 70,
+      "current_position_status": "LAST_OBSERVED_POSITION",
+      "latest_error_at_observation_m": 37.84452992935109,
+      "nominal_radius_m": 85.67113907382857,
+      "received_reports": 114,
+      "valid_reports": 114,
+      "missing_reports": 0,
+      "coverage_count": 109,
+      "empirical_coverage": 0.956140350877193,
+      "rmse_m": 51.062172964401434,
+      "assumption_status": "SIMULATED_ZERO_MEAN_NOISE",
+      "probability_data_true": null,
+      "probability_deception": null
+    }
+  ],
+  "model": {
+    "sigma_m": 35,
+    "nominal_coverage": 0.95,
+    "radius_m": 85.67113907382857,
+    "formula": "r = sigma × sqrt(−2 ln(1−p)); isotropic independent zero-mean Gaussian XY errors",
+    "empirical_formula": "observed errors within radius / valid received reports; descriptive coverage, not a probability that a report is true",
+    "boundary": "Fixed invented markers and paths near 0°N, 0°E. No connection to supplied OPORD positions, real assets, routing, threat inference, or live feeds. Uncertainty applies at observation time; no extrapolation of stale positions."
+  }
+}

@@ -1,0 +1,42 @@
+MYCOSOFT ITDX26 — START HERE
+
+1. Extract ALL files from the ZIP into a normal folder.
+2. Open the extracted Mycosoft_ITDX26 folder.
+3. Start the launcher for your computer:
+   Windows: START_HERE_WINDOWS.bat
+   Mac:     START_HERE_MAC.command
+   Linux:   bash START_HERE_LINUX.sh
+4. Wait for APP IS READY. The launcher opens your regular browser.
+5. Keep the terminal open while you use the app.
+
+If Python is missing, follow the official installer opened by the launcher,
+then run the launcher again. The Windows launcher first tries WinGet.
+
+If something fails: the terminal error and local_data/startup.log show why.
+Do not keep refreshing the previous in-app localhost tab; that tab does not
+reach a server running in a separate ChatGPT execution environment.
+
+Python diagnostics: python launch.py --diagnose
+Startup self-check: python launch.py --smoke-test --no-install
+
+The 4 tasks, 30 documents, 41 scenarios, original modules and evidence exports
+remain in this package. See README.md and VALIDATION.md for scope and limits.
+
+VERSION 1.1 UPDATE
+Stop the old app. Extract to a new folder and copy your existing local_data
+folder into the new Mycosoft_ITDX26 folder. Run the START_HERE launcher.
+Keep the old source folder for replaying older signed exports.
+
+In Test laboratory, select your dataset and run the 41-case sweep.
+Use 205 synthetic stress trials to compare all cases across five seeds.
+Open any completed sweep case for all four tasks and signed exports.
+Offline reports: sample_results/scenario_results.html and
+sample_results/five_seed_stress.html. These contain measured synthetic tests.
+
+VERSION 1.2 UPDATE
+Open Source reports & Borda in the sidebar for supplied source reporting,
+ASCOPE/PMESII review, and evaluator ranking. The Capability audit link explains
+the live Earth Simulator inspection and remaining integration/data gaps.
+Examples in the workbench are invented exercises, clearly labeled.
+Use your actual report JSON and evaluator ballots for real assessments.
+Saved workbench cases export separately from the existing run evidence ZIPs.

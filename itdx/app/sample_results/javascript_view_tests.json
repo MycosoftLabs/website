@@ -1,0 +1,142 @@
+{
+  "scope": "Source-level JavaScript view and action unit tests with real HTTP response fixtures. No browser visual/layout validation.",
+  "passed": 34,
+  "checks": [
+    {
+      "check": "Render overview",
+      "passed": true
+    },
+    {
+      "check": "Render walkthrough",
+      "passed": true
+    },
+    {
+      "check": "Render data",
+      "passed": true
+    },
+    {
+      "check": "Render patterns",
+      "passed": true
+    },
+    {
+      "check": "Render links",
+      "passed": true
+    },
+    {
+      "check": "Render options",
+      "passed": true
+    },
+    {
+      "check": "Render earth",
+      "passed": true
+    },
+    {
+      "check": "Render formspace",
+      "passed": true
+    },
+    {
+      "check": "Render tests",
+      "passed": true
+    },
+    {
+      "check": "Render evidence",
+      "passed": true
+    },
+    {
+      "check": "Render integrations",
+      "passed": true
+    },
+    {
+      "check": "Walkthrough step 1",
+      "passed": true
+    },
+    {
+      "check": "Walkthrough step 2",
+      "passed": true
+    },
+    {
+      "check": "Walkthrough step 3",
+      "passed": true
+    },
+    {
+      "check": "Walkthrough step 4",
+      "passed": true
+    },
+    {
+      "check": "Walkthrough step 5",
+      "passed": true
+    },
+    {
+      "check": "Walkthrough step 6",
+      "passed": true
+    },
+    {
+      "check": "Walkthrough step 7",
+      "passed": true
+    },
+    {
+      "check": "All empty states render",
+      "passed": true
+    },
+    {
+      "check": "Benchmark metrics render",
+      "passed": true
+    },
+    {
+      "check": "Stress trials expose quality findings and all 205 rows",
+      "passed": true
+    },
+    {
+      "check": "Imported suite shows prerequisite skips and no invented accuracy",
+      "passed": true
+    },
+    {
+      "check": "Scenario exports and saved run actions are reachable",
+      "passed": true
+    },
+    {
+      "check": "Coverage and missed positives appear beside eligible F1",
+      "passed": true
+    },
+    {
+      "check": "Unlabeled import has no NaN metrics",
+      "passed": true
+    },
+    {
+      "check": "Scenario family filter is exact",
+      "passed": true
+    },
+    {
+      "check": "Native Earth grid numeric control point",
+      "passed": true
+    },
+    {
+      "check": "Map replay cutoff changes record count",
+      "passed": true
+    },
+    {
+      "check": "Map click action selects evidence",
+      "passed": true
+    },
+    {
+      "check": "Observed-only and stale filters respond",
+      "passed": true
+    },
+    {
+      "check": "Modal mount exists and envelope opens",
+      "passed": true
+    },
+    {
+      "check": "Untrusted text is HTML escaped",
+      "passed": true
+    },
+    {
+      "check": "All rendered action names have handlers",
+      "passed": true
+    },
+    {
+      "check": "File schema matches backend sensor columns",
+      "passed": true
+    }
+  ]
+}

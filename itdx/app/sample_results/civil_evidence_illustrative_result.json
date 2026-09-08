@@ -1,0 +1,507 @@
+{
+  "input": {
+    "schema": "itdx-civil-evidence/v1",
+    "chart_id": "civil-evidence/v1",
+    "title": "Synthetic exercise \u2014 conflicting water-service reports",
+    "scenario": "Fictional civic-service outage. Exercise reports demonstrate provenance and review only.",
+    "data_mode": "SYNTHETIC_EXERCISE",
+    "confidence_definition": "",
+    "records": [
+      {
+        "id": "report1",
+        "discipline": "OSINT",
+        "source_ref": "EXERCISE service bulletin A, paragraph 1",
+        "source_group": "exercise-water-office",
+        "statement": "The fictional service bulletin reports a water-service interruption.",
+        "kind": "reported",
+        "review_status": "unreviewed",
+        "ascope": [
+          "Capabilities",
+          "Events"
+        ],
+        "pmesii": [
+          "Infrastructure"
+        ],
+        "observed_at": "2026-09-08T12:00:00Z",
+        "location": null,
+        "confidence": null,
+        "conflicts_with": [
+          "report2"
+        ],
+        "analyst_notes": "Invented report. Confirm whether the bulletin refers to the same time and service area as report2."
+      },
+      {
+        "id": "report2",
+        "discipline": "HUMINT",
+        "source_ref": "EXERCISE observer report B, paragraph 1",
+        "source_group": "",
+        "statement": "A fictional observer reports that water service remained available during the stated period.",
+        "kind": "reported",
+        "review_status": "disputed",
+        "ascope": [
+          "Capabilities",
+          "Events"
+        ],
+        "pmesii": [
+          "Infrastructure"
+        ],
+        "observed_at": "2026-09-08T12:00:00Z",
+        "location": null,
+        "confidence": null,
+        "conflicts_with": [
+          "report1"
+        ],
+        "analyst_notes": "Invented report. Conflict is declared by the exercise author; no deception or intent is inferred."
+      },
+      {
+        "id": "report3",
+        "discipline": "OSINT",
+        "source_ref": "EXERCISE repost C, copied from bulletin A",
+        "source_group": "exercise-water-office",
+        "statement": "A fictional repost repeats the interruption bulletin.",
+        "kind": "reported",
+        "review_status": "unreviewed",
+        "ascope": [
+          "Events"
+        ],
+        "pmesii": [
+          "Information",
+          "Infrastructure"
+        ],
+        "observed_at": null,
+        "location": null,
+        "confidence": null,
+        "conflicts_with": [],
+        "analyst_notes": "Same declared original source as report1; this is not independent corroboration."
+      }
+    ]
+  },
+  "result": {
+    "method": "declared-evidence-projection/v1",
+    "input_sha256": "77944544c55ad10423f95320f29e12fca42e7e1a8e2979ba17739cc1f8a34a13",
+    "record_count": 3,
+    "matrix": [
+      {
+        "ascope": "Areas",
+        "pmesii": "Political",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Areas",
+        "pmesii": "Military",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Areas",
+        "pmesii": "Economic",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Areas",
+        "pmesii": "Social",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Areas",
+        "pmesii": "Infrastructure",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Areas",
+        "pmesii": "Information",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Structures",
+        "pmesii": "Political",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Structures",
+        "pmesii": "Military",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Structures",
+        "pmesii": "Economic",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Structures",
+        "pmesii": "Social",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Structures",
+        "pmesii": "Infrastructure",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Structures",
+        "pmesii": "Information",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Capabilities",
+        "pmesii": "Political",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Capabilities",
+        "pmesii": "Military",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Capabilities",
+        "pmesii": "Economic",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Capabilities",
+        "pmesii": "Social",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Capabilities",
+        "pmesii": "Infrastructure",
+        "status": "REPORTS_PRESENT",
+        "report_ids": [
+          "report1",
+          "report2"
+        ],
+        "report_count": 2,
+        "reviewed": 0,
+        "disputed": 1,
+        "declared_source_groups": 1,
+        "unknown_source_group": 1
+      },
+      {
+        "ascope": "Capabilities",
+        "pmesii": "Information",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Organizations",
+        "pmesii": "Political",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Organizations",
+        "pmesii": "Military",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Organizations",
+        "pmesii": "Economic",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Organizations",
+        "pmesii": "Social",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Organizations",
+        "pmesii": "Infrastructure",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Organizations",
+        "pmesii": "Information",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "People",
+        "pmesii": "Political",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "People",
+        "pmesii": "Military",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "People",
+        "pmesii": "Economic",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "People",
+        "pmesii": "Social",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "People",
+        "pmesii": "Infrastructure",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "People",
+        "pmesii": "Information",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Events",
+        "pmesii": "Political",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Events",
+        "pmesii": "Military",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Events",
+        "pmesii": "Economic",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Events",
+        "pmesii": "Social",
+        "status": "UNKNOWN",
+        "report_ids": [],
+        "report_count": 0,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 0,
+        "unknown_source_group": 0
+      },
+      {
+        "ascope": "Events",
+        "pmesii": "Infrastructure",
+        "status": "REPORTS_PRESENT",
+        "report_ids": [
+          "report1",
+          "report2",
+          "report3"
+        ],
+        "report_count": 3,
+        "reviewed": 0,
+        "disputed": 1,
+        "declared_source_groups": 1,
+        "unknown_source_group": 1
+      },
+      {
+        "ascope": "Events",
+        "pmesii": "Information",
+        "status": "REPORTS_PRESENT",
+        "report_ids": [
+          "report3"
+        ],
+        "report_count": 1,
+        "reviewed": 0,
+        "disputed": 0,
+        "declared_source_groups": 1,
+        "unknown_source_group": 0
+      }
+    ],
+    "source_disciplines": {
+      "HUMINT": 1,
+      "SIGINT": 0,
+      "OSINT": 2,
+      "GEOINT": 0,
+      "IMINT": 0,
+      "MASINT": 0,
+      "TECHINT": 0,
+      "OTHER": 0
+    },
+    "unmapped_report_ids": [],
+    "missing_time": 1,
+    "missing_location": 3,
+    "declared_conflict_links": 2,
+    "boundary": "Tags, confidence, source groups, and conflicts are analyst supplied. Report counts are not confidence or civil-environment completeness. No external feed or NLM model is executed by this projection; source authenticity and independence require separate review."
+  },
+  "result_sha256": "ad16a58f9a9ad43b370f9d6eab1007b988a669549bba0aceddeed98ec37bd9cd"
+}

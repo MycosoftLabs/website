@@ -1,0 +1,3 @@
+export interface SourceDocument {id:string;name:string;sha256:string;markings:string[];page_count:number;data_origin:string;pages:{page:number;text:string;text_sha256:string}[]}
+export interface WorkspaceImport {schema:string;documents:SourceDocument[];tasks:{task_id:string;title:string;implementation_status:string;reference_ids:string[]}[];notes:{id:string;document_id:string;page:number;quote:string;note:string;reviewer:string;review_status:string}[];import_check:{pages_verified:number;original_files_verified:false;source_truth:string;storage:string}}
+export function verifyWorkspace(text:string):Promise<WorkspaceImport>;

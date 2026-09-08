@@ -258,6 +258,7 @@ import AuroraOverlay from "@/components/crep/layers/aurora-overlay";
 // split savings aren't worth the reliability cost.
 import SignalHeatmapLayer from "@/components/crep/layers/signal-heatmap-layer";
 import { bootstrapFungalAmEcmRasters, FungalAtlasLayer } from "@/components/crep/layers/fungal-atlas-layer";
+import ITDXReplayLayer from "@/components/itdx/ITDXReplayLayer";
 import ProposalOverlays from "@/components/crep/layers/proposal-overlays";
 import GooglePhoto3DV3Underlay from "@/components/crep/three3d/GooglePhoto3DV3Underlay";
 import { syncV3PhotorealisticMapLayer } from "@/lib/geo/v3-photorealistic-maplibre-layer";
@@ -23680,6 +23681,7 @@ export default function CREPDashboardPage({
               â€¢ Factories (Climate TRACE + OSM + GEM + MINDEX)
               â€¢ Orbital debris catalogued + 1.2M statistical cloud
               â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+          <ITDXReplayLayer map={mapRef || mapNativeRef.current} />
           {assetIsolationMode !== "funga" && (!isEarthSimulatorRoute || stableEarthOverlayAssetsReady || proposalOverlayAssetsReady || satelliteImageryOverlayReady) && <ProposalOverlays
             map={mapRef || mapNativeRef.current}
             globeEngine={globeEngine}
