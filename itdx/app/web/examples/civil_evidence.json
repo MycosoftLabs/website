@@ -1,0 +1,11 @@
+{
+  "title": "Synthetic exercise — conflicting water-service reports",
+  "scenario": "Fictional civic-service outage. Exercise reports demonstrate provenance and review only.",
+  "data_mode": "SYNTHETIC_EXERCISE",
+  "confidence_definition": "",
+  "records": [
+    {"id":"report1","discipline":"OSINT","source_ref":"EXERCISE service bulletin A, paragraph 1","source_group":"exercise-water-office","statement":"The fictional service bulletin reports a water-service interruption.","kind":"reported","review_status":"unreviewed","ascope":["Capabilities","Events"],"pmesii":["Infrastructure"],"observed_at":"2026-09-08T12:00:00Z","location":null,"confidence":null,"conflicts_with":["report2"],"analyst_notes":"Invented report. Confirm whether the bulletin refers to the same time and service area as report2."},
+    {"id":"report2","discipline":"HUMINT","source_ref":"EXERCISE observer report B, paragraph 1","source_group":"","statement":"A fictional observer reports that water service remained available during the stated period.","kind":"reported","review_status":"disputed","ascope":["Capabilities","Events"],"pmesii":["Infrastructure"],"observed_at":"2026-09-08T12:00:00Z","location":null,"confidence":null,"conflicts_with":["report1"],"analyst_notes":"Invented report. Conflict is declared by the exercise author; no deception or intent is inferred."},
+    {"id":"report3","discipline":"OSINT","source_ref":"EXERCISE repost C, copied from bulletin A","source_group":"exercise-water-office","statement":"A fictional repost repeats the interruption bulletin.","kind":"reported","review_status":"unreviewed","ascope":["Events"],"pmesii":["Information","Infrastructure"],"observed_at":null,"location":null,"confidence":null,"conflicts_with":[],"analyst_notes":"Same declared original source as report1; this is not independent corroboration."}
+  ]
+}

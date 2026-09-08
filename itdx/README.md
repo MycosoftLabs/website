@@ -1,11 +1,15 @@
-# ITDX — local v1.2 and live integration handoff
+# ITDX — v1.3 source workspace, fictional Earth replay and integration handoff
 
-**Start with [CURSOR_HANDOFF.md](CURSOR_HANDOFF.md).** This folder contains the complete local application, source documents, measured example outputs, and the implementation specification for integrating the next version into Mycosoft's live systems.
+**Start with [CURSOR_V13_HANDOFF.md](CURSOR_V13_HANDOFF.md), then [CURSOR_HANDOFF.md](CURSOR_HANDOFF.md).** This folder contains the complete local application, source documents, measured example outputs, and the implementation specification for integrating the next version into Mycosoft's live systems.
 
-The current executable release is **1.2.0**. The proposed next release is **1.3.0**, subject to the receiving repositories' version conventions. This handoff does not deploy a new website route, connect production services, supply military feeds, or establish official ITDX acceptance.
+The active local release is **1.3.0** in `app/`. It adds cited source review, a fixed fictional replay and shared Fusarium/Earth map components. The frozen **1.2.0** release remains in `local/`. Production deployment and live service integration are not established. The ten new marked exercise PDFs are supplied in the separate complete local download and excluded from public Git.
 
 | Open | Purpose |
 |---|---|
+| [integration/FUSARIUM_APP_SETUP.md](integration/FUSARIUM_APP_SETUP.md) | Dedicated Fusarium ITDX application, authenticated backend and shared context contract |
+| [CURSOR_V13_HANDOFF.md](CURSOR_V13_HANDOFF.md) | Current source workspace and shared map handoff |
+| [app/README_V13.md](app/README_V13.md) | Local v1.3 startup, documents, mathematical limits and exports |
+| [validation/V13_VALIDATION.md](validation/V13_VALIDATION.md) | Tests and results for the new release |
 | [CURSOR_HANDOFF.md](CURSOR_HANDOFF.md) | Detailed work order, implementation sequence, ownership, and completion criteria |
 | [integration/ITDX_16_OBJECTIVES.md](integration/ITDX_16_OBJECTIVES.md) | All 16 presentation objectives, exact current coverage, missing task workflows, and registry requirements |
 | [integration/SERVICE_CONTRACTS.md](integration/SERVICE_CONTRACTS.md) | Existing endpoint findings, proposed API contracts, persistence, and failure behavior |
@@ -18,12 +22,12 @@ The current executable release is **1.2.0**. The proposed next release is **1.3.
 | [MANIFEST.json](MANIFEST.json) | Byte-level inventory of this handoff |
 | [validation/HANDOFF_VALIDATION.md](validation/HANDOFF_VALIDATION.md) | Checks actually performed during packaging |
 
-## Run v1.2 now
+## Run v1.3 now
 
 From the website checkout:
 
 ```sh
-cd itdx/local
+cd itdx/app
 python launch.py
 ```
 
@@ -45,4 +49,4 @@ The local SQLite store is not production MINDEX. Seven deterministic reviewer ro
 
 ## Cursor's first instruction
 
-Read `itdx/CURSOR_HANDOFF.md` and its linked specifications, inventory the actual current services and repository instructions, preserve the frozen v1.2 snapshot, and implement the milestone sequence on separate integration branches. Prove each live dependency with a real request, persisted input/output identities, and end-to-end tests. Preserve explicit synthetic, recorded, imported, and live labels throughout the UI and exports.
+Read `itdx/CURSOR_V13_HANDOFF.md`, then `itdx/CURSOR_HANDOFF.md` and its linked specifications, inventory the actual current services and repository instructions, preserve the frozen v1.2 snapshot, and implement the milestone sequence on separate integration branches. Prove each live dependency with a real request, persisted input/output identities, and end-to-end tests. Preserve explicit synthetic, recorded, imported, and live labels throughout the UI and exports.

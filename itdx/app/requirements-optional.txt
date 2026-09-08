@@ -1,0 +1,3 @@
+# Core operation, PDF reports and bundled PDF text import work without pip installs.
+# Install before going offline if Ed25519 signing is required.
+cryptography==46.0.0

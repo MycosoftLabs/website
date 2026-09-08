@@ -22,6 +22,7 @@
  * the workspace must be untouched by the chrome around it.
  */
 
+import ITDXReplayDock from "@/components/itdx/ITDXReplayDock"
 import type React from "react"
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
@@ -310,6 +311,7 @@ function FusariumChrome({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
+      <ITDXReplayDock />
       <footer className="banner banner-bottom">{level.banner}</footer>
     </div>
   )

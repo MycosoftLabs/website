@@ -1,0 +1,6 @@
+local_data/
+.itdx-venv/
+__pycache__/
+*.pyc
+exercise_packs/*
+!exercise_packs/README.md

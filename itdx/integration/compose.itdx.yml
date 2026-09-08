@@ -1,0 +1,25 @@
+services:
+  itdx-backend:
+    build:
+      context: ../app
+    environment:
+      ITDX_BACKEND_TOKEN: ${ITDX_BACKEND_TOKEN:?Set a random backend secret of at least 32 characters}
+    expose:
+      - "8765"
+    volumes:
+      - itdx-data:/data
+      - ${ITDX_EXERCISE_PACKS_DIR:?Set the absolute private exercise_packs folder}:/app/exercise_packs:ro
+    networks:
+      - fusarium
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,urllib.request;urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8765/api/health',headers={'Authorization':'Bearer '+os.environ['ITDX_BACKEND_TOKEN']}),timeout=5).read()"]
+      interval: 30s
+      timeout: 7s
+      retries: 3
+volumes:
+  itdx-data:
+networks:
+  fusarium:
+    external: true
+    name: ${ITDX_NETWORK_NAME:?Set the actual private Docker network shared with the website}

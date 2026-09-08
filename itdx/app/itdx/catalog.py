@@ -1,0 +1,71 @@
+"""Versioned demonstration scope derived from the supplied Mycosoft plans."""
+VERSION = '1.3.0'
+SEEDS = [11, 17, 23, 29, 31]
+TASKS = [
+ {'id':'12','name':'Pattern analysis','system':'NLM','question':'What changed, when, and with what evidence?','budget_s':90,'algorithm':'Native NatureEmbeddingEncoder + fitted temporal logistic readout','baseline':'Robust median/MAD detector and native encoder anomaly score','product':'Ranked observations, calibration, held-out predictions, Form States','steps':['Inspect data origin, capture splits and missingness.','Compare the baseline, native encoder and temporal readout on held-out observations.','Open an observation to inspect its inputs, prediction and inclusion proof.','Inject drift or duplicate reporting and inspect the actual change.']},
+ {'id':'13','name':'Link analysis','system':'FUSARIUM','question':'What is connected, and what supports the relationship?','budget_s':120,'algorithm':'Typed evidence graph with source-independent temporal corroboration','baseline':'Spatial proximity on the same candidate pairs','product':'Observed and inferred edges, pair scores, evidence paths','steps':['Distinguish recorded source edges from inferred corroboration.','Inspect the same held-out candidate pairs for both scorers.','Remove a source and inspect the resulting evidence gap.','Export the graph, pair scores and evidence references.']},
+ {'id':'8','name':'Courses of action','system':'MYCA + AVANI','question':'Which options satisfy the declared constraints?','budget_s':240,'algorithm':'Bounded deterministic seven-role review with native AVANI; optional MYCA service consultation','baseline':'Ungoverned deterministic option proposals','product':'Three distinct option envelopes, critique trace and hard-check dispositions','steps':['Review the analyst goal, available resources and constraints.','Compare proposals with reviewed options and visible dissent.','Inspect native AVANI verdicts and the additional hard envelope checks.','Record an SME rating or abstention; no actuator command is issued.']},
+ {'id':'14','name':'Map product','system':'Earth Simulator + CREP','question':'Where and when does the evidence apply?','budget_s':5,'algorithm':'Native CREPMapBridge and Earth Simulator grid functions; offline coordinate rendering','baseline':'Observed-data-only projection','product':'GeoJSON, interactive map, legend, time and source labels','steps':['Inspect the coordinate system, time reference and source freshness.','Select a marker and follow its evidence.','Filter stale or uncertain estimates and compare observed-only mode.','Export the same GeoJSON consumed by the renderer.']},
+]
+
+_SCENARIOS = [
+('clean','Reference','Clean coastal replay','All four tasks on a reproducible synthetic environmental dataset.'),
+('S12-1','Core / Pattern','Duplicate reporting burst','Deduplicate identical observations; do not count copies as independent sources.'),
+('S12-2','Core / Pattern','Clock jitter and ingestion delay','Preserve observation/ingestion time and report late or uncertain samples.'),
+('S12-3','Core / Pattern','Ontology remapping','Flag unknown schema/ontology and exclude unsupported interpretation.'),
+('S12-4','Core / Pattern','Missing geography','Retain signals while omitting unsupported map points.'),
+('S12-5','Core / Pattern','Novel source aliases','Keep unknown identities separate until an alias mapping is supplied.'),
+('S13-1','Core / Link','Same-name entities','Stable IDs prevent two same-name entities from being merged.'),
+('S13-2','Core / Link','Hub-source removal','Recompute affected links and expose lost evidence.'),
+('S13-3','Core / Link','Relation imbalance','Retain per-relation counts and disclose a dominant relation.'),
+('S13-4','Core / Link','Inverse-edge leakage trap','Audit overlapping/reversed train/test edges; invalidate contaminated evaluation.'),
+('S13-5','Core / Link','Type-invalid negatives','Reject type-invalid inferred edges and report candidate exclusions.'),
+('S8-1','Core / Options','Contradictory constraints','Return gated or rejected options when the allowed budget is impossible.'),
+('S8-2','Core / Options','Instructions embedded in evidence','Keep source text as data; the local policy remains unchanged.'),
+('S8-3','Core / Options','Incomplete scenario','Expose missing goal/resource fields and gate the output.'),
+('S8-4','Core / Options','Proposal mode collapse','Detect duplicate option envelopes and retain reviewer dissent.'),
+('S14-1','Core / Map','Mixed coordinate systems','Transform supported EPSG:3857 points or exclude unsupported CRS.'),
+('S14-2','Core / Map','Stale source layer','Show source age relative to the replay cutoff and stale status.'),
+('S14-3','Core / Map','Dense map labels','Stable grouping and accessible marker details preserve readability.'),
+('F-1','Field ablation','Remove FCI','Remove bioelectric observations and compare held-out quality and missingness.'),
+('F-2','Field ablation','Remove Agaric imagery','Remove the imagery source and inspect lost supporting paths.'),
+('F-3','Field ablation','Remove Psathyrella acoustics','Remove acoustic evidence and inspect changed support.'),
+('F-4','Field ablation','250 ms clock offset','Apply a declared offset and retain a clock-quality flag.'),
+('F-5','Field ablation','Delay 5% of packets','Delay exactly a seeded 5% sample by 30 seconds; this is delay, not loss.'),
+('F-6','Field ablation','Linear calibration drift','Apply a drift to one source; report detection degradation honestly.'),
+('F-7','Field ablation','Central raw versus edge summaries','Compare serialized payload sizes; this measures software payloads, not RF performance.'),
+('D-1','DIRTNet','Six-hour partition','Simulate contact loss, preserve recorded queued events, then reconcile.'),
+('D-2','DIRTNet','Duplicate replay','Authenticated store-and-forward accepts each event identity once.'),
+('D-3','DIRTNet','Forged authenticator','Reject a modified record with the original HMAC authenticator.'),
+('D-4','DIRTNet','Identity equivocation','Quarantine conflicting payloads at one identity and sequence.'),
+('D-5','DIRTNet','Stale model version','Quarantine a model version outside the configured allowlist.'),
+('D-6','DIRTNet','Poisoned update candidate','Exercise bounded update validation only; this is not federated training.'),
+('D-7','DIRTNet','Gateway interruption','Queue recorded evidence and resume deterministic reconciliation.'),
+('D-8','DIRTNet','90% bandwidth reduction','Use a simulated byte budget and report additional queue clearance time.'),
+('D-9','DIRTNet','Clock spoofing','Quarantine a record outside the allowed timestamp window.'),
+('D-10','DIRTNet','Conflicting sensors','Preserve counterevidence and show lower independent corroboration.'),
+('M-1','Pattern motif','Rate escalation','Increase injected event prevalence while preserving source mix.'),
+('M-2','Pattern motif','Source-role shift','Move event-bearing sources without changing the sample count.'),
+('M-3','Pattern motif','Spatial displacement','Move the synthetic event footprint; retain coordinate provenance.'),
+('M-4','Pattern motif','Periodicity disruption','Break a background periodic component and inspect response.'),
+('M-5','Pattern motif','Coordinated multi-source motif','Correlate a controlled signal change across independent sources.'),
+('M-6','Pattern motif','Source-volume false-positive trap','Replay copies without introducing a new underlying event.'),
+]
+SCENARIOS = [{'id':a,'family':b,'name':c,'expected':d,'source':'Mycosoft supplied ITDX26 plans','authority':'internal_preparation','execution':'software_simulation' if a.startswith('D-') else 'synthetic_injection'} for a,b,c,d in _SCENARIOS]
+SCENARIO_MAP = {s['id']:s for s in SCENARIOS}
+DEFAULT_CONSTRAINTS = {'goal':'Review a coastal environmental change and preserve evidence.','max_cost':100.0,'max_duration_minutes':60,'min_sources':2,'min_modalities':2,'uncertainty_limit':0.65,'max_evidence_age_seconds':300,'available_resources':['analyst','sampling_team','network_operator'],'allowed_actions':['observe','request_sample','restore_link'],'human_authority':'Analyst review only','max_revisions':2}
+REQUIREMENTS = [
+ {'id':'R-SCOPE','name':'Four selected tasks','source':'Task Selection Memo, 2026-09-01','authority':'Mycosoft plan','check':'tasks'},
+ {'id':'R-BASE','name':'Matched baselines and measured task metrics','source':'Mathematical Demonstration Plan','authority':'Mycosoft plan','check':'metrics'},
+ {'id':'R-INTERACTION','name':'Component interaction and overhead','source':'Mathematical Demonstration Plan','authority':'Mycosoft plan','check':'interaction'},
+ {'id':'R-SPLITS','name':'Frozen data, train/validation/test boundaries','source':'Evaluation Harness','authority':'Mycosoft plan','check':'splits'},
+ {'id':'R-SEEDS','name':'Five-seed comparison','source':'Metrics One-Pager','authority':'Mycosoft plan','check':'benchmark'},
+ {'id':'R-PROOF','name':'Integrity, signatures and independent verification','source':'Evaluation Harness / DIRTNet addendum','authority':'Mycosoft plan','check':'proof'},
+ {'id':'R-FAULT','name':'Scenario stress tests and explicit failure modes','source':'Mathematical Demonstration Plan / FormSpace overlay','authority':'Mycosoft plan','check':'suite'},
+ {'id':'R-TIMING','name':'90/120/240 s task caps; integrated 420 s','source':'Metrics One-Pager','authority':'Mycosoft targets, not confirmed Army thresholds','check':'timing'},
+ {'id':'R-OFFLINE','name':'Local replay and export','source':'Evaluation Harness','authority':'Mycosoft plan','check':'offline'},
+ {'id':'R-SME','name':'SME ratings and adjudication','source':'Metrics / task sheets','authority':'Evaluator input required','check':'sme'},
+ {'id':'R-AGENDA','name':'Final Army scenario, rubric and agenda','source':'Not supplied in reviewed attachments','authority':'Requires government confirmation','check':'manual'},
+ {'id':'R-FIELD','name':'Accepted physical field evidence','source':'Coastal Sentinel acceptance gates','authority':'Requires real accepted records','check':'manual'},
+ {'id':'R-LARGE','name':'Full SSM/GNN/LLM checkpoints and deployment qualification','source':'NLM change-history / Known Limitations','authority':'Requires supplied trained services/checkpoints','check':'integrations'},
+]

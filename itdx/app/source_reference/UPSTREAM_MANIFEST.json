@@ -1,0 +1,126 @@
+[
+  {
+    "key": "encoder",
+    "path": "vendor/mycosoft/embodiment_encoders.py",
+    "url": "https://github.com/MycosoftLabs/mycosoft-mas/blob/main/mycosoft_mas/nlm/embodiment_encoders.py",
+    "git_blob_sha": "9bba0134a491daf45e7bba9e458d9a80be61532e",
+    "changes": [],
+    "usage": "executed"
+  },
+  {
+    "key": "merkle",
+    "path": "vendor/nlm/core/merkle.py",
+    "url": "https://github.com/MycosoftLabs/NLM/blob/8264fbfa4d4b6f8fefc9ec5890b50a01567b31d1/nlm/core/merkle.py",
+    "git_blob_sha": "52c79a582faeb84a28da65b9ae78ce03723a252c",
+    "changes": [],
+    "usage": "executed"
+  },
+  {
+    "key": "avani",
+    "path": "vendor/nlm/guardian/avani.py",
+    "url": "https://github.com/MycosoftLabs/NLM/blob/8264fbfa4d4b6f8fefc9ec5890b50a01567b31d1/nlm/guardian/avani.py",
+    "git_blob_sha": "867c3053511cf7a710bff76e21091fa9e7094c68",
+    "changes": [
+      "Torch import optional; tensor conversions guarded. Scalar guardian logic unchanged."
+    ],
+    "usage": "executed"
+  },
+  {
+    "key": "mindex_meta",
+    "path": "vendor/mycosoft/worldview_snapshot_meta.py",
+    "url": "https://github.com/MycosoftLabs/mindex/blob/3c7781fb2db892a49776f3dcf231b2951d2a9967/mindex_api/worldview_snapshot_meta.py",
+    "git_blob_sha": "a6c8841e0c753cb42d7b836e6ca13b6bfecd92c8",
+    "changes": [],
+    "usage": "executed"
+  },
+  {
+    "key": "myca_search",
+    "path": "vendor/nlm/search/myca.py",
+    "url": "https://github.com/MycosoftLabs/NLM/blob/8264fbfa4d4b6f8fefc9ec5890b50a01567b31d1/nlm/search/myca.py",
+    "git_blob_sha": "351993c31fb0db6a21abb32de3850a2939be25cc",
+    "changes": [],
+    "usage": "executed"
+  },
+  {
+    "key": "search_engine",
+    "path": "vendor/nlm/search/engine.py",
+    "url": "https://github.com/MycosoftLabs/NLM/blob/8264fbfa4d4b6f8fefc9ec5890b50a01567b31d1/nlm/search/engine.py",
+    "git_blob_sha": "57f197557289c4529d1a3fd513066ce0ba4a6365",
+    "changes": [],
+    "usage": "executed"
+  },
+  {
+    "key": "crep",
+    "path": "vendor/nlm/search/crep.py",
+    "url": "https://github.com/MycosoftLabs/NLM/blob/8264fbfa4d4b6f8fefc9ec5890b50a01567b31d1/nlm/search/crep.py",
+    "git_blob_sha": "4d12e6e051be5fdfdfe89fe02783af8433a32aeb",
+    "changes": [],
+    "usage": "executed"
+  },
+  {
+    "key": "domains",
+    "path": "vendor/nlm/search/domains.py",
+    "url": "https://github.com/MycosoftLabs/NLM/blob/8264fbfa4d4b6f8fefc9ec5890b50a01567b31d1/nlm/search/domains.py",
+    "git_blob_sha": "dbddd9b38dce2102b8abd3e88530332b69147193",
+    "changes": [],
+    "usage": "executed"
+  },
+  {
+    "key": "earth_grid",
+    "path": "source_reference/grid-calculator.ts",
+    "url": "https://github.com/MycosoftLabs/website/blob/main/lib/earth-simulator/grid-calculator.ts",
+    "git_blob_sha": "898f2595557c5114195812019c1da0316a2d736a",
+    "changes": [],
+    "usage": "reference"
+  },
+  {
+    "key": "form_catalog",
+    "path": "source_reference/form-space.ts",
+    "url": "https://github.com/MycosoftLabs/website/blob/main/lib/fusarium/situational-awareness/form-space.ts",
+    "git_blob_sha": "c4bddb04c7f6af7a1d078bd80eecf5af0ca6ed82",
+    "changes": [],
+    "usage": "reference"
+  },
+  {
+    "key": "nlm_api",
+    "path": "source_reference/nlm_api.py",
+    "url": "https://github.com/MycosoftLabs/mycosoft-mas/blob/main/mycosoft_mas/core/routers/nlm_api.py",
+    "git_blob_sha": "5d9c79d7127f405060082fa1795ded900599c01a",
+    "changes": [],
+    "usage": "reference"
+  },
+  {
+    "key": "brain_api",
+    "path": "source_reference/brain_api.py",
+    "url": "https://github.com/MycosoftLabs/mycosoft-mas/blob/main/mycosoft_mas/core/routers/brain_api.py",
+    "git_blob_sha": "e829d846654b331787248f34d90823a4b216fcfc",
+    "changes": [],
+    "usage": "reference"
+  },
+  {
+    "key": "mindex_evidence",
+    "path": "source_reference/mindex_evidence_builder.py",
+    "url": "https://github.com/MycosoftLabs/mindex/blob/3c7781fb2db892a49776f3dcf231b2951d2a9967/mindex_api/services/sine_acoustic/evidence_builder.py",
+    "git_blob_sha": "3b480877b1c558e9de0e9e1cf69b00cd0c5f4b2e",
+    "changes": [],
+    "usage": "reference"
+  },
+  {
+    "key": "nlm_license",
+    "path": "vendor/LICENSE.MYCOSOFT",
+    "url": "https://github.com/MycosoftLabs/NLM/blob/8264fbfa4d4b6f8fefc9ec5890b50a01567b31d1/LICENSE",
+    "git_blob_sha": "9baae8e5086808576c9ef10015a30a2967856a2f",
+    "changes": [],
+    "usage": "license"
+  },
+  {
+    "key": "earth_grid_runtime",
+    "path": "web/earth-grid.js",
+    "url": "https://github.com/MycosoftLabs/website/blob/main/lib/earth-simulator/grid-calculator.ts",
+    "git_blob_sha": "898f2595557c5114195812019c1da0316a2d736a",
+    "changes": [
+      "Native TypeScript type annotations stripped with Node; no algorithm changes."
+    ],
+    "usage": "executed in browser"
+  }
+]

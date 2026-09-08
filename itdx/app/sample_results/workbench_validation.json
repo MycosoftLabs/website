@@ -1,0 +1,23 @@
+{
+  "version": "1.2.0",
+  "python_tests_passed": 81,
+  "javascript_view_event_checks_passed": 42,
+  "new_python_tests": 23,
+  "export_replay": [
+    {
+      "artifact": "ranking_illustrative_result.json",
+      "recomputed": true,
+      "altered_digest_rejected": true,
+      "data_scope": "Illustrative invented inputs; not exercise results"
+    },
+    {
+      "artifact": "civil_evidence_illustrative_result.json",
+      "recomputed": true,
+      "altered_digest_rejected": true,
+      "data_scope": "Illustrative invented inputs; not exercise results"
+    }
+  ],
+  "browser_visual_validation": "Not completed. Localhost browser policy remains in force. Public Earth Simulator stopped at WebGL initialization with renderer disabled in the inspection browser.",
+  "live_military_feeds_connected": false,
+  "official_coin_inject_pack_supplied": false
+}
