@@ -1,0 +1,17 @@
+{
+  "title": "Illustrative map-product comparison — invented ballots",
+  "scenario": "Synthetic public-service reporting exercise; same three map products",
+  "task_id": "14",
+  "rubric": "Illustrative criterion: ease of tracing each map statement to its source. Rank 1 is preferred. These are invented example ballots, not Army rubric definitions or evaluator results.",
+  "mode": "rank",
+  "candidates": [
+    {"id": "A", "label": "Map product A", "evidence_ref": "Illustrative only; no measured product"},
+    {"id": "B", "label": "Map product B", "evidence_ref": "Illustrative only; no measured product"},
+    {"id": "C", "label": "Map product C", "evidence_ref": "Illustrative only; no measured product"}
+  ],
+  "ballots": [
+    {"reviewer": "Invented evaluator 1", "scores": {"A": 1, "B": 2, "C": 3}, "notes": "Illustration"},
+    {"reviewer": "Invented evaluator 2", "scores": {"A": 2, "B": 1, "C": 3}, "notes": "Illustration"},
+    {"reviewer": "Invented evaluator 3", "scores": {"A": 3, "B": 1, "C": 2}, "notes": "Illustration"}
+  ]
+}

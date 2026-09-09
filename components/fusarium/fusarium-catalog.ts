@@ -54,6 +54,7 @@ export const FUSARIUM_SECTIONS: FusariumSection[] = [
       s("nature-statistics", "Nature Statistics"),
       s("fungi-compute", "Fungi Compute"),
       s("earth-simulator", "Earth Simulator"),
+      s("itdx", "ITDX Demonstration Workspace"),
       s("virtual-petri-dish", "Virtual Petri Dish"),
       s("biology-simulator", "Biology Simulator"),
       s("compound-analyser", "Compound Analyser"),

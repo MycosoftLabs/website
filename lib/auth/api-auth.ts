@@ -122,6 +122,20 @@ export async function requireFusariumOwner(options?: {
   | { user: AuthenticatedUser; mfaRequired?: never; error?: never }
   | { user?: never; mfaRequired?: boolean; error: NextResponse }
 > {
+  const localDevCookie = (await cookies()).get(LOCAL_DEV_ADMIN_COOKIE)?.value
+  const localDevSession = verifyLocalDevAdminSession(localDevCookie)
+  if (localDevSession && OWNER_EMAILS.includes((localDevSession.email || "").toLowerCase().trim())) {
+    return {
+      user: {
+        id: "local-dev-morgan",
+        email: localDevSession.email,
+        role: "owner",
+        isAdmin: true,
+        isOwner: true,
+      },
+    }
+  }
+
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
 

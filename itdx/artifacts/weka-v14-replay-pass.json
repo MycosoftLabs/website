@@ -1,0 +1,203 @@
+{
+  "schema": "itdx-weka-v14-walkthrough/v1",
+  "source": "v1.4 TEST_WEKA.py --mode replay",
+  "kit_version": "1.4.0",
+  "verify_status": "PASS",
+  "receipt_status": "COMPLETE",
+  "arithmetic_status": "PASS",
+  "arithmetic_checks": 14,
+  "artifacts_verified": 78,
+  "weka_execution": "FRESH_JAVA_EVALUATION",
+  "prediction_execution": "RECORDED",
+  "execution_mode": "replay",
+  "run_id": "20260909T184028798207Z",
+  "app_version": "1.4.0",
+  "model_sha256": "1d3fe486d94507600f5c82e2be527ac9be42ff9a8a59586e7f158397a1a3b792",
+  "dataset_sha256": "63c9244788b842c0847dac74fd1ef3381de3d2ad8a256e654d28a8dc0e3a0733",
+  "request_sha256": "595813405a6812a7fed9e77ca44974882fbec904445c883c4dc14acd0bacb7db",
+  "qualification": "EXPERIMENTAL_REFERENCE_ONLY",
+  "formspace_is_not_mas": true,
+  "java_note": "Java 17+ required; this machine used the bundled-known JRE via JAVA_HOME. System JDK not required.",
+  "windows_fix": "lab_worker writes POSIX artifact keys; verify_run normalizes historical backslashes.",
+  "limits": [
+    "Model class probability is conditional on model and data assumptions; it is not source truth probability.",
+    "The bundled checkpoint is calibrated on synthetic environmental captures, not military field data.",
+    "Provided labels are treated as evaluation truth, not independently authenticated.",
+    "Map context is displayed as supplied; it is not used as a model feature or a feasible movement prediction.",
+    "Task 8 is a governed environmental advisory fixture; Task 14 renders observed coordinates. Neither is validated by classification F1.",
+    "Hash receipts establish byte consistency, not authenticity, field validity or Army acceptance."
+  ],
+  "cases": [
+    {
+      "case": "main",
+      "tasks": [
+        {
+          "task": "task12",
+          "status": "PASS",
+          "f1": 1.0,
+          "brier_independent": 1.811071438420588e-19,
+          "abstentions": 0,
+          "input_sha256": "748147f15452dcd587eec1d1ffb4ccafc757f3a7d71b804fc71de3380f384eaa"
+        },
+        {
+          "task": "task13",
+          "status": "PASS",
+          "f1": 1.0,
+          "brier_independent": 1.541317502789645e-17,
+          "abstentions": 0,
+          "input_sha256": "aa076111c0a04f55930ca11feb763fe37d983d5b6584963ed2eae17cfb348e07"
+        }
+      ]
+    },
+    {
+      "case": "all_missing",
+      "tasks": [
+        {
+          "task": "task12",
+          "status": "PASS",
+          "f1": null,
+          "brier_independent": null,
+          "abstentions": 1600,
+          "input_sha256": "fe50b4a2e7715536a6ff1d0a7dbf99d355ea88bfe33e1e4058c6dd190bc83cc4"
+        },
+        {
+          "task": "task13",
+          "status": "PASS",
+          "f1": null,
+          "brier_independent": null,
+          "abstentions": 2400,
+          "input_sha256": "89d445671ef2dc9658699fd8a4d582b35e1d000f4e45eccfe5ee6448950e4259"
+        }
+      ]
+    },
+    {
+      "case": "baseline",
+      "tasks": [
+        {
+          "task": "task12",
+          "status": "PASS",
+          "f1": 1.0,
+          "brier_independent": 1.811071438420588e-19,
+          "abstentions": 0,
+          "input_sha256": "748147f15452dcd587eec1d1ffb4ccafc757f3a7d71b804fc71de3380f384eaa"
+        },
+        {
+          "task": "task13",
+          "status": "PASS",
+          "f1": 1.0,
+          "brier_independent": 1.541317502789645e-17,
+          "abstentions": 0,
+          "input_sha256": "aa076111c0a04f55930ca11feb763fe37d983d5b6584963ed2eae17cfb348e07"
+        }
+      ]
+    },
+    {
+      "case": "information_erased",
+      "tasks": [
+        {
+          "task": "task12",
+          "status": "PASS",
+          "f1": null,
+          "brier_independent": 0.34687499991542553,
+          "abstentions": 0,
+          "input_sha256": "376002a7de6430b7de7e4d557e3d92d1cd981d852a1544244e01b27b3e76f39c"
+        },
+        {
+          "task": "task13",
+          "status": "PASS",
+          "f1": null,
+          "brier_independent": 0.3312499993252461,
+          "abstentions": 0,
+          "input_sha256": "844d44341bd229bb5e228bc2f8ee5da3626957973b1a5d5ccbe692494a97d656"
+        }
+      ]
+    },
+    {
+      "case": "no_geography",
+      "tasks": [
+        {
+          "task": "task12",
+          "status": "PASS",
+          "f1": 1.0,
+          "brier_independent": 1.811071438420588e-19,
+          "abstentions": 0,
+          "input_sha256": "748147f15452dcd587eec1d1ffb4ccafc757f3a7d71b804fc71de3380f384eaa"
+        },
+        {
+          "task": "task13",
+          "status": "PASS",
+          "f1": null,
+          "brier_independent": null,
+          "abstentions": 2400,
+          "input_sha256": "89d445671ef2dc9658699fd8a4d582b35e1d000f4e45eccfe5ee6448950e4259"
+        }
+      ]
+    },
+    {
+      "case": "temperature_bias",
+      "tasks": [
+        {
+          "task": "task12",
+          "status": "PASS",
+          "f1": 0.5577889447236181,
+          "brier_independent": 0.5370713487316015,
+          "abstentions": 0,
+          "input_sha256": "d3d3d1fa992a28bc58cd37a9b6a3b0092e5c957c0dab29f077bba9b0878fa9e1"
+        },
+        {
+          "task": "task13",
+          "status": "PASS",
+          "f1": 0.5662393162393162,
+          "brier_independent": 0.5013071827832092,
+          "abstentions": 0,
+          "input_sha256": "81f3c7ff08153e0b0b86db259f125ed76a6b50413de55a89593bf79593b0a520"
+        }
+      ]
+    },
+    {
+      "case": "unknown_ontology",
+      "tasks": [
+        {
+          "task": "task12",
+          "status": "PASS",
+          "f1": null,
+          "brier_independent": null,
+          "abstentions": 1600,
+          "input_sha256": "fe50b4a2e7715536a6ff1d0a7dbf99d355ea88bfe33e1e4058c6dd190bc83cc4"
+        },
+        {
+          "task": "task13",
+          "status": "PASS",
+          "f1": null,
+          "brier_independent": null,
+          "abstentions": 2400,
+          "input_sha256": "89d445671ef2dc9658699fd8a4d582b35e1d000f4e45eccfe5ee6448950e4259"
+        }
+      ]
+    }
+  ],
+  "trial_criteria_status": "TRIAL_CRITERIA_NOT_MET",
+  "criteria_authority": "LOCAL_TRIAL_CRITERIA_NOT_ARMY_REQUIREMENTS",
+  "field_readiness": "NOT_ESTABLISHED",
+  "failed_gates": [
+    {
+      "id": "task12_sample_size",
+      "observed": 5,
+      "criterion": 20,
+      "claim": "Labeled test capture count meets trial criterion"
+    },
+    {
+      "id": "task13_coverage",
+      "observed": 0.8,
+      "criterion": 0.9,
+      "claim": "Observed whole-capture prediction-set coverage meets trial criterion"
+    },
+    {
+      "id": "task13_sample_size",
+      "observed": 5,
+      "criterion": 20,
+      "claim": "Labeled test capture count meets trial criterion"
+    }
+  ],
+  "passed_arithmetic_gate": true
+}

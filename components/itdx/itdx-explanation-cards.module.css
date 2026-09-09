@@ -1,0 +1,84 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0.6rem 0;
+  color: #e9f3f1;
+}
+
+.kicker,
+.title {
+  margin: 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  color: #91e5c4;
+}
+
+.title {
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-size: 0.86rem;
+  color: #f4f4f5;
+}
+
+.meta,
+.body {
+  margin: 0;
+  color: #a8bfbe;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.card {
+  padding: 0.7rem 0.75rem;
+  border: 1px solid #304950;
+  border-radius: 0.55rem;
+  background: #112630;
+}
+
+.reached {
+  border-color: #416158;
+}
+
+.active {
+  border-color: #9ae9cb;
+  box-shadow: inset 0 0 0 1px #9ae9cb55;
+}
+
+.compact .list {
+  max-height: 22rem;
+  overflow: auto;
+}
+
+.compact .card:not(.active):not(.reached) {
+  display: none;
+}
+
+.compact .reached:not(.active) {
+  padding: 0.4rem 0.6rem;
+}
+
+.compact .reached:not(.active) .body {
+  display: none;
+}
+
+@media (max-width: 800px) {
+  .wrap {
+    width: 100%;
+  }
+
+  .card,
+  .title {
+    min-height: 44px;
+  }
+}

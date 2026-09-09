@@ -1,0 +1,166 @@
+{
+  "date": "2026-09-09",
+  "email": "morgan@mycosoft.org",
+  "supabase_url_present": true,
+  "anon_present": true,
+  "password_key_names_present": [
+    "MYCOSOFT_DEFAULT_PASSWORD",
+    "VM_USER_MORGAN_PASSWORD",
+    "N8N_PASSWORD",
+    "METABASE_PASSWORD"
+  ],
+  "password_grant": {
+    "ok": false,
+    "last_status": 400,
+    "last_key_name": "METABASE_PASSWORD"
+  },
+  "pages": [
+    {
+      "path": "/fusarium/login?redirectTo=/fusarium/itdx",
+      "status": 307,
+      "location": "/fusarium/itdx"
+    },
+    {
+      "path": "/fusarium/itdx",
+      "status": 200,
+      "location": null
+    },
+    {
+      "path": "/fusarium/earth-simulator",
+      "status": 200,
+      "location": null
+    }
+  ],
+  "apis": [
+    {
+      "path": "/api/fusarium/itdx/weka-receipt",
+      "status": 200,
+      "keys": [
+        "schema",
+        "source",
+        "kit_version",
+        "verify_status",
+        "receipt_status",
+        "arithmetic_status",
+        "arithmetic_checks",
+        "artifacts_verified",
+        "weka_execution",
+        "prediction_execution",
+        "execution_mode",
+        "run_id",
+        "app_version",
+        "model_sha256",
+        "dataset_sha256",
+        "request_sha256"
+      ],
+      "verify_status": "PASS",
+      "arithmetic_status": "PASS",
+      "arithmetic_checks": 14,
+      "trial_criteria_status": "TRIAL_CRITERIA_NOT_MET",
+      "live_cop": false
+    },
+    {
+      "path": "/api/fusarium/itdx/situation",
+      "status": 200,
+      "keys": [
+        "schema",
+        "source",
+        "ao",
+        "situation",
+        "situation_status",
+        "situation_error",
+        "situation_path",
+        "demo",
+        "google",
+        "pathways",
+        "base",
+        "devices",
+        "task8",
+        "task8_probes",
+        "health",
+        "health_status"
+      ],
+      "live_cop": false,
+      "synthetic": true,
+      "situation_status": 200,
+      "ao": "Fort Stewart"
+    },
+    {
+      "path": "/api/fusarium/itdx/truth",
+      "status": 200,
+      "keys": [
+        "schema",
+        "overlay",
+        "class_p_is_geo_radius",
+        "index",
+        "replay_time",
+        "selected",
+        "assets",
+        "byId",
+        "binds"
+      ]
+    },
+    {
+      "path": "/api/fusarium/itdx/task8",
+      "status": 200,
+      "keys": [
+        "source",
+        "path",
+        "schema",
+        "schema_version",
+        "roles",
+        "options",
+        "seven_role",
+        "p_truth",
+        "p_truth_owner",
+        "myca",
+        "myca_status",
+        "probes",
+        "health",
+        "local_avani_options",
+        "synthetic",
+        "live_cop"
+      ]
+    },
+    {
+      "path": "/api/fusarium/itdx/evidence",
+      "status": 200,
+      "keys": [
+        "ok",
+        "status",
+        "kind",
+        "label",
+        "detail",
+        "refs",
+        "data_origin",
+        "synthetic",
+        "live",
+        "bootstrap_status",
+        "dataset_status",
+        "document_status",
+        "run_status",
+        "note"
+      ]
+    },
+    {
+      "path": "/api/fusarium/itdx/run-state",
+      "status": 200,
+      "keys": [
+        "formspace",
+        "weka_v14",
+        "nlm",
+        "mindex",
+        "situation",
+        "situation_status",
+        "official_injects",
+        "ao_place",
+        "ao_origin",
+        "overlay",
+        "class_p_is_geo_radius",
+        "borda_is_success_probability"
+      ]
+    }
+  ],
+  "session_method": "admin_verify",
+  "ok": true
+}

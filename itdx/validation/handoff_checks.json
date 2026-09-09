@@ -1,0 +1,65 @@
+{
+  "date": "2026-09-08",
+  "scope": "Relocated v1.2 snapshot and handoff packaging; no live integration or browser layout test",
+  "platform": "Linux-6.18.35-x86_64-with-glibc2.39",
+  "python": "3.12.13",
+  "checks": [
+    {
+      "command": "python run.py --self-test",
+      "cwd": "itdx/local",
+      "exit_code": 0,
+      "passed": 81,
+      "seconds": 8.714
+    },
+    {
+      "command": "node tests/test_views.cjs",
+      "cwd": "itdx/local",
+      "exit_code": 0,
+      "passed": 34
+    },
+    {
+      "command": "node tests/test_workbench_views.cjs",
+      "cwd": "itdx/local",
+      "exit_code": 0,
+      "passed": 8
+    },
+    {
+      "command": "python rank_compare.py sample_results/ranking_illustrative_result.json",
+      "cwd": "itdx/local",
+      "exit_code": 0
+    },
+    {
+      "command": "python review_replay.py sample_results/civil_evidence_illustrative_result.json",
+      "cwd": "itdx/local",
+      "exit_code": 0
+    }
+  ],
+  "packaging_scan": {
+    "stage": "Before validation report and manifest creation",
+    "files": 207,
+    "archive_members": 649,
+    "findings": [],
+    "scope": "Private-runtime paths and selected private-key/token patterns; not a comprehensive authenticity/rights assessment"
+  },
+  "not_run": [
+    "Live service integration",
+    "Full browser layout/click rehearsal",
+    "Windows/macOS execution",
+    "New 205-trial stress run",
+    "Website production build",
+    "Production deployment",
+    "Official Army acceptance"
+  ],
+  "git_packaging": {
+    "staged_handoff_files": 212,
+    "frozen_source_files": 188,
+    "original_documents": 30,
+    "staged_bytes_match_manifest": true,
+    "root_changes": [
+      ".dockerignore",
+      "tsconfig.json"
+    ],
+    "new_handoff_whitespace_check": "PASS",
+    "full_whitespace_check": "Reports preserved whitespace in immutable released source/documents/artifacts; not rewritten"
+  }
+}

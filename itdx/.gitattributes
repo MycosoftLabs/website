@@ -1,0 +1,5 @@
+# Preserve released bytes, including launcher line endings and original documents.
+# The parent repository otherwise normalizes Python/JSON/text and Windows scripts.
+local/** -text !eol !filter !working-tree-encoding
+artifacts/** -text !eol !filter !working-tree-encoding
+app/** -text !eol !filter !working-tree-encoding

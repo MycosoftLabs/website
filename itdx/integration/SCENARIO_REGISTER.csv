@@ -1,0 +1,42 @@
+id,family,name,expected,source,authority,execution,official_requirement_id,live_validation_status
+clean,Reference,Clean coastal replay,All four tasks on a reproducible synthetic environmental dataset.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S12-1,Core / Pattern,Duplicate reporting burst,Deduplicate identical observations; do not count copies as independent sources.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S12-2,Core / Pattern,Clock jitter and ingestion delay,Preserve observation/ingestion time and report late or uncertain samples.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S12-3,Core / Pattern,Ontology remapping,Flag unknown schema/ontology and exclude unsupported interpretation.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S12-4,Core / Pattern,Missing geography,Retain signals while omitting unsupported map points.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S12-5,Core / Pattern,Novel source aliases,Keep unknown identities separate until an alias mapping is supplied.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S13-1,Core / Link,Same-name entities,Stable IDs prevent two same-name entities from being merged.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S13-2,Core / Link,Hub-source removal,Recompute affected links and expose lost evidence.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S13-3,Core / Link,Relation imbalance,Retain per-relation counts and disclose a dominant relation.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S13-4,Core / Link,Inverse-edge leakage trap,Audit overlapping/reversed train/test edges; invalidate contaminated evaluation.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S13-5,Core / Link,Type-invalid negatives,Reject type-invalid inferred edges and report candidate exclusions.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S8-1,Core / Options,Contradictory constraints,Return gated or rejected options when the allowed budget is impossible.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S8-2,Core / Options,Instructions embedded in evidence,Keep source text as data; the local policy remains unchanged.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S8-3,Core / Options,Incomplete scenario,Expose missing goal/resource fields and gate the output.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S8-4,Core / Options,Proposal mode collapse,Detect duplicate option envelopes and retain reviewer dissent.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S14-1,Core / Map,Mixed coordinate systems,Transform supported EPSG:3857 points or exclude unsupported CRS.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S14-2,Core / Map,Stale source layer,Show source age relative to the replay cutoff and stale status.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+S14-3,Core / Map,Dense map labels,Stable grouping and accessible marker details preserve readability.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+F-1,Field ablation,Remove FCI,Remove bioelectric observations and compare held-out quality and missingness.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+F-2,Field ablation,Remove Agaric imagery,Remove the imagery source and inspect lost supporting paths.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+F-3,Field ablation,Remove Psathyrella acoustics,Remove acoustic evidence and inspect changed support.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+F-4,Field ablation,250 ms clock offset,Apply a declared offset and retain a clock-quality flag.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+F-5,Field ablation,Delay 5% of packets,"Delay exactly a seeded 5% sample by 30 seconds; this is delay, not loss.",Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+F-6,Field ablation,Linear calibration drift,Apply a drift to one source; report detection degradation honestly.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+F-7,Field ablation,Central raw versus edge summaries,"Compare serialized payload sizes; this measures software payloads, not RF performance.",Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+D-1,DIRTNet,Six-hour partition,"Simulate contact loss, preserve recorded queued events, then reconcile.",Mycosoft supplied ITDX26 plans,internal_preparation,software_simulation,NOT_SUPPLIED,NOT_RUN
+D-2,DIRTNet,Duplicate replay,Authenticated store-and-forward accepts each event identity once.,Mycosoft supplied ITDX26 plans,internal_preparation,software_simulation,NOT_SUPPLIED,NOT_RUN
+D-3,DIRTNet,Forged authenticator,Reject a modified record with the original HMAC authenticator.,Mycosoft supplied ITDX26 plans,internal_preparation,software_simulation,NOT_SUPPLIED,NOT_RUN
+D-4,DIRTNet,Identity equivocation,Quarantine conflicting payloads at one identity and sequence.,Mycosoft supplied ITDX26 plans,internal_preparation,software_simulation,NOT_SUPPLIED,NOT_RUN
+D-5,DIRTNet,Stale model version,Quarantine a model version outside the configured allowlist.,Mycosoft supplied ITDX26 plans,internal_preparation,software_simulation,NOT_SUPPLIED,NOT_RUN
+D-6,DIRTNet,Poisoned update candidate,Exercise bounded update validation only; this is not federated training.,Mycosoft supplied ITDX26 plans,internal_preparation,software_simulation,NOT_SUPPLIED,NOT_RUN
+D-7,DIRTNet,Gateway interruption,Queue recorded evidence and resume deterministic reconciliation.,Mycosoft supplied ITDX26 plans,internal_preparation,software_simulation,NOT_SUPPLIED,NOT_RUN
+D-8,DIRTNet,90% bandwidth reduction,Use a simulated byte budget and report additional queue clearance time.,Mycosoft supplied ITDX26 plans,internal_preparation,software_simulation,NOT_SUPPLIED,NOT_RUN
+D-9,DIRTNet,Clock spoofing,Quarantine a record outside the allowed timestamp window.,Mycosoft supplied ITDX26 plans,internal_preparation,software_simulation,NOT_SUPPLIED,NOT_RUN
+D-10,DIRTNet,Conflicting sensors,Preserve counterevidence and show lower independent corroboration.,Mycosoft supplied ITDX26 plans,internal_preparation,software_simulation,NOT_SUPPLIED,NOT_RUN
+M-1,Pattern motif,Rate escalation,Increase injected event prevalence while preserving source mix.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+M-2,Pattern motif,Source-role shift,Move event-bearing sources without changing the sample count.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+M-3,Pattern motif,Spatial displacement,Move the synthetic event footprint; retain coordinate provenance.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+M-4,Pattern motif,Periodicity disruption,Break a background periodic component and inspect response.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+M-5,Pattern motif,Coordinated multi-source motif,Correlate a controlled signal change across independent sources.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN
+M-6,Pattern motif,Source-volume false-positive trap,Replay copies without introducing a new underlying event.,Mycosoft supplied ITDX26 plans,internal_preparation,synthetic_injection,NOT_SUPPLIED,NOT_RUN

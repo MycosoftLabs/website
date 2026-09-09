@@ -1,0 +1,149 @@
+{
+  "input": {
+    "schema": "itdx-ranking-input/v1",
+    "title": "Illustrative map-product comparison \u2014 invented ballots",
+    "scenario": "Synthetic public-service reporting exercise; same three map products",
+    "task_id": "14",
+    "rubric": "Illustrative criterion: ease of tracing each map statement to its source. Rank 1 is preferred. These are invented example ballots, not Army rubric definitions or evaluator results.",
+    "mode": "rank",
+    "candidates": [
+      {
+        "id": "A",
+        "label": "Map product A",
+        "evidence_ref": "Illustrative only; no measured product"
+      },
+      {
+        "id": "B",
+        "label": "Map product B",
+        "evidence_ref": "Illustrative only; no measured product"
+      },
+      {
+        "id": "C",
+        "label": "Map product C",
+        "evidence_ref": "Illustrative only; no measured product"
+      }
+    ],
+    "ballots": [
+      {
+        "reviewer": "Invented evaluator 1",
+        "scores": {
+          "A": 1,
+          "B": 2,
+          "C": 3
+        },
+        "notes": "Illustration"
+      },
+      {
+        "reviewer": "Invented evaluator 2",
+        "scores": {
+          "A": 2,
+          "B": 1,
+          "C": 3
+        },
+        "notes": "Illustration"
+      },
+      {
+        "reviewer": "Invented evaluator 3",
+        "scores": {
+          "A": 3,
+          "B": 1,
+          "C": 2
+        },
+        "notes": "Illustration"
+      }
+    ]
+  },
+  "result": {
+    "method": "borda-average-ties/v1",
+    "input_sha256": "35aef941202bca9eb6dc7b7e99f22fcbfb14c493192b5d993fbe4ae9687f5cff",
+    "candidate_count": 3,
+    "counted_ballots": 3,
+    "abstained_ballots": 0,
+    "status": "MEASURED_PREFERENCE",
+    "top_tie_ids": [
+      "B"
+    ],
+    "rows": [
+      {
+        "id": "B",
+        "label": "Map product B",
+        "evidence_ref": "Illustrative only; no measured product",
+        "position": 1,
+        "borda_points": 5.0,
+        "mean_rank": 1.3333333333333333,
+        "normalized_preference": 0.8333333333333334
+      },
+      {
+        "id": "A",
+        "label": "Map product A",
+        "evidence_ref": "Illustrative only; no measured product",
+        "position": 2,
+        "borda_points": 3.0,
+        "mean_rank": 2.0,
+        "normalized_preference": 0.5
+      },
+      {
+        "id": "C",
+        "label": "Map product C",
+        "evidence_ref": "Illustrative only; no measured product",
+        "position": 3,
+        "borda_points": 1.0,
+        "mean_rank": 2.6666666666666665,
+        "normalized_preference": 0.16666666666666666
+      }
+    ],
+    "ballot_trace": [
+      {
+        "reviewer": "Invented evaluator 1",
+        "status": "COUNTED",
+        "ranks": {
+          "A": 1.0,
+          "B": 2.0,
+          "C": 3.0
+        },
+        "points": {
+          "A": 2.0,
+          "B": 1.0,
+          "C": 0.0
+        }
+      },
+      {
+        "reviewer": "Invented evaluator 2",
+        "status": "COUNTED",
+        "ranks": {
+          "A": 2.0,
+          "B": 1.0,
+          "C": 3.0
+        },
+        "points": {
+          "A": 1.0,
+          "B": 2.0,
+          "C": 0.0
+        }
+      },
+      {
+        "reviewer": "Invented evaluator 3",
+        "status": "COUNTED",
+        "ranks": {
+          "A": 3.0,
+          "B": 1.0,
+          "C": 2.0
+        },
+        "points": {
+          "A": 0.0,
+          "B": 2.0,
+          "C": 1.0
+        }
+      }
+    ],
+    "rules": {
+      "points": "m \u2212 average occupied rank; highest total first",
+      "ties": "Average points across occupied positions; final ties retained",
+      "missing": "Whole-ballot abstention allowed; partial ballots rejected",
+      "weights": "Equal evaluator weights; independence is not assumed",
+      "rating_conversion": "Lower rank value ranks ahead",
+      "scope": "Relative preference for this fixed output set and criterion. No probability, truth, acceptance, or command authority is inferred. Evidence references and rubric text are supplied by the evaluator."
+    }
+  },
+  "result_sha256": "e5d78e003466c0b7c962b50b69fccd221002802d56f9f420eb4b3c20da42b537"
+}

@@ -1,0 +1,242 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 4 /Kids [4 0 R 6 0 R 8 0 R 10 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 2893 >>
+stream
+0.06 0.24 0.20 rg
+BT /F1 15 Tf 44 749 Td (MYCOSOFT / ITDX26 EVALUATION) Tj ET
+0.16 0.21 0.20 rg
+BT /F1 9 Tf 44 719 Td 12.8 TL
+(MYCOSOFT / ITDX26 LOCAL EVALUATION REPORT) Tj T*
+(run-a3306885224e4bdc) Tj T*
+(Created: 2026-09-08T16:26:54.637332+00:00) Tj T*
+(Data mode: SYNTHETIC_TEST) Tj T*
+(Dataset: Coastal Sentinel  /  reproducible synthetic replay) Tj T*
+(Scenario: clean) Tj T*
+(Seed: 11) Tj T*
+() Tj T*
+(EVIDENCE BOUNDARY) Tj T*
+(Measured local CPU execution. Synthetic data does not establish field performance.) Tj T*
+(The local readout is not a full trained SSM/Mamba or relational GNN.) Tj T*
+(The local MYCA option loop is deterministic. No actuator commands are issued.) Tj T*
+(Final Army injects and acceptance rubric have not been supplied.) Tj T*
+() Tj T*
+(RUN CONFIGURATION) Tj T*
+(Native NLM encoder + 25 fitted readout parameters) Tj T*
+(Model SHA-256: 364c1c79d9bf4f94e622b88b38e59af14825c673ba3c02ffd53acf0e571eab93) Tj T*
+(Training origin: synthetic_training_captures) Tj T*
+(Training records: 320; validation: 320) Tj T*
+(Inputs: 960; held-out task 12 records: 320) Tj T*
+() Tj T*
+(TASK METRICS) Tj T*
+(Task 12 / native_encoder / MEASURED) Tj T*
+(  n=320; precision=0.87500; recall=0.06306; f1=0.11765; average_precision=0.38018;) Tj T*
+(auroc=0.52914; brier=0.33600; ece=0.33937) Tj T*
+(Task 12 / robust_baseline / MEASURED) Tj T*
+(  n=320; precision=0.95690; recall=1.00000; f1=0.97797; average_precision=1.00000;) Tj T*
+(auroc=1.00000; brier=0.02178; ece=0.08198) Tj T*
+(Task 12 / temporal_readout / MEASURED) Tj T*
+(  n=320; precision=1.00000; recall=1.00000; f1=1.00000; average_precision=1.00000;) Tj T*
+(auroc=1.00000; brier=0.00125; ece=0.02034) Tj T*
+(Task 13 / spatial_baseline / MEASURED) Tj T*
+(  n=480; precision=0.33125; recall=1.00000; f1=0.49765; average_precision=0.33523;) Tj T*
+(auroc=0.51176; brier=0.55498; ece=0.57708) Tj T*
+(Task 13 / temporal_corroboration / MEASURED) Tj T*
+(  n=480; precision=1.00000; recall=1.00000; f1=1.00000; average_precision=1.00000;) Tj T*
+(auroc=1.00000; brier=0.00446; ece=0.04629) Tj T*
+(Task Interaction / fused / MEASURED) Tj T*
+(  n=320; precision=1.00000; recall=1.00000; f1=1.00000; average_precision=1.00000;) Tj T*
+(auroc=1.00000; brier=0.00213; ece=0.01942) Tj T*
+(Task Interaction / graph_context / MEASURED) Tj T*
+(  n=320; precision=0.95690; recall=1.00000; f1=0.97797; average_precision=0.92966;) Tj T*
+(auroc=0.98457; brier=0.02051; ece=0.04569) Tj T*
+(Task Interaction / sequence / MEASURED) Tj T*
+(  n=320; precision=1.00000; recall=1.00000; f1=1.00000; average_precision=1.00000;) Tj T*
+(auroc=1.00000; brier=0.00125; ece=0.02034) Tj T*
+(Task Interaction / shuffled_control / MEASURED) Tj T*
+(  n=320; precision=1.00000; recall=0.38739; f1=0.55844; average_precision=1.00000;) Tj T*
+(auroc=1.00000; brier=0.07338; ece=0.13836) Tj T*
+ET
+BT /F1 8 Tf 44 32 Td (Data mode: SYNTHETIC_TEST | Page 1 of 4) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 3644 >>
+stream
+0.06 0.24 0.20 rg
+BT /F1 15 Tf 44 749 Td (MYCOSOFT / ITDX26 EVALUATION) Tj ET
+0.16 0.21 0.20 rg
+BT /F1 9 Tf 44 719 Td 12.8 TL
+() Tj T*
+(COVERAGE AND MISSED DETECTIONS) Tj T*
+({"abstained_positive_records": 0, "coverage": 1.0, "definition": "All labeled held-out) Tj T*
+(records; abstained positive observations count as missed detections. Classifier F1 above uses) Tj T*
+(only eligible predictions.", "false_alerts": 0, "false_positive_rate": 0.0,) Tj T*
+("labelled_records": 320, "missed_positive_records": 0, "recall_including_abstentions": 1.0,) Tj T*
+("status": "MEASURED", "test_records": 320}) Tj T*
+() Tj T*
+(SCENARIO IMPACT) Tj T*
+(MEASURED) Tj T*
+(Scenario impact against the same seed, selected dataset and constraints. Injected) Tj T*
+(labels/populations may differ; deltas are sensitivity measurements, not causal improvement or) Tj T*
+(Army pass/fail thresholds.) Tj T*
+(Delta from unchanged capture: {"coverage": 0.0, "events": 0, "excluded_advisory_evidence": 0,) Tj T*
+("f1": 0.0, "false_alerts": 0, "gated_options": 0, "graph_f1": 0.0, "labelled_records": 0,) Tj T*
+("mapped_records": 0, "median_detection_seconds": 0.0, "missed_events": 0,) Tj T*
+("missed_positive_records": 0, "missing_geometry": 0, "passing_options": 0, "precision": 0.0,) Tj T*
+("recall": 0.0, "seconds": 0.0, "sources": 0, "stale_records": 0, "supporting_pairs": 0,) Tj T*
+("test_records": 0, "vetoed_options": 0}) Tj T*
+() Tj T*
+(TASK 8 / OPTIONS AND GOVERNANCE) Tj T*
+(Mode: DETERMINISTIC_SEVEN_ROLE_REVIEW) Tj T*
+(Policy digest: e85133bcee02fd57e120c6dc5fa20ea6459537748fa02de463699f4f096878ab) Tj T*
+(Evidence age and exclusions: {"basis": "Recorded ingestion cutoff; only fresh observed-time) Tj T*
+(evidence with resolved identity can ground options.", "candidate_records": 111,) Tj T*
+("cutoff_epoch": 1789031591.0, "eligible_records": 16, "max_age_seconds": 300.0,) Tj T*
+("stale_or_unresolved_excluded": 61}) Tj T*
+(coa-1 / Continue observation / PASS) Tj T*
+(Native AVANI: allow) Tj T*
+(Failed checks: none) Tj T*
+(Evidence: test-063-hyphae-1, test-064-mushroom-1, test-061-mushroom-1, test-062-hyphae-1,) Tj T*
+(test-063-agaric-1, test-062-psathyrella-1, test-061-agaric-1, test-062-mushroom-1) Tj T*
+(Envelope: {"authority": "Analyst review only", "duration_minutes": 15, "identity": "observe",) Tj T*
+("magnitude": "One advisory option", "preconditions": ["goal_present", "fresh_evidence",) Tj T*
+("within_cost", "within_duration", "resource_available", "action_allowed",) Tj T*
+("independent_sources", "independent_modalities", "uncertainty", "distinct"], "rollback":) Tj T*
+("Withdraw recommendation; preserve the evidence record", "scope": "Synthetic/recorded) Tj T*
+(environmental monitoring only", "stop_conditions": ["Evidence is invalidated", "Analyst stops) Tj T*
+(review"]}) Tj T*
+(coa-2 / Request independent corroboration / PASS) Tj T*
+(Native AVANI: monitor) Tj T*
+(Failed checks: none) Tj T*
+(Evidence: test-063-hyphae-1, test-064-mushroom-1, test-061-mushroom-1, test-062-hyphae-1,) Tj T*
+(test-063-agaric-1, test-062-psathyrella-1, test-061-agaric-1, test-062-mushroom-1) Tj T*
+(Envelope: {"authority": "Analyst review only", "duration_minutes": 20, "identity":) Tj T*
+("request_sample", "magnitude": "One advisory option", "preconditions": ["goal_present",) Tj T*
+("fresh_evidence", "within_cost", "within_duration", "resource_available", "action_allowed",) Tj T*
+("independent_sources", "independent_modalities", "uncertainty", "distinct"], "rollback":) Tj T*
+("Withdraw recommendation; preserve the evidence record", "scope": "Synthetic/recorded) Tj T*
+ET
+BT /F1 8 Tf 44 32 Td (Data mode: SYNTHETIC_TEST | Page 2 of 4) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 3355 >>
+stream
+0.06 0.24 0.20 rg
+BT /F1 15 Tf 44 749 Td (MYCOSOFT / ITDX26 EVALUATION) Tj ET
+0.16 0.21 0.20 rg
+BT /F1 9 Tf 44 719 Td 12.8 TL
+(environmental monitoring only", "stop_conditions": ["Evidence is invalidated", "Analyst stops) Tj T*
+(review"]}) Tj T*
+(coa-3 / Restore the evidence connection / PASS) Tj T*
+(Native AVANI: monitor) Tj T*
+(Failed checks: none) Tj T*
+(Evidence: test-063-hyphae-1, test-064-mushroom-1, test-061-mushroom-1, test-062-hyphae-1,) Tj T*
+(test-063-agaric-1, test-062-psathyrella-1, test-061-agaric-1, test-062-mushroom-1) Tj T*
+(Envelope: {"authority": "Analyst review only", "duration_minutes": 30, "identity":) Tj T*
+("restore_link", "magnitude": "One advisory option", "preconditions": ["goal_present",) Tj T*
+("fresh_evidence", "within_cost", "within_duration", "resource_available", "action_allowed",) Tj T*
+("independent_sources", "independent_modalities", "uncertainty", "distinct"], "rollback":) Tj T*
+("Withdraw recommendation; preserve the evidence record", "scope": "Synthetic/recorded) Tj T*
+(environmental monitoring only", "stop_conditions": ["Evidence is invalidated", "Analyst stops) Tj T*
+(review"]}) Tj T*
+() Tj T*
+(TASK 14 / MAP) Tj T*
+({"mapped_records": 320, "missing_geometry": 0, "stale_records": 0}) Tj T*
+(CRS: EPSG:4326; no online basemap required.) Tj T*
+(Age is relative to the replay cutoff, not the wall clock.) Tj T*
+() Tj T*
+(TIMING AND HARDWARE) Tj T*
+({"budget_seconds": 420, "definition": "Input validation through analyst products and) Tj T*
+(interaction; export/storage measured separately", "model_setup_seconds": 0.1329313900005218,) Tj T*
+("task12_seconds": 0.03336427099930006, "task13_seconds": 0.008158839998941403,) Tj T*
+("task14_seconds": 0.002003518000492477, "task8_seconds": 0.0005491290012287209,) Tj T*
+("total_seconds": 0.2692359379998379, "within_budget": true}) Tj T*
+({"gpu": "Not used; CPU reference execution", "platform":) Tj T*
+("Linux-6.18.35-x86_64-with-glibc2.39", "process_lifetime_peak_rss_mb": 48.72265625,) Tj T*
+("processor": "x86_64", "python": "3.12.13"}) Tj T*
+() Tj T*
+(PROVENANCE) Tj T*
+(Observation Merkle root: 189698db0f18a99c92828eb3f258a9e8e92218a1e8ff17775f71be60d11ede9d) Tj T*
+(Frame root: cb1edc5ce4c74d1d2e7cea40b0d9c78ca3da43469ec8b13666895e888e863e1d) Tj T*
+(Parent root: \(genesis\)) Tj T*
+(Stable output digest: 9bf44a40d640dccfe854115a93558e1afb73c4a161fd442d38d1a5bdb5a51b89) Tj T*
+(Hash integrity does not establish measurement truth or external key ownership.) Tj T*
+() Tj T*
+(SME ADJUDICATION) Tj T*
+(No SME ratings recorded. Unsupported-assertion rate is not automatically measured.) Tj T*
+() Tj T*
+(LIMITATIONS) Tj T*
+(Final Army agenda, official inject pack and acceptance rubric require confirmation.) Tj T*
+(Synthetic metrics do not establish operational accuracy.) Tj T*
+(Full NLM SSM, relational GNN and multi-LLM MYCA services were not used in this local run.) Tj T*
+(Local SQLite evidence store is not a deployed production MINDEX/PostgreSQL instance.) Tj T*
+(Synthetic capture results are not field validation.) Tj T*
+(This readout is not a trained SSM/Mamba foundation model.) Tj T*
+(Missing native inputs are exposed; the upstream encoder itself substitutes zeros.) Tj T*
+(This local graph scorer is deterministic; no relational GNN checkpoint is loaded.) Tj T*
+ET
+BT /F1 8 Tf 44 32 Td (Data mode: SYNTHETIC_TEST | Page 3 of 4) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 11 0 R >>
+endobj
+11 0 obj
+<< /Length 765 >>
+stream
+0.06 0.24 0.20 rg
+BT /F1 15 Tf 44 749 Td (MYCOSOFT / ITDX26 EVALUATION) Tj ET
+0.16 0.21 0.20 rg
+BT /F1 9 Tf 44 719 Td 12.8 TL
+(Node removal is a sensitivity test, not a causal intervention.) Tj T*
+(The local role loop does not simulate independent LLM agents.) Tj T*
+(A passing advisory gate never grants command authority.) Tj T*
+() Tj T*
+(EXPORT REPLAY) Tj T*
+(Verify integrity: python verify_bundle.py evaluation.zip) Tj T*
+(Exact product replay: python replay.py evaluation.zip \(from the matching app release\)) Tj T*
+(Use --trusted-key-sha256 with a separately recorded signing-key fingerprint.) Tj T*
+(All inputs, truth labels, model parameters and stable outputs are in the ZIP.) Tj T*
+ET
+BT /F1 8 Tf 44 32 Td (Data mode: SYNTHETIC_TEST | Page 4 of 4) Tj ET
+endstream
+endobj
+xref
+0 12
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000140 00000 n 
+0000000208 00000 n 
+0000000334 00000 n 
+0000003279 00000 n 
+0000003405 00000 n 
+0000007101 00000 n 
+0000007227 00000 n 
+0000010634 00000 n 
+0000010762 00000 n 
+trailer
+<< /Size 12 /Root 1 0 R >>
+startxref
+11579
+%%EOF

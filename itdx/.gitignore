@@ -1,0 +1,20 @@
+# Local operator state and machine-specific dependencies
+local_data/
+.itdx-venv/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.sqlite
+*.sqlite3
+*.db
+*.pem
+*.key
+.env
+.env.*
+!*.env.example
+node_modules/
+
+# These historical test logs are part of the immutable released snapshot.
+!local/sample_results/*.log
