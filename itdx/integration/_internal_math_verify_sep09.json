@@ -1,0 +1,264 @@
+{
+  "date": "2026-09-09",
+  "weka_run": false,
+  "sections": {
+    "1_subject_state_atlas": "PASS",
+    "2_nlm_24_to_32": "PASS",
+    "3_ssm_task12_match_bundled": "PASS",
+    "4_formspace_task13_match_bundled": "PASS",
+    "5_conformal_sets": "PASS",
+    "5_task8_avani_gates_borda": "PASS",
+    "6_task14_no_geo_from_class_p": "PASS",
+    "7_behavior_engineered_not_emergence": "PASS",
+    "8_weka": "NOT_RUN",
+    "1b_atlas_population": "PASS",
+    "1c_math_form_no_latlon": "PASS",
+    "5c_task8_local_not_seven_myca": "PASS",
+    "model_sha256_match": "PASS"
+  },
+  "walkthrough": {
+    "fs8766_tabs": "PASS",
+    "fs8766_algorithm_lab_guide": "PASS",
+    "itdx8765_browser_no_bearer": "FAIL_403_EXPECTED",
+    "itdx8765_bearer_api": "PASS",
+    "fusarium_3010_chrome": "PASS",
+    "fusarium_3010_iframe": "FAIL_WHITE_BACKEND_CHECKING"
+  },
+  "services": {
+    "formspace_8766": {
+      "status": 200,
+      "error": null
+    },
+    "itdx_token_configured": true,
+    "itdx_health": {
+      "status": 200,
+      "error": null,
+      "body": {
+        "status": "ok",
+        "version": "1.3.0"
+      }
+    },
+    "itdx_bootstrap": {
+      "status": 200,
+      "error": null,
+      "body": {
+        "version": "1.3.0",
+        "documents": 40,
+        "tasks": 4
+      }
+    },
+    "itdx_formspace": {
+      "status": 404,
+      "error": "Not Found",
+      "body": {
+        "error": "Not found: '/api/formspace'"
+      }
+    },
+    "mindex_health": {
+      "status": 200,
+      "error": null,
+      "body": {
+        "status": "healthy"
+      }
+    },
+    "mindex_query": {
+      "status": 401,
+      "error": "Unauthorized",
+      "keys": [
+        "detail"
+      ],
+      "empty": true
+    },
+    "mas_health": {
+      "status": 200,
+      "error": null,
+      "mas_status": "degraded"
+    },
+    "probe_/api/nlm/health": {
+      "status": 200,
+      "error": null,
+      "body_keys": [
+        "status",
+        "model_loaded",
+        "model_name",
+        "model_version",
+        "uptime_seconds"
+      ]
+    },
+    "nlm": {
+      "model_loaded": false,
+      "status": "degraded",
+      "keys": [
+        "status",
+        "model_loaded",
+        "model_name",
+        "model_version",
+        "uptime_seconds"
+      ]
+    },
+    "probe_/api/avani/status": {
+      "status": 404,
+      "error": "Not Found",
+      "n": null
+    },
+    "probe_/voice/brain/status": {
+      "status": 200,
+      "error": null,
+      "n": null
+    },
+    "probe_/api/myca/status": {
+      "status": 200,
+      "error": null,
+      "n": null
+    },
+    "probe_/api/agents": {
+      "status": 404,
+      "error": "Not Found",
+      "n": null
+    }
+  },
+  "unqualified": [
+    "NLM model_loaded!=true",
+    "MYCA seven-role Task 8 not live",
+    "Task 8 local AVANI deterministic (correct for FormSpace); production 7-role MYCA unbound"
+  ],
+  "math": {
+    "origin": "BUNDLED_RECORDED_RUN",
+    "model_sha256_live": "1d3fe486d94507600f5c82e2be527ac9be42ff9a8a59586e7f158397a1a3b792",
+    "model_sha256_bundled": "1d3fe486d94507600f5c82e2be527ac9be42ff9a8a59586e7f158397a1a3b792",
+    "task12_rows": 1600,
+    "task12_f1_live": 1.0,
+    "task12_f1_bundled": 1.0,
+    "task12_brier_live": 1.8110714384205862e-19,
+    "task12_brier_bundled": 1.8110714384205862e-19,
+    "task12_capture_coverage_live": 1.0,
+    "task13_rows": 2400,
+    "task13_f1_live": 1.0,
+    "task13_f1_bundled": 1.0,
+    "task13_capture_coverage_live": 0.8,
+    "coordinate_dim": 32,
+    "native_vector_len": 16,
+    "prediction_set_sample": [
+      0
+    ],
+    "position_uncertainty_status": "NOT_ESTIMATED",
+    "task8_gates": [
+      "PASS",
+      "PASS",
+      "PASS"
+    ],
+    "task8_rank_semantics": "Preference only; never probability of success",
+    "task8_myca_seven_role": null,
+    "behavior_emergence": false,
+    "behavior_outcomes": {
+      "feedback_disabled": {
+        "independent_unit": "randomized initial condition / noise seed",
+        "replicates": 24,
+        "success_fraction": 0.0,
+        "successes": 0,
+        "wilson_95_interval": [
+          1.3877787807814457e-17,
+          0.13797620467498017
+        ]
+      },
+      "feedback_memory": {
+        "independent_unit": "randomized initial condition / noise seed",
+        "replicates": 24,
+        "success_fraction": 1.0,
+        "successes": 24,
+        "wilson_95_interval": [
+          0.8620237953250198,
+          1.0
+        ]
+      },
+      "feedback_memory_reset": {
+        "independent_unit": "randomized initial condition / noise seed",
+        "replicates": 24,
+        "success_fraction": 0.0,
+        "successes": 0,
+        "wilson_95_interval": [
+          1.3877787807814457e-17,
+          0.13797620467498017
+        ]
+      }
+    },
+    "zip_has_validation_report": true,
+    "total_order_state0_coords": null
+  },
+  "atlas": {
+    "counts": {
+      "form_charts": 3,
+      "form_claims": 3,
+      "form_observations": 1600,
+      "form_relations": 32,
+      "form_states": 1706,
+      "forms": 41
+    },
+    "kinds": {
+      "behavior": 4,
+      "capability": 3,
+      "species": 1,
+      "collection": 4,
+      "cognitive_construct": 4,
+      "algorithm": 5,
+      "physical_system": 3,
+      "phenomenon": 5,
+      "instrument": 4,
+      "mathematical_form": 8
+    },
+    "domains": [
+      {
+        "domain": "behavior",
+        "forms": 4
+      },
+      {
+        "domain": "biology",
+        "forms": 2
+      },
+      {
+        "domain": "cognition",
+        "forms": 4
+      },
+      {
+        "domain": "computation",
+        "forms": 7
+      },
+      {
+        "domain": "ecology",
+        "forms": 1
+      },
+      {
+        "domain": "environment",
+        "forms": 5
+      },
+      {
+        "domain": "instrumentation",
+        "forms": 4
+      },
+      {
+        "domain": "mathematics",
+        "forms": 9
+      },
+      {
+        "domain": "morphology",
+        "forms": 1
+      },
+      {
+        "domain": "organization",
+        "forms": 1
+      },
+      {
+        "domain": "physiology",
+        "forms": 1
+      },
+      {
+        "domain": "research",
+        "forms": 2
+      }
+    ]
+  },
+  "weka_ready": true,
+  "internal_test_command": "cd C:\\Users\\Owner1\\Downloads\\Mycosoft_FormSpace_Software_and_Synthetic_Data && .venv-formspace\\Scripts\\python.exe -m pytest itdx/formspace/tests/test_math.py itdx/formspace/tests/test_behavior.py -q",
+  "weka_later_command": "cd C:\\Users\\Owner1\\Downloads\\Mycosoft_FormSpace_Software_and_Synthetic_Data && .venv-formspace\\Scripts\\python.exe itdx/formspace/weka/evaluate.py --predictions itdx/formspace/recorded/weka --download",
+  "validate_later_or_now": ".venv-formspace\\Scripts\\python.exe itdx/formspace/validate.py itdx/formspace/recorded"
+}

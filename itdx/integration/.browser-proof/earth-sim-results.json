@@ -1,0 +1,71 @@
+{
+  "generated": "2026-09-09T18:16:17.640Z",
+  "tree": "website-itdx-codex-v13",
+  "port": 3010,
+  "consoleErrors": [
+    "Each child in a list should have a unique \"key\" prop.%s%s See https://react.dev/link/warning-keys for more information. \n\nCheck the render method of `OuterLayoutRouter`. ",
+    "Each child in a list should have a unique \"key\" prop.%s%s See https://react.dev/link/warning-keys for more information. \n\nCheck the render method of `OuterLayoutRouter`. ",
+    "Each child in a list should have a unique \"key\" prop.%s%s See https://react.dev/link/warning-keys for more information. \n\nCheck the render method of `OuterLayoutRouter`. ",
+    "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ],
+  "results": [
+    {
+      "name": "ITDX iframe not white",
+      "url": "http://localhost:3010/fusarium/itdx",
+      "status": "PASS",
+      "backendChecking": false,
+      "backendText": "ITDX backend: CONNECTED",
+      "iframeLen": 3608,
+      "iframePreview": "Skip to application ◈ MYCOSOFT ITDX26 / ALGORITHM LAB EVALUATION WORKSPACE ◫ Overview ▷ Guided walkthrough ▤ Data & documents 12 Pattern analysis 13 Link analys",
+      "white": false
+    },
+    {
+      "name": "ITDX walkthrough",
+      "url": "http://localhost:3010/fusarium/itdx",
+      "status": "PASS"
+    },
+    {
+      "name": "Earth Sim loads land AO",
+      "url": "http://localhost:3010/fusarium/earth-simulator",
+      "status": "PASS",
+      "hasPanel": true,
+      "ao": "Land AO Fort Stewart, Liberty County, Georgia · 31.8697°N, 81.6072°W",
+      "math": "Task 12 SSM PASS (bundled F1=1) · Task 13 FormSpace PASS (bundled F1=1) · conformal PASS · Task 14 position_uncertainty=NOT_ESTIMATED · class-p is not a geo radius · Weka NOT_RUN · NLM UNQUALIFIED",
+      "logPreview": "No persisted demo events yet.",
+      "missingTiles": false,
+      "landAo": true,
+      "ocean": false
+    },
+    {
+      "name": "Earth Sim layer toggle",
+      "url": "http://localhost:3010/fusarium/earth-simulator",
+      "status": "PASS"
+    },
+    {
+      "name": "Earth Sim animation play",
+      "url": "http://localhost:3010/fusarium/earth-simulator",
+      "status": "PASS",
+      "before": "2026-09-08T12:00:00.000Z · sample 0/120 · LAYER_DETACHED",
+      "after": "2026-09-08T12:00:10.000Z · sample 1/120 · LAYER_DETACHED"
+    },
+    {
+      "name": "ITDX panel math visible",
+      "url": "http://localhost:3010/fusarium/earth-simulator",
+      "status": "PASS",
+      "math": "Task 12 SSM PASS (bundled F1=1) · Task 13 FormSpace PASS (bundled F1=1) · conformal PASS · Task 14 position_uncertainty=NOT_ESTIMATED · class-p is not a geo radius · Weka NOT_RUN · NLM UNQUALIFIED"
+    },
+    {
+      "name": "ITDX panel log",
+      "url": "http://localhost:3010/fusarium/earth-simulator",
+      "status": "PASS",
+      "logPreview": "No persisted demo events yet."
+    },
+    {
+      "name": "Earth Sim narrow / iPad",
+      "url": "http://localhost:3010/fusarium/earth-simulator",
+      "status": "PASS",
+      "hasPanel": true
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "date": "2026-09-09",
+  "steps": [
+    {
+      "name": "local-dev-session",
+      "status": 200,
+      "url": "http://localhost:3010/fusarium/itdx"
+    },
+    {
+      "name": "fusarium-itdx-after-session",
+      "url": "http://localhost:3010/fusarium/itdx",
+      "text_len": 2105,
+      "snippet": "UNCLASSIFIED // COMMERCIAL // MYCOSOFT_INC FUSARIUM apps · ITDX Demonstration Workspace LOCAL 9:38:44 AM ZULU 16:38:44Z CLASSIFICATION CAPABILITY · HIGHER TIERS LOCKED U CUI SECRET TS/SCI CUI, SECRET, and TS/SCI are locked. They require current server-verified identity, authorization, release policy, and an accredited processing boundary. This commercial host is not accredited for classified proce",
+      "hasWalkthrough": true,
+      "isLogin": false
+    },
+    {
+      "name": "view-Walkthrough",
+      "pass": true,
+      "text_len": 2031,
+      "snippet": "UNCLASSIFIED // COMMERCIAL // MYCOSOFT_INC FUSARIUM apps · ITDX Demonstration Workspace LOCAL 9:38:45 AM ZULU 16:38:45Z CLASSIFICATION CAPABILITY · OWNER DEV SIMULATION U CUI SECRE"
+    },
+    {
+      "name": "view-Algorithm lab",
+      "pass": true,
+      "text_len": 1715,
+      "snippet": "UNCLASSIFIED // COMMERCIAL // MYCOSOFT_INC FUSARIUM apps · ITDX Demonstration Workspace LOCAL 9:38:45 AM ZULU 16:38:45Z CLASSIFICATION CAPABILITY · OWNER DEV SIMULATION U CUI SECRE"
+    },
+    {
+      "name": "view-NLM / Form Space",
+      "pass": true,
+      "text_len": 1708,
+      "snippet": "UNCLASSIFIED // COMMERCIAL // MYCOSOFT_INC FUSARIUM apps · ITDX Demonstration Workspace LOCAL 9:38:46 AM ZULU 16:38:46Z CLASSIFICATION CAPABILITY · OWNER DEV SIMULATION U CUI SECRE"
+    },
+    {
+      "name": "view-Form Space",
+      "pass": true,
+      "text_len": 1708,
+      "snippet": "UNCLASSIFIED // COMMERCIAL // MYCOSOFT_INC FUSARIUM apps · ITDX Demonstration Workspace LOCAL 9:38:47 AM ZULU 16:38:47Z CLASSIFICATION CAPABILITY · OWNER DEV SIMULATION U CUI SECRE"
+    },
+    {
+      "name": "view-Documents",
+      "pass": true,
+      "text_len": 1708,
+      "snippet": "UNCLASSIFIED // COMMERCIAL // MYCOSOFT_INC FUSARIUM apps · ITDX Demonstration Workspace LOCAL 9:38:48 AM ZULU 16:38:48Z CLASSIFICATION CAPABILITY · OWNER DEV SIMULATION U CUI SECRE"
+    },
+    {
+      "name": "8766-algorithm-lab",
+      "text_len": 3027,
+      "snippet": "Skip to application ◈ MYCOSOFT ITDX26 / ALGORITHM LAB EVALUATION WORKSPACE ◫ Overview ▷ Guided walkthrough ▤ Data & documents 12 Pattern analysis 13 Link analysis 08 Courses of action 14 Earth Simulator ◎ Form Space ✓ Test laboratory ⬡ Evidence & export ⌘ System connections Exercise workspace & replay ↗ Source reports & Borda ↗ Capability audit ↗ NLM FormSpace observatory ↗ Local environment v1.3.0 · CPU / offline Workspace / Guided walkthrough UNCLASSIFIED • DEMONSTRATION M PRESENTER MODE Your"
+    },
+    {
+      "name": "8766-walk-next-clicks",
+      "walked": 6,
+      "guide": ""
+    }
+  ]
+}
