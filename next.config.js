@@ -219,6 +219,15 @@ const nextConfig = {
           },
         ],
       },
+      // Same-origin Fusarium iframe of the local ITDX/FormSpace lab.
+      // Global DENY / frame-ancestors none would white-screen every workbench tab.
+      {
+        source: '/api/fusarium/itdx/bridge/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'none'; form-action 'self'" },
+        ],
+      },
     ];
   },
   // Redirect: /myca-ai -> /myca (legacy chat page removed)

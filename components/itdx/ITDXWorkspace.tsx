@@ -11,7 +11,7 @@ export default function ITDXWorkspace(){
  const [workspace,setWorkspace]=useState<WorkspaceImport|null>(null),[selected,setSelected]=useState(''),[page,setPage]=useState(1),[query,setQuery]=useState(''),[message,setMessage]=useState('Load a source workspace exported by the v1.3 local application.'),[busy,setBusy]=useState(false)
  const state=useReplay(),frame=snapshot(state.index)
  const doc=workspace?.documents.find(d=>d.id===selected),source=doc?.pages[page-1]
- const docs=workspace?.documents.filter(d=>d.name.toLowerCase().includes(query.toLowerCase())||d.pages.some(p=>p.text.toLowerCase().includes(query.toLowerCase())))??[]
+ const docs=workspace?.documents.filter(d=>d.name.toLowerCase().includes(query.toLowerCase())||d.pages.some(p=>(p.text??'').toLowerCase().includes(query.toLowerCase())))??[]
  return <section className={styles.workspace}>
   <p className={styles.badge}>ITDX v1.3 · SOURCE REVIEW & FICTIONAL REPLAY</p>
   <h1>Evidence, time, and uncertainty</h1>

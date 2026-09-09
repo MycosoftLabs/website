@@ -19,6 +19,18 @@ test('map lifecycle preserves other feeds and restores synthetic state after sty
  assert.deepEqual(map.getSource(SOURCE_ID).data,data);map.emit('click',{features:[{properties:{asset_id:'demo-unit-01'}}]});assert.equal(selected,'demo-unit-01');
  controller.dispose();assert.equal(map.sources.size,1);assert.equal(map.layers.size,1);assert.equal(map.events.length,0);map.emit('style.load');assert.equal(map.sources.size,1);
 });
+test('layer filters remove only the requested synthetic kinds',()=>{
+ const map=new FakeMap();map.loaded=true;const controller=attachReplay(map);
+ map.emit('load');controller.update(47);
+ const before=map.getSource(SOURCE_ID).data.features.length;
+ controller.setLayers({tracks:false,uncertainty:false});
+ const after=map.getSource(SOURCE_ID).data.features;
+ assert.ok(after.length<before);
+ assert.equal(after.filter(f=>f.properties.kind==='track').length,0);
+ assert.equal(after.filter(f=>f.properties.kind==='uncertainty').length,0);
+ assert.ok(after.some(f=>f.properties.kind==='asset'));
+ controller.dispose();
+});
 test('workspace reader validates every page and note before accepting an import',async()=>{
  const text='Synthetic source',hash=createHash('sha256').update(text).digest('hex');
  const input={schema:'itdx-document-workspace/v1',documents:[{id:'doc-1',name:'Example',sha256:hash,markings:[],pages:[{page:1,text,text_sha256:hash}]}],tasks:Array.from({length:16},(_,i)=>({task_id:String(i+1),title:'Test objective',implementation_status:'NOT_IMPLEMENTED',reference_ids:[]})),notes:[]};

@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server'
 import {requireFusariumOwner} from '@/lib/auth/api-auth'
-import {allowedPath,rewriteAsset,limitedBody} from '@/lib/itdx/gateway.mjs'
+import {allowedPath,isFormspacePath,rewriteAsset,limitedBody} from '@/lib/itdx/gateway.mjs'
 
 export const runtime='nodejs'
 export const dynamic='force-dynamic'
@@ -9,8 +9,11 @@ async function forward(request:NextRequest,context:{params:Promise<{path:string[
  const auth=await requireFusariumOwner();if(auth.error)return auth.error
  const path=allowedPath((await context.params).path,request.method)
  if(!path)return NextResponse.json({error:'Unsupported ITDX path'},{status:404,headers:privateHeaders})
- const origin=process.env.ITDX_BACKEND_URL,token=process.env.ITDX_BACKEND_TOKEN
- if(!origin||!token||token.length<32)return NextResponse.json({error:'ITDX backend is not configured',connection_status:'NOT_CONFIGURED'},{status:503,headers:privateHeaders})
+ const itdxOrigin=process.env.ITDX_BACKEND_URL?.trim()
+ const formspaceOrigin=process.env.FORMSPACE_BACKEND_URL?.trim()
+ const origin=isFormspacePath(path)&&formspaceOrigin?formspaceOrigin:itdxOrigin
+ const token=process.env.ITDX_BACKEND_TOKEN?.trim()
+ if(!origin||!token||token.length<32)return NextResponse.json({error:'ITDX backend is not configured',connection_status:'NOT_CONFIGURED',qualification:'NOT_SUPPLIED',note:'Optional 8765/8766 lab is unset. Earth Sim uses MAS 188 + MINDEX 189 instead.'},{status:200,headers:privateHeaders})
  if(request.method==='POST'&&(request.headers.get('origin')!==new URL(request.url).origin||!request.headers.get('content-type')?.startsWith('application/json')))return NextResponse.json({error:'Same-origin JSON request required'},{status:403,headers:privateHeaders})
  try{
   const base=new URL(origin);if(!['http:','https:'].includes(base.protocol)||base.username||base.password||base.search||base.hash||base.pathname!=='/')throw Error('Invalid configured backend origin')

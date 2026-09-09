@@ -31,9 +31,10 @@ export async function GET() {
         status: "not_bound",
         data_state: "unbound",
         originConfigured: false,
-        httpStatus: 503,
+        httpStatus: 0,
+        note: "Fusarium runtime probe failed. Shown as unbound — not a live COP.",
       },
-      { status: 503, headers: { "Cache-Control": "private, no-store, max-age=0" } },
+      { status: 200, headers: { "Cache-Control": "private, no-store, max-age=0" } },
     )
   }
 }

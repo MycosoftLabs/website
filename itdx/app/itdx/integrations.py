@@ -8,10 +8,10 @@ from nlm.search.domains import DomainRegistry
 from .documents import search_documents
 
 DEFAULT_SERVICES={
- 'nlm':{'base_url':'http://127.0.0.1:8000','health_path':'/api/nlm/health','action_path':'/api/nlm/embeddings/nature','key_env':'ITDX_NLM_API_KEY'},
- 'mindex':{'base_url':'http://127.0.0.1:8003','health_path':'/health','action_path':'/unified-search/earth','key_env':'ITDX_MINDEX_API_KEY'},
- 'myca':{'base_url':'http://127.0.0.1:8001','health_path':'/voice/brain/status','action_path':'','key_env':'ITDX_MYCA_API_KEY'},
- 'earth':{'base_url':'http://127.0.0.1:3000','health_path':'/api/health','action_path':'/natureos/earth-simulator','key_env':''},
+ 'nlm':{'base_url':'http://192.168.0.188:8001','health_path':'/api/nlm/health','action_path':'/api/nlm/embeddings/nature','key_env':'ITDX_NLM_API_KEY'},
+ 'mindex':{'base_url':'http://192.168.0.189:8000','health_path':'/api/mindex/health','action_path':'/api/mindex/unified-search/earth','key_env':'ITDX_MINDEX_API_KEY'},
+ 'myca':{'base_url':'http://192.168.0.188:8001','health_path':'/api/myca/health','action_path':'','key_env':'ITDX_MYCA_API_KEY'},
+ 'earth':{'base_url':'http://127.0.0.1:3010','health_path':'/api/health','action_path':'/fusarium/earth-simulator','key_env':''},
 }
 
 def validate_service(profile):

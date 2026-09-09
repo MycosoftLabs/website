@@ -1,5 +1,14 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
-import {allowedPath,rewriteAsset,limitedBody,GATEWAY_BASE} from '../../lib/itdx/gateway.mjs';
+import {allowedPath,isFormspacePath,rewriteAsset,limitedBody,GATEWAY_BASE} from '../../lib/itdx/gateway.mjs';
+test('FormSpace observatory paths are allowlisted and classified',()=>{
+ assert.equal(allowedPath(['formspace.html'],'GET'),'/formspace.html');
+ assert.equal(allowedPath(['api','formspace'],'GET'),'/api/formspace');
+ assert.equal(allowedPath(['api','form-atlas'],'GET'),'/api/form-atlas');
+ assert.equal(allowedPath(['api','formspace','run'],'POST'),'/api/formspace/run');
+ assert.ok(isFormspacePath('/formspace.html'));
+ assert.ok(isFormspacePath('/api/form-atlas/export'));
+ assert.equal(isFormspacePath('/api/bootstrap'),false);
+});
 test('gateway accepts only known paths and methods, rejecting traversal and arbitrary proxying',()=>{
  for(const path of [['api','run'],['api','workspace','notes']])assert.ok(allowedPath(path,'POST'));
  assert.equal(allowedPath(['api','jobs','job-123'],'GET'),'/api/jobs/job-123');
@@ -9,7 +18,7 @@ test('gateway accepts only known paths and methods, rejecting traversal and arbi
 test('mounted application URLs remain behind the authenticated Fusarium gateway',()=>{
  const source='<script src="/app.js"></script><a href="/">Home</a><a href="https://example.com">External</a>';
  const result=rewriteAsset(source);assert.ok(result.includes('src="'+GATEWAY_BASE+'/app.js"'));assert.ok(result.includes('href="'+GATEWAY_BASE+'/index.html"'));assert.ok(result.includes('href="https://example.com"'));
- for(const name of ['app.js','workspace.mjs','workbench.js','index.html','workspace.html','workbench.html']){
+ for(const name of ['app.js','workspace.mjs','workbench.js','index.html','workspace.html','workbench.html','formspace.html','formspace.js']){
   const raw=readFileSync(new URL('../app/web/'+name,import.meta.url),'utf8'),mounted=rewriteAsset(raw);
   assert.equal(/(["'`])\/api\/(?!fusarium\/itdx\/bridge\/)/.test(mounted),false,name);assert.equal(/(?:src|href)=["']\/(?:app|styles|workspace|workbench|examples|earth-grid)/.test(mounted),false,name);
  }

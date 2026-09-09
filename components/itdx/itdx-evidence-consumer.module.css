@@ -1,0 +1,34 @@
+.strip {
+  position: fixed;
+  right: 18px;
+  bottom: 118px;
+  z-index: 89;
+  width: min(365px, calc(100vw - 36px));
+  padding: 10px 12px;
+  background: #0c1c25f5;
+  border: 1px solid #416158;
+  border-radius: 10px;
+  color: #e9f3f1;
+  font: 12px/1.45 system-ui, sans-serif;
+}
+
+.badge {
+  margin: 0 0 6px;
+  color: #91e5c4;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.meta,
+.warn {
+  margin: 4px 0 0;
+}
+
+.warn {
+  color: #ffcb83;
+}
+
+.ok {
+  color: #9ae9cb;
+}

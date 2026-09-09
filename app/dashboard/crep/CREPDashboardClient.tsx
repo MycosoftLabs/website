@@ -259,6 +259,7 @@ import AuroraOverlay from "@/components/crep/layers/aurora-overlay";
 import SignalHeatmapLayer from "@/components/crep/layers/signal-heatmap-layer";
 import { bootstrapFungalAmEcmRasters, FungalAtlasLayer } from "@/components/crep/layers/fungal-atlas-layer";
 import ITDXReplayLayer from "@/components/itdx/ITDXReplayLayer";
+import { ItdxEarthLeftPanel } from "@/components/fusarium/itdx/itdx-earth-left-panel";
 import ProposalOverlays from "@/components/crep/layers/proposal-overlays";
 import GooglePhoto3DV3Underlay from "@/components/crep/three3d/GooglePhoto3DV3Underlay";
 import { syncV3PhotorealisticMapLayer } from "@/lib/geo/v3-photorealistic-maplibre-layer";
@@ -7970,7 +7971,7 @@ export default function CREPDashboardPage({
     },
   );
   const [rightPanelTab, setRightPanelTab] = useState("myca");
-  const [leftPanelTab, setLeftPanelTab] = useState<"fungal" | "myca" | "infra">("fungal"); // DEFAULT TO FUNGAL
+  const [leftPanelTab, setLeftPanelTab] = useState<"fungal" | "myca" | "infra" | "itdx">("fungal"); // DEFAULT TO FUNGAL
   /** Row 2: Events | Devices â€” independent of Nature/Infra/MYCA row 1 selection */
   const [leftSecondaryTab, setLeftSecondaryTab] = useState<"events" | "devices" | null>(null);
   const [assetIsolationMode, setAssetIsolationMode] = useState<AssetIsolationMode>(null);
@@ -7983,7 +7984,7 @@ export default function CREPDashboardPage({
   useEffect(() => {
     isolatedFungalLayerIdsRef.current = isolatedFungalLayerIds;
   }, [isolatedFungalLayerIds]);
-  const switchLeftPanelTab = useCallback((tab: "fungal" | "myca" | "infra") => {
+  const switchLeftPanelTab = useCallback((tab: "fungal" | "myca" | "infra" | "itdx") => {
     setLeftPanelTab(tab);
     setLeftSecondaryTab(null);
   }, []);
@@ -8058,6 +8059,10 @@ export default function CREPDashboardPage({
   const [selectedEvent, setSelectedEvent] = useState<GlobalEvent | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const isEarthSimulatorRoute = isEarthSimulatorPath();
+  const [isFusariumEarthMount, setIsFusariumEarthMount] = useState(false);
+  useEffect(() => {
+    setIsFusariumEarthMount(window.location.pathname.includes("/fusarium/"));
+  }, []);
   const [earthSimViewportPerfClass, setEarthSimViewportPerfClass] = useState<"desktop" | "tablet" | "phone">(
     () => (isEarthSimulatorPath() ? getEarthSimViewportPerfClass() : "desktop"),
   );
@@ -18280,7 +18285,7 @@ export default function CREPDashboardPage({
 
       if (primary) {
         const next = primary.dataset.crepLeftTab;
-        if (next === "fungal" || next === "infra" || next === "myca") {
+        if (next === "fungal" || next === "infra" || next === "myca" || next === "itdx") {
           switchLeftPanelTab(next);
         }
         return;
@@ -18567,6 +18572,8 @@ export default function CREPDashboardPage({
                         ? "border-green-500/50 text-green-400"
                         : leftPanelTab === "myca"
                           ? "border-purple-500/50 text-purple-400"
+                          : leftPanelTab === "itdx"
+                            ? "border-violet-500/50 text-violet-300"
                           : "border-amber-500/50 text-amber-400"
                 )}>
                   {leftSecondaryTab === "events"
@@ -18577,6 +18584,8 @@ export default function CREPDashboardPage({
                         ? `${visibleFungalObservations.length}/${fungalObservations.length} NATURE`
                         : leftPanelTab === "myca"
                           ? "MYCA LIVE"
+                          : leftPanelTab === "itdx"
+                            ? "ITDX"
                            : `${staticInfraLegendItems.filter(isLegendLayerItemOn).length}/${staticInfraLegendItems.length} INFRA`}
               </Badge>
                 <button
@@ -18588,7 +18597,7 @@ export default function CREPDashboardPage({
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
-              {/* Primary tabs + sub-tabs; MYCA spans two rows */}
+              {/* Primary tabs + sub-tabs; Fusarium splits MYCA | ITDX in the right column */}
               <div className="px-2 pb-2">
                 <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_74px] grid-rows-2 gap-1">
                   <button
@@ -18657,15 +18666,44 @@ export default function CREPDashboardPage({
                       switchLeftPanelTab("myca");
                     }}
                     className={cn(
-                      "row-span-2 col-start-3 row-start-1 flex flex-col items-center justify-center gap-1 rounded text-[10px] font-semibold transition-all min-h-[72px] px-1",
+                      isFusariumEarthMount
+                        ? "col-start-3 row-start-1 flex flex-col items-center justify-center gap-0.5 rounded text-[8px] font-semibold transition-all min-h-[34px] px-1"
+                        : "row-span-2 col-start-3 row-start-1 flex flex-col items-center justify-center gap-1 rounded text-[10px] font-semibold transition-all min-h-[72px] px-1",
                       leftPanelTab === "myca"
                         ? "bg-purple-500/20 text-purple-400 border border-purple-500/50"
                         : "bg-black/30 text-gray-500 border border-transparent hover:border-gray-600"
                     )}
                   >
-                    <Bot className="w-4 h-4" />
-                    <span className="leading-tight text-center">MYCA<br />LIVE</span>
+                    <Bot className={isFusariumEarthMount ? "w-3 h-3" : "w-4 h-4"} />
+                    <span className="leading-tight text-center">{isFusariumEarthMount ? "MYCA LIVE" : <>MYCA<br />LIVE</>}</span>
                   </button>
+                  {isFusariumEarthMount ? (
+                    <button
+                      type="button"
+                      data-crep-left-tab="itdx"
+                      onPointerDown={(event) => {
+                        event.stopPropagation();
+                        switchLeftPanelTab("itdx");
+                      }}
+                      onMouseDown={(event) => {
+                        event.stopPropagation();
+                        switchLeftPanelTab("itdx");
+                      }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        switchLeftPanelTab("itdx");
+                      }}
+                      className={cn(
+                        "col-start-3 row-start-2 flex flex-col items-center justify-center gap-0.5 rounded text-[8px] font-semibold transition-all min-h-[34px] px-1",
+                        leftPanelTab === "itdx"
+                          ? "bg-violet-500/20 text-violet-300 border border-violet-500/50"
+                          : "bg-black/30 text-gray-500 border border-transparent hover:border-gray-600"
+                      )}
+                    >
+                      <CrosshairIcon className="w-3 h-3" />
+                      <span className="leading-tight text-center">ITDX</span>
+                    </button>
+                  ) : null}
 
                   <button
                     type="button"
@@ -19134,6 +19172,11 @@ export default function CREPDashboardPage({
               </div>
             )}
 
+            {leftPanelTab === "itdx" && leftSecondaryTab === null && (
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+                <ItdxEarthLeftPanel />
+              </div>
+            )}
 
             {/* INFRASTRUCTURE TAB CONTENT â€” OpenGridWorks-style (Apr 2026) */}
             {leftPanelTab === "infra" && leftSecondaryTab === null && (
@@ -19390,6 +19433,8 @@ export default function CREPDashboardPage({
                         ? "MINDEX SYNC"
                         : leftPanelTab === "myca"
                           ? "MYCA LIVE"
+                          : leftPanelTab === "itdx"
+                            ? "ITDX EXERCISE"
                           : "MINDEX INFRA"
                 }</span>
                 <span className="text-cyan-400">{clientTime || "--:--:--"}</span>
