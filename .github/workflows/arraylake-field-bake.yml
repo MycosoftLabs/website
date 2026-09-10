@@ -91,5 +91,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: arraylake-fields-manifest-snapshot
-          path: fields_out/**/manifest.json
+          path: ${{ env.ARRAYLAKE_FIELD_OUT }}/**/manifest.json
           if-no-files-found: ignore
