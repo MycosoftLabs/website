@@ -11,6 +11,7 @@ import {ITDXTask8Panel} from './ITDXTask8Panel'
 import {ITDXTruthPanel} from './ITDXTruthPanel'
 import {ITDXSituationPanel} from './ITDXSituationPanel'
 import {ITDXWekaWalkthrough} from './ITDXWekaWalkthrough'
+import {ITDXSyntheticArmyIntelBriefing} from './ITDXSyntheticArmyIntelBriefing'
 import {LOCAL_DATASET_ID} from '@/lib/itdx/run-narration.mjs'
 import styles from './itdx.module.css'
 
@@ -60,11 +61,12 @@ export default function ITDXApplication(){
  },[view])
  return <section className={`${styles.workspace} ${styles.application}`}>
   <p className={styles.badge}>FUSARIUM / ITDX APPLICATION</p><h1>ITDX demonstration workspace</h1>
-  <p>The complete algorithm lab, source review, frames, test runs and exports share one backend. Earth Simulator is a connected view of this application.</p>
+  <p>The complete algorithm lab, source review, frames, test runs and exports share one backend. The synthetic Earth Sim overlay lives only on /fusarium/earth-simulator.</p>
   <div className={styles.row}><strong>ITDX backend: {backend.status}</strong><span>{backend.version?'v'+backend.version:''} {backend.documents!==undefined?backend.documents+' documents':''}</span><span>Fusarium runtime: {runtime}</span><button onClick={()=>setCounter(c=>c+1)}>Refresh connections</button><Link href="/fusarium/earth-simulator">Earth Simulator</Link></div>
   <p className={styles.muted}>Selected run: {context.runId||'none'} · dataset: {context.datasetId||'none'} · origin: {context.dataOrigin}. Selection references are available to registered Fusarium consumers; they do not grant access or run another app.</p>
   <nav className={styles.row} aria-label="ITDX application views">{views.map(v=><button key={v[0]} aria-pressed={view===v[0]} onClick={()=>setView(v[0])}>{v[1]}</button>)}<button aria-pressed={view==='replay'} onClick={()=>setView('replay')}>Earth replay & portable reader</button><button aria-pressed={view==='apps'} onClick={()=>setView('apps')}>Fusarium applications</button></nav>
   {selected&&backend.status!=='CONNECTED'&&<article className={styles.card} data-testid="itdx-lab-status"><h2>{backend.status==='CHECKING'?'ITDX lab is still connecting':backend.status==='NOT_SUPPLIED'?'ITDX lab NOT_SUPPLIED':'ITDX lab '+backend.status}</h2><p>{backend.message||'Checking the optional 8765/8766 lab…'}</p><p>MAS <code>http://192.168.0.188:8001</code> and MINDEX <code>http://192.168.0.189:8000</code> remain the live cite path. Optional algorithm lab HTML is not framed when unbound so a JSON error is not printed as “not configured properly.”</p><p className={styles.muted}>No synthetic success, no invented p, no live COP. Weka / situation / Task 8 below stay honest.</p></article>}
+  {(view==='lab'||view==='walkthrough'||view==='replay'||view==='tests')&&<ITDXSyntheticArmyIntelBriefing variant="workspace" isActive/>}
   {(view==='lab'||view==='walkthrough'||view==='replay'||view==='tests'||view==='frames')&&<ITDXWekaWalkthrough compact={view==='lab'||view==='replay'}/>}
   {(view==='walkthrough'||view==='replay'||view==='tests')&&<><ITDXExplanationCards/><ITDXSituationPanel/><ITDXTruthPanel/><ITDXTask8Panel/></>}
   {selected&&backend.status==='CONNECTED'&&<iframe ref={frame} className={styles.applicationFrame} title={'ITDX '+selected[1]} src={GATEWAY_BASE+selected[2]} sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"/>}
