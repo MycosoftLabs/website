@@ -7994,6 +7994,7 @@ export default function CREPDashboardPage({
   const initialFungaModePendingRef = useRef(false);
   const clientInitialIsolationAppliedRef = useRef(false);
   const clientInitialRequestedFungalLayersAppliedRef = useRef(false);
+  const liveDataUserControlRef = useRef(false);
   useEffect(() => {
     isolatedFungalLayerIdsRef.current = isolatedFungalLayerIds;
   }, [isolatedFungalLayerIds]);
@@ -10837,6 +10838,10 @@ export default function CREPDashboardPage({
     if (!isEarthSimulatorPath()) return;
     if (earthStartupForceAppliedRef.current) return;
     const forceStartupLayers = () => {
+      if (liveDataUserControlRef.current) {
+        earthStartupForceAppliedRef.current = true;
+        return;
+      }
       if (groundFilterUserControlRef.current) {
         earthStartupForceAppliedRef.current = true;
         return;
@@ -10848,9 +10853,16 @@ export default function CREPDashboardPage({
       setAuditAllOffMode(false);
       setAssetIsolationMode(null);
       const enableStartupFungalRasters = earthSimStartupFungalRastersEnabled();
-      setLayers((prev) =>
-        applyTabletHeavyOffToLayers(applyEarthSimFungalRasterBudgetToLayers(applyEarthSimulatorBootToLayers(applyForceOffToLayers(prev)))),
-      );
+      setLayers((prev) => {
+        const keepLiveOn = new Set(
+          prev.filter((layer) => layer.enabled && isLiveDataLayerId(layer.id)).map((layer) => layer.id),
+        );
+        const next = applyTabletHeavyOffToLayers(
+          applyEarthSimFungalRasterBudgetToLayers(applyEarthSimulatorBootToLayers(applyForceOffToLayers(prev))),
+        );
+        if (keepLiveOn.size === 0) return next;
+        return next.map((layer) => (keepLiveOn.has(layer.id) ? { ...layer, enabled: true } : layer));
+      });
       setGroundFilter((prev) => applyEarthSimFungalRasterBudgetToGroundFilter({
         ...prev,
         ...EARTH_SIM_FUNGI_ONLY_GROUND_FILTER,
@@ -10870,6 +10882,10 @@ export default function CREPDashboardPage({
 
   useEffect(() => {
     layersRef.current = layers;
+    if (typeof window === "undefined") return;
+    (window as any).__crep_live_data = {
+      enabled: layers.filter((layer) => layer.enabled && isLiveDataLayerId(layer.id)).map((layer) => layer.id),
+    };
   }, [layers]);
 
   useEffect(() => {
@@ -12752,6 +12768,7 @@ export default function CREPDashboardPage({
   }, [applyMycorrhizalRasterState, assetIsolationMode, leaveAssetIsolationMode, mapRef]);
 
   const setLayerEnabled = useCallback((layerId: string, enabled: boolean, syncMoverFilters: boolean = true) => {
+    if (isLiveDataLayerId(layerId)) liveDataUserControlRef.current = true;
     if (layerId === "photorealistic3D") {
       v3Photo3dUserDisabledRef.current = !enabled;
     }
@@ -23945,7 +23962,7 @@ export default function CREPDashboardPage({
               opacity={layers.find(l => l.id === "opentopoBasemap")?.opacity ?? 0.72}
             />
           )}
-          {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "aerosolParticulate")?.enabled ?? false) && (
+          {!assetIsolationMode && (layers.find(l => l.id === "aerosolParticulate")?.enabled ?? false) && (
             <AerosolParticulateLayer map={mapRef} visible />
           )}
           {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "aerosolModeledDispersal")?.enabled ?? false) && (
@@ -24010,7 +24027,7 @@ export default function CREPDashboardPage({
           {/* Arraylake / Live Data fields — same BFF as /fusarium/aerosol. Always mounted
               so a chip toggle binds in ~1–2s. enabled=false removes only this overlay.
               Empty bake → no pixels (honest empty), not UNBOUND. */}
-          {!auditAllOffMode && !assetIsolationMode && FIELD_REGISTRY.flatMap((d) =>
+          {!assetIsolationMode && FIELD_REGISTRY.flatMap((d) =>
             d.variables.map((v) => {
               const fid = fieldLayerId(d.id, v.key);
               const on = layers.find((l) => l.id === fid)?.enabled ?? false;

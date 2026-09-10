@@ -67,4 +67,14 @@ Invoke-RestMethod "http://localhost:3010/api/crep/environment/air-quality?bbox=-
 # Browser: toggle Live Data → map.getSource('crep-field-era5-t2m-src-0') or fusarium-aerosol-particulate
 ```
 
-Do not claim done until Morgan can turn Live Data ON and see overlay/animation on the globe.
+## 3010 proof — September 10, 2026
+
+Playwright on `http://localhost:3010/natureos/earth-simulator` (same CREP globe as Fusarium Earth Sim; Fusarium route is owner-login):
+
+- Live Data chips visible (22). ERA5 2 m Temperature → **On**.
+- `window.__crep_live_data.enabled` = `crep-field-era5-t2m`.
+- Map sources `crep-field-era5-t2m-src-0`…`src-11` present. Layer 0 opacity **0.72**.
+- BFF `GET /api/crep/field/era5/t2m` 200 + frames `0.png`…`11.png` 200.
+- Repeat: `node scripts/_earth_sim_livedata_proof.mjs`
+
+`/fusarium/earth-simulator` is the same `CREPDashboardLoader` behind owner sign-in. Do not hide ITDX tabs. RJ Ricasata = CFO.

@@ -50,9 +50,16 @@ type Bounds = [number, number, number, number];
 interface Manifest { render: string; minZoom?: number; static?: boolean; frames: Frame[]; bounds?: Bounds | null; baked?: boolean }
 
 function resolveMap(m: MapLike): MapLibreMap | null {
-  if (!m) return null;
-  if (typeof (m as MapLibreMap).getStyle === "function") return m as MapLibreMap;
-  return (m as { current?: MapLibreMap | null }).current ?? null;
+  if (m && typeof (m as MapLibreMap).getStyle === "function") return m as MapLibreMap;
+  const fromRef = m && typeof m === "object" && "current" in m
+    ? (m as { current?: MapLibreMap | null }).current
+    : null;
+  if (fromRef && typeof fromRef.getStyle === "function") return fromRef;
+  if (typeof window !== "undefined") {
+    const globalMap = (window as unknown as { __crep_map?: MapLibreMap }).__crep_map;
+    if (globalMap && typeof globalMap.getStyle === "function") return globalMap;
+  }
+  return null;
 }
 
 const GLOBAL_BOUNDS: Bounds = [-180, -85, 180, 85];
@@ -61,9 +68,13 @@ export default function FieldRasterLayer({ map, dataset, variable, enabled, opac
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    const m = resolveMap(map);
-    if (!m || !enabled) return;
+    if (!enabled) return;
     let cancelled = false;
+    let attached: MapLibreMap | null = null;
+    let poll: ReturnType<typeof setInterval> | null = null;
+    let detach = () => {};
+
+    const start = (m: MapLibreMap) => {
     const layerIds: string[] = [];
     const sourceIds: string[] = [];
     let idx = 0;
@@ -168,8 +179,13 @@ export default function FieldRasterLayer({ map, dataset, variable, enabled, opac
       if (cancelled || !enabled) return;
       const ok = frames.length > 0 && m.getZoom() >= minZoom && inView();
       if (ok && !built) {
-        const start = () => build();
-        if (m.isStyleLoaded?.()) start(); else m.once("styledata", start);
+        const startBuild = () => build();
+        if (m.isStyleLoaded?.()) startBuild();
+        else {
+          m.once("styledata", startBuild);
+          m.once("load", startBuild);
+          window.setTimeout(startBuild, 750);
+        }
       } else if (!ok && built) {
         removeAll();
       }
@@ -194,12 +210,32 @@ export default function FieldRasterLayer({ map, dataset, variable, enabled, opac
     m.on("moveend", applyGate);
     load();
     const refresh = setInterval(load, 5 * 60_000);
-
-    return () => {
-      cancelled = true;
+    detach = () => {
       clearInterval(refresh);
       try { m.off("moveend", applyGate); } catch { /* */ }
       removeAll();
+    };
+    };
+
+    const tryAttach = () => {
+      if (cancelled || attached) return;
+      const m = resolveMap(map);
+      if (!m) return;
+      attached = m;
+      if (poll) {
+        clearInterval(poll);
+        poll = null;
+      }
+      start(m);
+    };
+
+    tryAttach();
+    if (!attached) poll = setInterval(tryAttach, 250);
+
+    return () => {
+      cancelled = true;
+      if (poll) clearInterval(poll);
+      detach();
     };
   }, [map, enabled, dataset, variable, opacity, frameMs, playing, scrubIndex, onPlaybackStateChange, minZoom]);
 

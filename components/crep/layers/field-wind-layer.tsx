@@ -51,9 +51,16 @@ const MOVE_START = ["movestart", "zoomstart", "dragstart", "rotatestart", "pitch
 const MOVE_END = ["moveend", "zoomend"];
 
 function resolveMap(m: MapLike): MapLibreMap | null {
-  if (!m) return null;
-  if (typeof (m as MapLibreMap).getStyle === "function") return m as MapLibreMap;
-  return (m as { current?: MapLibreMap | null }).current ?? null;
+  if (m && typeof (m as MapLibreMap).getStyle === "function") return m as MapLibreMap;
+  const fromRef = m && typeof m === "object" && "current" in m
+    ? (m as { current?: MapLibreMap | null }).current
+    : null;
+  if (fromRef && typeof fromRef.getStyle === "function") return fromRef;
+  if (typeof window !== "undefined") {
+    const globalMap = (window as unknown as { __crep_map?: MapLibreMap }).__crep_map;
+    if (globalMap && typeof globalMap.getStyle === "function") return globalMap;
+  }
+  return null;
 }
 
 export default function FieldWindLayer({ map, dataset, variable, enabled, particles = 3500, trail = 0.92, minZoom = 0 }: Props) {
