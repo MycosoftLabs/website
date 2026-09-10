@@ -30,6 +30,12 @@
 
 import { useEffect, useRef } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
+import {
+  getLogicalViewportBounds,
+  isAnimatedPaused,
+  pointInBounds,
+  registerAnimatedLayer,
+} from "@/lib/crep/viewport-memory-governor";
 
 type MapLike = MapLibreMap | { current: MapLibreMap | null } | null | undefined;
 
@@ -115,6 +121,17 @@ export default function FieldWindLayer({ map, dataset, variable, enabled, partic
     const clearCanvas = () => { try { ctx?.clearRect(0, 0, canvas.width, canvas.height); } catch { /* */ } };
 
     const randParticle = () => {
+      const view = getLogicalViewportBounds(m);
+      if (view) {
+        const lngSpan = view.east >= view.west ? view.east - view.west : 360 - (view.west - view.east);
+        let lng = view.west + Math.random() * lngSpan;
+        if (lng > 180) lng -= 360;
+        return {
+          lng,
+          lat: view.south + Math.random() * (view.north - view.south),
+          age: Math.floor(Math.random() * MAX_AGE),
+        };
+      }
       const b = m.getBounds();
       return {
         lng: b.getWest() + Math.random() * (b.getEast() - b.getWest()),
@@ -163,7 +180,9 @@ export default function FieldWindLayer({ map, dataset, variable, enabled, partic
         lastT = now;
         const moveScale = (0.05 / Math.pow(1.7, Math.max(0, zoom - 2))) * dtf; // deg per (m/s·frame @60fps), shrinks zooming in
         ctx.lineWidth = 1.1 * d;
+        const view = getLogicalViewportBounds(m);
         for (const p of parts) {
+          if (view && !pointInBounds(p.lng, p.lat, view)) { Object.assign(p, randParticle()); p.age = 0; continue; }
           const uv = sample(p.lng, p.lat);
           if (!uv || p.age > MAX_AGE) { Object.assign(p, randParticle()); p.age = 0; continue; }
           const [u, v] = uv;
@@ -185,7 +204,8 @@ export default function FieldWindLayer({ map, dataset, variable, enabled, partic
     };
 
     // Stay on at globe zoom. Pause only while the camera is moving.
-    const wantRun = () => !cancelled && enabled && grid != null && !moving;
+    const layerId = `crep-wind-${dataset}-${variable}`;
+    const wantRun = () => !cancelled && enabled && grid != null && !moving && !isAnimatedPaused(layerId);
     const startLoop = () => { if (rafRef.current == null && wantRun()) { lastT = 0; rafRef.current = requestAnimationFrame(step); } };
     const stopLoop = () => { if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; } };
     const reGate = () => { if (wantRun()) startLoop(); else { stopLoop(); clearCanvas(); } };
@@ -214,12 +234,14 @@ export default function FieldWindLayer({ map, dataset, variable, enabled, partic
     m.on("resize", onResize);
     for (const ev of MOVE_START) m.on(ev as never, onMoveStart);
     for (const ev of MOVE_END) m.on(ev as never, onMoveEnd);
+    const unreg = registerAnimatedLayer(layerId, "wind", () => { stopLoop(); clearCanvas(); }, () => { reGate(); });
     loadGrid();
     const refresh = setInterval(loadGrid, 5 * 60_000);
 
     detach = () => {
       cancelled = true;
       clearInterval(refresh);
+      unreg();
       stopLoop();
       try {
         m.off("resize", onResize);

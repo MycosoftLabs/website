@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+import { fetchMindexMapLayer, fetchNifcWildfires } from "@/lib/crep/environment-live-sources"
 
 /**
  * Earth Simulator wildfire BFF — proxies the internal MINDEX route
@@ -69,7 +70,22 @@ export async function GET(request: NextRequest) {
   // Default to a global bbox so callers without bounds still get data.
   const bounds = parseBounds(params) ?? { west: -179.9, south: -89.9, east: 179.9, north: 89.9 }
 
-  const items = await fetchMindexWildfires(bounds, limit).catch(() => null)
+  let items = await fetchMindexWildfires(bounds, limit).catch(() => null)
+  let sourceLabel = "mindex.earth.wildfires"
+  if (!items || items.length === 0) {
+    const bboxRows = await fetchMindexMapLayer("wildfires", bounds, limit)
+    if (bboxRows && bboxRows.length > 0) {
+      items = bboxRows
+      sourceLabel = "mindex.earth/map/bbox:wildfires"
+    }
+  }
+  if (!items || items.length === 0) {
+    const nifc = await fetchNifcWildfires(bounds, limit)
+    if (nifc.length > 0) {
+      items = nifc
+      sourceLabel = "nifc_wfigs"
+    }
+  }
   const upstreamOk = items != null
 
   const features = (items || [])
@@ -102,8 +118,8 @@ export async function GET(request: NextRequest) {
       features,
       count: features.length,
       meta: {
-        source: "mindex.earth.wildfires",
-        upstream: upstreamOk ? "mindex" : "unavailable",
+        source: sourceLabel,
+        upstream: items && items.length > 0 ? sourceLabel : (upstreamOk ? "empty" : "unavailable"),
         bbox: bounds,
         renderer: "mycosoft-maplibre",
         nativeResolutionMeters: 375,

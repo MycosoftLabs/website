@@ -32,6 +32,9 @@ import {
 /** One icon per catalog id. Missing ids fall back to the section's own icon. */
 const ICONS: Record<string, LucideIcon> = {
   overview: Gauge,
+  personnel: Shield,
+  "personnel-outcomes": LineChart,
+  "personnel-survey": FlaskConical,
   "situational-awareness": Radar,
   "threat-assessment": Shield,
   "data-fusion": Layers,

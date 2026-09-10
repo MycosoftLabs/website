@@ -331,6 +331,7 @@ import FieldRasterLayer from "@/components/crep/layers/field-raster-layer";
 import FieldWindLayer from "@/components/crep/layers/field-wind-layer";
 import { FIELD_REGISTRY, FIELD_GROUP_CATEGORY, fieldLayerId } from "@/lib/crep/fields/registry";
 import { AEROSOL_LIVE_DATA_LAYER_IDS, isLiveDataLayerId } from "@/lib/crep/live-data-layers";
+import { bindGovernorLifecycle, getLogicalViewportBounds, moverBboxQuery } from "@/lib/crep/viewport-memory-governor";
 import TijuanaStationWidget from "@/components/crep/tijuana/TijuanaStationWidget";
 import OysterSiteWidget from "@/components/crep/oyster/OysterSiteWidget";
 // Apr 22, 2026 â€” SD + TJ data coverage expansion: 7 OSM-derived
@@ -8136,7 +8137,9 @@ export default function CREPDashboardPage({
       return;
     }
     setEarthSimDeferredDataReady(false);
-    setEarthSimSatellitePropReady(false);
+    // Satellites: if the filter is ON, SGP4 must not wait on idle/stagger.
+    // Heavy DOM overlays still stagger; sat prop is first-paint.
+    setEarthSimSatellitePropReady(true);
     if (auditAllOffMode || assetIsolationMode) return;
     // Stage heavy overlays in for weaker GPUs. Desktop paints fast (750ms); tablet
     // and phone get real breathing room so the base map + light data settle before
@@ -8146,10 +8149,7 @@ export default function CREPDashboardPage({
       earthSimViewportPerfClass === "phone" ? 4_000 :
       earthSimViewportPerfClass === "tablet" ? 4_000 :
       750
-    const satDelayMs =
-      earthSimViewportPerfClass === "phone" ? 6_000 :
-      earthSimViewportPerfClass === "tablet" ? 4_000 :
-      750
+    const satDelayMs = 0
     const heavyTimer = window.setTimeout(() => setEarthSimDeferredDataReady(true), delayMs);
     const satTimer = window.setTimeout(() => setEarthSimSatellitePropReady(true), satDelayMs);
     return () => {
@@ -8970,6 +8970,21 @@ export default function CREPDashboardPage({
     if (getInitialFiltersOffMode()) return false;
     return true;
   });
+  type MoverFetchStatus = "idle" | "loading" | "ready" | "empty" | "error";
+  const [moverFetchStatus, setMoverFetchStatus] = useState<{
+    aircraft: MoverFetchStatus;
+    vessels: MoverFetchStatus;
+    satellites: MoverFetchStatus;
+  }>({ aircraft: "idle", vessels: "idle", satellites: "idle" });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    (window as any).__crep_mover_status = () => ({
+      ...moverFetchStatus,
+      aircraftCount: (window as any).__crep_aircraft?.length ?? 0,
+      vesselCount: (window as any).__crep_vessels?.length ?? 0,
+      satelliteCount: (window as any).__crep_satellites?.length ?? 0,
+    });
+  }, [moverFetchStatus]);
   const [streamedEntities, setStreamedEntities] = useState<UnifiedEntity[]>([]);
   const entityStreamClientRef = useRef<EntityStreamClient | null>(null);
 
@@ -9853,6 +9868,7 @@ export default function CREPDashboardPage({
   // removes that failure mode entirely.
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const liveEntityPumpInFlightRef = useRef(false);
+  const moverEnabledIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (auditAllOffMode) return;
@@ -9875,10 +9891,29 @@ export default function CREPDashboardPage({
         return false;
       };
       const earthLayerEnabled = (ids: string[]) => {
-        if (!earthStrictPerfMode) return true;
+        const enabledIds = moverEnabledIdsRef.current;
+        if (enabledIds.size > 0) {
+          return ids.some((id) => enabledIds.has(id));
+        }
         const layerSnapshot = (window as any).__crep_layers?.();
-        if (!Array.isArray(layerSnapshot)) return false;
-        return ids.some((id) => layerSnapshot.find((layer: any) => layer.id === id)?.enabled === true);
+        if (Array.isArray(layerSnapshot) && layerSnapshot.length > 0) {
+          return ids.some((id) => layerSnapshot.find((layer: any) => layer.id === id)?.enabled === true);
+        }
+        // Missing snapshot: do not skip the first fetch. Visibility still
+        // hides movers if the chip is OFF.
+        return true;
+      };
+      const resolveMoverBboxQs = () => {
+        const logical = getLogicalViewportBounds(mapNativeRef.current);
+        const raw = mapBoundsRef.current;
+        const fallback = {
+          west: EARTH_SIM_US_BBOX.west,
+          south: EARTH_SIM_US_BBOX.south,
+          east: EARTH_SIM_US_BBOX.east,
+          north: EARTH_SIM_US_BBOX.north,
+        };
+        const picked = logical ?? (raw && Number.isFinite(raw.west) && Number.isFinite(raw.south) ? raw : fallback);
+        return moverBboxQuery(picked);
       };
       if (shouldPauseMoverPump()) return;
       const allowAircraft =
@@ -9919,6 +9954,8 @@ export default function CREPDashboardPage({
           payload?.entities,
           payload?.observations,
           payload?.features,
+          payload?.data?.[preferredKey],
+          Array.isArray(payload?.data) ? payload.data : null,
         ];
         const rows = candidates.find((candidate) => Array.isArray(candidate)) ?? [];
         return rows.filter(Boolean);
@@ -9960,31 +9997,40 @@ export default function CREPDashboardPage({
             // kinematics-only scrape (no callsign), which collapsed every plane into
             // the "private" bucket. Vessels already hit their OEI source directly below
             // for the same reason. syncToMINDEX still persists what we fetch.
-            const acBounds = mapBoundsRef.current;
-            const acZoom = mapZoomRef.current ?? 0;
-            const acWest = acBounds ? Math.max(-180, Math.min(180, acBounds.west)) : null;
-            const acEast = acBounds ? Math.max(-180, Math.min(180, acBounds.east)) : null;
-            const acHasBbox =
-              !!acBounds && acZoom >= 3 && Number.isFinite(acWest) && Number.isFinite(acEast) && acEast! > acWest!;
-            const aircraftUrl = acHasBbox
-              ? `/api/oei/flightradar24?lamin=${acBounds!.south}&lamax=${acBounds!.north}&lomin=${acWest}&lomax=${acEast}&limit=${earthMoverLimits.aircraft}`
-              : `/api/oei/flightradar24?limit=${earthMoverLimits.aircraft}`;
-            const res = await fetch(aircraftUrl, { signal: AbortSignal.timeout(90_000) });
-            if (!res.ok || cancelled) { breakerMark("__crep_pump_aircraft_breaker", false, "aircraft"); return }
-            const data = await res.json();
-            const aircraftRows = readMoverRows(data, "aircraft");
+            setMoverFetchStatus((prev) => ({ ...prev, aircraft: prev.aircraft === "ready" ? prev.aircraft : "loading" }));
+            const bboxQs = resolveMoverBboxQs();
+            const moverUrl = (path: string, extra: string) =>
+              bboxQs ? `${path}?${bboxQs}&${extra}` : `${path}?${extra}`;
+            const aircraftUrls = [
+              moverUrl("/api/oei/flightradar24", `limit=${earthMoverLimits.aircraft}`),
+              moverUrl("/api/oei/opensky", `limit=${earthMoverLimits.aircraft}`),
+            ];
+            const aircraftPayloads = await Promise.allSettled(
+              aircraftUrls.map((url) => fetchJsonWithTimeout(url, 90_000)),
+            );
+            if (cancelled) { breakerMark("__crep_pump_aircraft_breaker", false, "aircraft"); return }
+            const aircraftRows = dedupeMoverRows(
+              aircraftPayloads.flatMap((result) =>
+                result.status === "fulfilled" && result.value ? readMoverRows(result.value, "aircraft") : [],
+              ),
+              (a: any) => a.icao24 || a.icao || a.id,
+            );
             if (aircraftRows.length > 0) {
               setAircraft((prev) => mergeById(prev, aircraftRows, {
                 idKey: (a: any) => a.icao24 || a.icao || a.id,
                 ttlMs: ENTITY_TTL_MS.aircraft,
                 maxEntries: earthMoverLimits.aircraft,
               }));
+              setMoverFetchStatus((prev) => ({ ...prev, aircraft: "ready" }));
               console.log(`[CREP/pump] aircraft: ${aircraftRows.length} (merged into persistent union)`);
               try { syncToMINDEX("aircraft", aircraftRows); } catch {}
+            } else {
+              setMoverFetchStatus((prev) => ({ ...prev, aircraft: "empty" }));
             }
-            breakerMark("__crep_pump_aircraft_breaker", true, "aircraft")
+            breakerMark("__crep_pump_aircraft_breaker", aircraftRows.length > 0, "aircraft")
           } catch (e) {
             breakerMark("__crep_pump_aircraft_breaker", false, "aircraft")
+            setMoverFetchStatus((prev) => ({ ...prev, aircraft: prev.aircraft === "ready" ? prev.aircraft : "error" }));
             const s = (window as any).__crep_pump_aircraft_breaker?.fails ?? 0
             if (s === 1 || s >= 3) console.warn(`[CREP/pump] aircraft (${s}/3):`, (e as Error)?.message);
           }
@@ -10001,19 +10047,12 @@ export default function CREPDashboardPage({
           // from the AIS client's internal cache. Live probe: 15,815
           // vessels returned vs 0 via the multi-source path.
           try {
-            const currentBounds = mapBoundsRef.current;
-            const currentZoom = mapZoomRef.current ?? 0;
-            const boundedWest = currentBounds ? Math.max(-180, Math.min(180, currentBounds.west)) : null;
-            const boundedEast = currentBounds ? Math.max(-180, Math.min(180, currentBounds.east)) : null;
-            const hasUsableMoverBbox =
-              currentBounds &&
-              currentZoom >= 3 &&
-              Number.isFinite(boundedWest) &&
-              Number.isFinite(boundedEast) &&
-              boundedEast! > boundedWest!;
-            const vesselUrls = hasUsableMoverBbox
-              ? [`/api/oei/aisstream?lamin=${currentBounds.south}&lamax=${currentBounds.north}&lomin=${boundedWest}&lomax=${boundedEast}&limit=${earthMoverLimits.vessels}`]
-              : [`/api/oei/aisstream?limit=${earthMoverLimits.vessels}`];
+            setMoverFetchStatus((prev) => ({ ...prev, vessels: prev.vessels === "ready" ? prev.vessels : "loading" }));
+            const bboxQs = resolveMoverBboxQs();
+            const vesselBase = bboxQs
+              ? `/api/oei/aisstream?${bboxQs}&limit=${earthMoverLimits.vessels}`
+              : `/api/oei/aisstream?limit=${earthMoverLimits.vessels}`;
+            const vesselUrls = [vesselBase, `${vesselBase}&publish=true`];
             const vesselPayloads = await Promise.allSettled(
               vesselUrls.map((url) => fetchJsonWithTimeout(url, 90_000)),
             );
@@ -10044,12 +10083,16 @@ export default function CREPDashboardPage({
                 ttlMs: ENTITY_TTL_MS.vessel,
                 maxEntries: earthMoverLimits.vessels,
               }));
+              setMoverFetchStatus((prev) => ({ ...prev, vessels: "ready" }));
               console.log(`[CREP/pump] vessels: ${vesselRows.length} (viewport + live union merged)`);
               try { syncToMINDEX("vessels", vesselRows); } catch {}
+            } else {
+              setMoverFetchStatus((prev) => ({ ...prev, vessels: "empty" }));
             }
-            breakerMark("__crep_pump_vessels_breaker", true, "vessels")
+            breakerMark("__crep_pump_vessels_breaker", vesselRows.length > 0, "vessels")
           } catch (e) {
             breakerMark("__crep_pump_vessels_breaker", false, "vessels")
+            setMoverFetchStatus((prev) => ({ ...prev, vessels: prev.vessels === "ready" ? prev.vessels : "error" }));
             const s = (window as any).__crep_pump_vessels_breaker?.fails ?? 0
             if (s === 1 || s >= 3) console.warn(`[CREP/pump] vessels (${s}/3):`, (e as Error)?.message);
           }
@@ -10057,8 +10100,11 @@ export default function CREPDashboardPage({
         (async () => {
             if (!allowSatellites || breakerSkip("__crep_pump_satellites_breaker")) return
             try {
+              setMoverFetchStatus((prev) => ({ ...prev, satellites: prev.satellites === "ready" ? prev.satellites : "loading" }));
               const satellitePayloads = await Promise.allSettled([
                 fetchJsonWithTimeout(`/api/oei/satellites?category=active&mode=registry&limit=${earthMoverLimits.satellites}`, 90_000),
+                fetchJsonWithTimeout(`/api/oei/satellites?category=stations&mode=legacy&limit=${earthMoverLimits.satellites}`, 90_000),
+                fetchJsonWithTimeout(`/api/crep/unified?type=satellites&limit=${earthMoverLimits.satellites}`, 90_000),
               ]);
             if (cancelled) {
               breakerMark("__crep_pump_satellites_breaker", false, "satellites")
@@ -10078,15 +10124,18 @@ export default function CREPDashboardPage({
                 ttlMs: ENTITY_TTL_MS.satellite,
                 maxEntries: earthMoverLimits.satellites,
               }))
+              setMoverFetchStatus((prev) => ({ ...prev, satellites: "ready" }));
               try { syncToMINDEX("satellites", sats as unknown as Record<string, unknown>[]); } catch {}
               breakerMark("__crep_pump_satellites_breaker", true, "satellites")
             } else {
+              setMoverFetchStatus((prev) => ({ ...prev, satellites: "empty" }));
               breakerMark("__crep_pump_satellites_breaker", false, "satellites")
               const s = (window as any).__crep_pump_satellites_breaker?.fails ?? 0
               if (s === 1 || s >= 3) console.warn(`[CREP/pump] satellites all categories empty (${s}/3)`)
             }
           } catch (e) {
             breakerMark("__crep_pump_satellites_breaker", false, "satellites")
+            setMoverFetchStatus((prev) => ({ ...prev, satellites: prev.satellites === "ready" ? prev.satellites : "error" }));
             const s = (window as any).__crep_pump_satellites_breaker?.fails ?? 0
             if (s === 1 || s >= 3) console.warn(`[CREP/pump] satellites (${s}/3):`, (e as Error)?.message)
           }
@@ -10097,7 +10146,7 @@ export default function CREPDashboardPage({
       }
     };
 
-    const initialPumpTimers = [900, 3000, 7000, 15000].map((delay) => window.setTimeout(pumpLive, delay));
+    const initialPumpTimers = [0, 400, 1500].map((delay) => window.setTimeout(pumpLive, delay));
     // Apr 20, 2026 perf-1 (Morgan: "make all map load faster every single
     // asset and system can have small if not micro efficiency improvments").
     // Visibility-aware throttle: skip the live-entity pump when the tab is
@@ -10113,9 +10162,7 @@ export default function CREPDashboardPage({
       if (!shouldPauseLiveWork()) pumpLive()
     }
     const onMoverPumpRequest = () => {
-      window.setTimeout(() => {
-        if (!shouldPauseLiveWork()) pumpLive()
-      }, 250)
+      if (!shouldPauseLiveWork()) pumpLive()
     }
     if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVisible)
     window.addEventListener("crep:mover-pump-request", onMoverPumpRequest as EventListener)
@@ -10882,6 +10929,7 @@ export default function CREPDashboardPage({
 
   useEffect(() => {
     layersRef.current = layers;
+    moverEnabledIdsRef.current = new Set(layers.filter((layer) => layer.enabled).map((layer) => layer.id));
     if (typeof window === "undefined") return;
     (window as any).__crep_live_data = {
       enabled: layers.filter((layer) => layer.enabled && isLiveDataLayerId(layer.id)).map((layer) => layer.id),
@@ -14601,6 +14649,10 @@ export default function CREPDashboardPage({
     !earthStrictPerfMode ||
     (earthSimDeferredDataReady && (!isMapAnimationActive || isV3GlobeEngine));
 
+  useEffect(() => {
+    return bindGovernorLifecycle();
+  }, []);
+
   // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // SMART MAP AUTO-PAN: Fungal Marker Selection Handler
   // When a user clicks a fungal marker, the popup is attached directly to the marker.
@@ -16299,7 +16351,10 @@ export default function CREPDashboardPage({
   // cullToViewport to drop features outside the current viewport before
   // the GPU upload.
   const mapBoundsRef = useRef<typeof mapBounds>(mapBounds);
-  useEffect(() => { mapBoundsRef.current = mapBounds }, [mapBounds]);
+  useEffect(() => {
+    const logical = getLogicalViewportBounds(mapNativeRef.current);
+    mapBoundsRef.current = logical ?? mapBounds;
+  }, [mapBounds]);
   // Apr 22, 2026 â€” Morgan: "at zoom out seeing world i need to see at
   // least 30% of all vessles ... then with each zoom in tick i need
   // more in viewport and none outside of viewport".
@@ -16430,12 +16485,8 @@ export default function CREPDashboardPage({
       try {
         const acFeats: any[] = [];
         const vFeats: any[] = [];
-        // No plane OR vessel pump pipeline below zoom 3.5 (Morgan, Jun 18 2026): the per-frame
-        // dead-reckon + feature build for these movers is the FPS killer (planes ~150ms, vessels
-        // ~50ms), not the GPU paint. Skip them entirely below the floor (hidden there anyway).
-        // Code kept; they rebuild on zoom-in past the floor.
-        const zNow = mapZoomRef.current;
-        const hideMoversBelowFloor = Number.isFinite(zNow) && zNow < 3.5;
+        // Sep 10 2026: CONUS first paint is z≈3. If aviation/ships are ON,
+        // do not hide movers below 3.5 — viewport LOD still culls off-view.
         for (const id of Object.keys(lk)) {
           const a = lk[id];
           if (!a) continue;
@@ -16445,7 +16496,6 @@ export default function CREPDashboardPage({
             ? "vessel"
             : null;
           if (!kind) continue;
-          if (hideMoversBelowFloor) continue;
           const dtSec = Math.max(0, Math.min((nowMs - a.ts) / 1000, MAX_EXTRAPOLATION_MS / 1000));
           const lng = a.lng + a.velLng * dtSec;
           const lat = a.lat + a.velLat * dtSec;
@@ -16481,7 +16531,7 @@ export default function CREPDashboardPage({
         //
         // Then the rAF debouncer folds rapid consecutive setData calls
         // into a single GPU upload per source per frame.
-        const bbox = mapBoundsRef.current
+        const bbox = getLogicalViewportBounds(mapNativeRef.current) ?? mapBoundsRef.current
         const zoom = mapZoomRef.current
         // Unconditional write on every tick â€” the debouncer folds rapid
         // calls to a single GPU upload per source per frame anyway, so
@@ -16601,13 +16651,10 @@ export default function CREPDashboardPage({
     }
     try {
       const { acFeats, vFeats } = buildFromAnchors()
-      const bbox = mapBoundsRef.current
+      const bbox = getLogicalViewportBounds(map) ?? mapBoundsRef.current
       const zoom = mapZoomRef.current
-      // No plane/boat pipeline below zoom 3.5 (Morgan) — empty both sources so this pump-merge
-      // writer matches the rAF-loop gate: no compute, no render below the floor.
-      const hideMovers = Number.isFinite(zoom) && zoom < 3.5
-      const acPicked = hideMovers ? [] : selectStableLiveMoverFeatures("aircraft", acFeats, bbox, zoom)
-      const vPicked  = hideMovers ? [] : selectStableLiveMoverFeatures("vessel", vFeats,  bbox, zoom)
+      const acPicked = selectStableLiveMoverFeatures("aircraft", acFeats, bbox, zoom)
+      const vPicked  = selectStableLiveMoverFeatures("vessel", vFeats,  bbox, zoom)
       ;(map.getSource("crep-live-aircraft") as any)?.setData?.({ type: "FeatureCollection", features: acPicked })
       ;(map.getSource("crep-live-vessels")  as any)?.setData?.({ type: "FeatureCollection", features: vPicked  })
       // Satellites: SGP4 animation owns crep-live-satellites (positions from TLE
@@ -17774,6 +17821,11 @@ export default function CREPDashboardPage({
   }, [auditAllOffMode, assetIsolationMode, isEarthSimulatorRoute, mapBounds, mapZoom]);
 
   const liveOverlayBbox = useMemo<[number, number, number, number] | null>(() => {
+    const logical = getLogicalViewportBounds(mapRef);
+    if (logical && logical.south < logical.north) {
+      const wrapOk = logical.west <= logical.east;
+      if (wrapOk) return [logical.west, logical.south, logical.east, logical.north];
+    }
     if (!mapBounds) return null;
     const south = Math.max(-90, Math.min(90, mapBounds.south));
     const north = Math.max(-90, Math.min(90, mapBounds.north));
@@ -17782,7 +17834,7 @@ export default function CREPDashboardPage({
     const east = Math.max(-180, Math.min(180, mapBounds.east));
     if (!Number.isFinite(west) || !Number.isFinite(east) || west >= east) return null;
     return [west, south, east, north];
-  }, [mapBounds?.west, mapBounds?.south, mapBounds?.east, mapBounds?.north]);
+  }, [mapRef, mapBounds?.west, mapBounds?.south, mapBounds?.east, mapBounds?.north, mapZoom]);
   const regionalOverlayBbox = mapZoom > 3 ? liveOverlayBbox ?? undefined : undefined;
   const detailedOverlayBbox = mapZoom > 5 ? liveOverlayBbox ?? undefined : undefined;
   const cloudOverlayBbox = mapZoom > 2 ? liveOverlayBbox ?? undefined : undefined;
@@ -20025,13 +20077,16 @@ export default function CREPDashboardPage({
                 void loadDetailedIcon("/crep/icons/helicopter.svg", "helicopter-icon");
                 // Placeholder so the ordering below stays predictable
                 map.addLayer({ id: "crep-live-aircraft-glow", type: "circle", source: "crep-live-aircraft",
-                  minzoom: 3.5,
-                  paint: { "circle-radius": 0, "circle-opacity": 0 }});
+                  paint: {
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2.4, 6, 3.6, 10, 4.5],
+                    "circle-color": "#38bdf8",
+                    "circle-opacity": 0.72,
+                    "circle-stroke-width": 0.7,
+                    "circle-stroke-color": "#0b1220",
+                  }});
                 // Aircraft ICON (symbol layer â€” rotates by heading, detailed plane sprite)
-                // minzoom 3.5: NO planes at all below this (Morgan, Jun 18 2026) — layer-level
-                // gate so it holds regardless of which source (LOD path or live pump) fed the data.
+                // Sep 10 2026: CONUS first paint is z≈3 — no minzoom floor.
                 map.addLayer({ id: "crep-live-aircraft-dot", type: "symbol", source: "crep-live-aircraft",
-                  minzoom: 3.5,
                   layout: {
                     // Helicopters: ICAO category 8 (Rotorcraft), OpenSky
                     // `category: 8`, or aircraft type strings that match
@@ -20185,11 +20240,14 @@ export default function CREPDashboardPage({
                 map.addSource("crep-live-vessels", { type: "geojson", data: emptyFC, promoteId: "id" } as any);
                 void loadDetailedIcon("/crep/icons/vessel.svg", "vessel-icon");
                 map.addLayer({ id: "crep-live-vessels-glow", type: "circle", source: "crep-live-vessels",
-                  minzoom: 3.5,
-                  paint: { "circle-radius": 0, "circle-opacity": 0 }});
-                // minzoom 3.5: no vessels below this (Morgan) — layer-level backstop to the pump gates.
+                  paint: {
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2.2, 6, 3.4, 10, 4.2],
+                    "circle-color": "#2dd4bf",
+                    "circle-opacity": 0.72,
+                    "circle-stroke-width": 0.7,
+                    "circle-stroke-color": "#0b1220",
+                  }});
                 map.addLayer({ id: "crep-live-vessels-dot", type: "symbol", source: "crep-live-vessels",
-                  minzoom: 3.5,
                   layout: {
                     "icon-image": "vessel-icon",
                     "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.2, 6, 0.28, 10, 0.38, 14, 0.54],
@@ -23904,7 +23962,7 @@ export default function CREPDashboardPage({
           {/* Live animated weather radar (RainViewer) — past+nowcast frames cycle so weather
               visibly moves. Same gating as RealisticCloudLayer; off by default (toggle "Live
               Weather Radar"), auto-enabled during an active NWS alert. */}
-          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && (layers.find(l => l.id === "weatherRadar")?.enabled ?? false) && <RainViewerRadarLayer
+          {!auditAllOffMode && !assetIsolationMode && (layers.find(l => l.id === "weatherRadar")?.enabled ?? false) && <RainViewerRadarLayer
             map={mapRef}
             enabled={layers.find(l => l.id === "weatherRadar")?.enabled ?? false}
             opacity={layers.find(l => l.id === "weatherRadar")?.opacity ?? 0.7}
@@ -23942,9 +24000,9 @@ export default function CREPDashboardPage({
             popupTitle="Air quality"
             popupFields={[{ key: "summary", label: "readings" }, { key: "source", label: "src" }, { key: "measuredAt", label: "measured" }]}
           />}
-          {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "mindexWeather")?.enabled ?? false) && <MindexEnvPointsLayer
+          {!auditAllOffMode && !assetIsolationMode && mapRef && ((layers.find(l => l.id === "mindexWeather")?.enabled ?? false) || (layers.find(l => l.id === "weather")?.enabled ?? false)) && <MindexEnvPointsLayer
             map={mapRef}
-            enabled={layers.find(l => l.id === "mindexWeather")?.enabled ?? false}
+            enabled={(layers.find(l => l.id === "mindexWeather")?.enabled ?? false) || (layers.find(l => l.id === "weather")?.enabled ?? false)}
             opacity={layers.find(l => l.id === "mindexWeather")?.opacity ?? 0.85}
             endpoint="/api/crep/environment/weather"
             idBase="crep-mindex-weather"
@@ -24149,7 +24207,7 @@ export default function CREPDashboardPage({
           {/* Live AQI â€” Apr 23 2026 (Morgan: "all aqi live feeds not working
               fix them"). AIRNOW_API_KEY synced to sandbox; this paints every
               monitor in viewport color-coded by EPA AQI category. */}
-          {liveAqiLayerReady && !auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && mapZoom >= 5.5 && (layers.find(l => l.id === "liveAqi")?.enabled ?? false) && (
+          {liveAqiLayerReady && !auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && mapZoom >= 2 && (layers.find(l => l.id === "liveAqi")?.enabled ?? false) && (
             <LiveAqiLayer
               map={mapRef}
               visible={layers.find(l => l.id === "liveAqi")?.enabled ?? false}
@@ -24505,16 +24563,16 @@ export default function CREPDashboardPage({
               </div>
             )}
             {/* Transport/Satellite data - SECONDARY (only show if enabled) */}
-            {!assetIsolationMode && layers.find(l => l.id === "aviation")?.enabled && aircraft.length > 0 && (
-              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-sky-400" title={`${filteredAircraft.length} shown / ${aircraft.length} total`}>
+            {!assetIsolationMode && layers.find(l => l.id === "aviation")?.enabled && (
+              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-sky-400" title={aircraft.length > 0 ? `${filteredAircraft.length} shown / ${aircraft.length} total` : `aircraft ${moverFetchStatus.aircraft}`}>
                 <Plane className="w-3 h-3 inline-block mr-1" />
-                {filteredAircraft.length}/{aircraft.length}
+                {aircraft.length > 0 ? `${filteredAircraft.length}/${aircraft.length}` : moverFetchStatus.aircraft === "loading" ? "…" : "empty"}
               </div>
             )}
-            {!assetIsolationMode && layers.find(l => l.id === "ships")?.enabled && vessels.length > 0 && (
-              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-teal-400" title={`${filteredVessels.length} shown / ${vessels.length} total`}>
+            {!assetIsolationMode && layers.find(l => l.id === "ships")?.enabled && (
+              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-teal-400" title={vessels.length > 0 ? `${filteredVessels.length} shown / ${vessels.length} total` : `vessels ${moverFetchStatus.vessels}`}>
                 <Ship className="w-3 h-3 inline-block mr-1" />
-                {filteredVessels.length}/{vessels.length}
+                {vessels.length > 0 ? `${filteredVessels.length}/${vessels.length}` : moverFetchStatus.vessels === "loading" ? "…" : "empty"}
               </div>
             )}
             {!assetIsolationMode && layers.find(l => l.id === "buoys")?.enabled && buoys.length > 0 && (
@@ -24529,10 +24587,10 @@ export default function CREPDashboardPage({
                 {militaryBases.length} MIL
               </div>
             )}
-            {!assetIsolationMode && layers.find(l => l.id === "satellites")?.enabled && satellites.length > 0 && (
-              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-purple-400" title={`${filteredSatellites.length} shown / ${satellites.length} total`}>
+            {!assetIsolationMode && layers.find(l => l.id === "satellites")?.enabled && (
+              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-purple-400" title={satellites.length > 0 ? `${filteredSatellites.length} shown / ${satellites.length} total` : `satellites ${moverFetchStatus.satellites}`}>
                 <Satellite className="w-3 h-3 inline-block mr-1" />
-                {filteredSatellites.length}/{satellites.length}
+                {satellites.length > 0 ? `${filteredSatellites.length}/${satellites.length}` : moverFetchStatus.satellites === "loading" ? "…" : "empty"}
               </div>
             )}
           </div>}

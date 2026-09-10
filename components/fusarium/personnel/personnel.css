@@ -1,0 +1,20 @@
+.fusarium-duty{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}
+.fusarium-duty-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9ae9cb}
+.fusarium-duty-select{min-height:44px;min-width:min(180px,46vw);max-width:260px;padding:8px 10px;border:1px solid #49605f;border-radius:8px;background:#16342f;color:#e9f3f1}
+.fusarium-role-lens{position:relative;z-index:20;margin:8px;padding:12px;border:1px solid #416158;border-radius:10px;background:#0c1c25f2;color:#e9f3f1;max-width:720px}
+.fusarium-role-lens p{margin:0 0 6px}
+.fusarium-role-lens-muted{color:#a8bfbe;font-size:12px}
+.fusarium-role-lens-links{display:flex;flex-wrap:wrap;gap:8px}
+.fusarium-role-lens-links a{min-height:44px;display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;border:1px solid #49605f;background:#16342f;color:#c8efe0;text-decoration:none}
+.fusarium-personnel-panel{padding:16px;color:#e9f3f1}
+.fusarium-personnel-panel label{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+.fusarium-personnel-panel input,.fusarium-personnel-panel select,.fusarium-personnel-panel textarea{min-height:44px;padding:8px 10px;border:1px solid #49605f;border-radius:8px;background:#102630;color:#fff}
+.fusarium-personnel-panel button{min-height:44px;min-width:44px;padding:8px 12px;border-radius:999px;border:1px solid #49605f;background:#203936;color:#f0f8f5}
+.fusarium-personnel-panel button[aria-pressed="true"]{background:#366c5e;border-color:#9ae9cb}
+.fusarium-chip-row{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.fusarium-outcome-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.fusarium-outcome-tiles article{border:1px solid #304950;border-radius:10px;padding:12px;background:#112630}
+.fusarium-not-measured{font-weight:700;color:#91e5c4}
+.fusarium-personnel-panel table{width:100%;min-width:640px;border-collapse:collapse}
+.fusarium-personnel-panel th,.fusarium-personnel-panel td{padding:8px;border-bottom:1px solid #365059;text-align:left}
+@media(max-width:800px){.fusarium-duty-select{max-width:100%}.fusarium-role-lens{margin:8px 8px 0}}

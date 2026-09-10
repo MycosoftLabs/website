@@ -118,6 +118,18 @@ Root cause of “only ERA5 looked live”: globe `getBounds()` AABB + registry `
 
 Repeat: `node scripts/_earth_sim_all_livedata_proof.mjs` from `website-itdx-codex-v13` against `http://localhost:3010`.
 
+## Manned movers (planes / vessels / sats) — September 10, 2026
+
+See `docs/EARTH_SIM_MANNED_LAYER_FIRST_PAINT_SEP10_2026.md`.
+
+CONUS BFF on 3010 (same globe; filters ON must fetch immediately, no zoom-3.5 hide):
+
+| Toggle | URL | 3010 |
+|---|---|---|
+| Planes | `/api/oei/flightradar24?...CONUS...&limit=400` | **400** (OpenSky; ADS-B in registry) |
+| Vessels | `/api/oei/aisstream?...CONUS...&limit=400` | **177** (disk last-known) |
+| Sats | `/api/oei/satellites?category=active&mode=registry&limit=200` | **200** (satnogs). Legacy Celestrak **503** → chip **empty** only if registry also empty |
+
 ## 187 live — September 10, 2026
 
 - PR #309 `ba8c5a83` · Instant Deploy 34521730309 success

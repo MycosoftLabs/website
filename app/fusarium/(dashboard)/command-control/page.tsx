@@ -1,5 +1,6 @@
 import { Suspense } from "react"
 import { CommandControlDashboard } from "@/components/fusarium/command-control/command-control-dashboard"
+import { FusariumRoleLens } from "@/components/fusarium/personnel/fusarium-role-lens"
 
 export const dynamic = "force-dynamic"
 
@@ -17,6 +18,7 @@ export default function CommandControlPage() {
   const initialNowMs = Date.now()
   return (
     <Suspense fallback={<CommandControlFallback />}>
+      <FusariumRoleLens surface="command-control" />
       <CommandControlDashboard initialNowMs={initialNowMs} />
     </Suspense>
   )
