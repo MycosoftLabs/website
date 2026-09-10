@@ -28,6 +28,7 @@ import {
   resolveEagleLiveStream,
 } from "@/components/crep/eagle-eye/eagle-live-stream"
 import { hlsLivePlayerConfig, seekVideoToLiveEdge } from "@/lib/crep/hls-live-config"
+import { windyProxiedSnapshot } from "@/lib/crep/windy-webcam-snapshot"
 
 type StreamType = "hls" | "webrtc" | "iframe" | "mjpeg" | "snapshot"
 
@@ -431,8 +432,8 @@ function HlsWithSnapshotFallback({
   const providerLc = String(provider || "").toLowerCase()
   const stableHlsPlayback = providerLc === "caltrans"
   const showNativeControls = false
-  const fallbackDelayMs = stableHlsPlayback ? 8_000 : 10_000
-  const noFrameTimeoutMs = stableHlsPlayback ? 8_000 : 8_000
+  const fallbackDelayMs = stableHlsPlayback ? 1_200 : 10_000
+  const noFrameTimeoutMs = stableHlsPlayback ? 2_500 : 8_000
   useEffect(() => {
     frameSeenRef.current = false
     setUseSnapshot(false)
@@ -445,13 +446,13 @@ function HlsWithSnapshotFallback({
     }, fallbackDelayMs)
     return () => window.clearTimeout(timer)
   }, [fallbackDelayMs, normalizedFallbackSnapshot, playbackUrl, useSnapshot])
-  if (stableHlsPlayback) {
+  if (stableHlsPlayback && normalizedFallbackSnapshot) {
     return (
-      <HlsPlayer
-        url={playbackUrl}
-        stablePlayback
-        showControls={showNativeControls}
-        noFrameTimeoutMs={30_000}
+      <SnapshotStream
+        url={normalizedFallbackSnapshot}
+        embedUrl={embedUrl || undefined}
+        provider={provider}
+        name={name}
       />
     )
   }
@@ -1291,10 +1292,17 @@ export default function VideoWallWidget() {
       return true
     }
 
+    const providerLc = (feed.provider || "").toLowerCase()
+    const hasPlayableHint = !!(feed.mediaUrl || feed.embedUrl || feed.directEmbed)
+    const canRevalidateUnavailable =
+      providerLc === "caltrans" ||
+      providerLc === "windy" ||
+      hasPlayableHint
     if (
-      isUnavailableFeedStatus(feed.sourceStatus) ||
-      isKnownUnavailableFeedId(feed.id) ||
-      isTemporarilyUnplayableProvider(feed.provider)
+      (isUnavailableFeedStatus(feed.sourceStatus) ||
+        isKnownUnavailableFeedId(feed.id) ||
+        isTemporarilyUnplayableProvider(feed.provider)) &&
+      !canRevalidateUnavailable
     ) {
       const unavailableReason = feed.sourceStatus
         ? `Source status: ${feed.sourceStatus}`
@@ -1337,17 +1345,36 @@ export default function VideoWallWidget() {
       return `https://www.surfline.com/embed-cam/${m[1]}?autoplay=1&muted=1&playsinline=1`
     }
 
-    const providerLc = (feed.provider || "").toLowerCase()
     const normalizedMediaUrl = normalizeEagleStillImageUrl(feed.mediaUrl)
-    const isSnapshotPageProvider =
-      providerLc === "webcamtaxi" ||
-      providerLc === "windy"
-    const caltransNeedsResolve =
-      providerLc === "caltrans"
+    const caltransSnap = proxiedCaltransSnapshot(feed.embedUrl, normalizedMediaUrl || feed.mediaUrl)
+    if (providerLc === "caltrans" && caltransSnap) {
+      setResolved({
+        id: feed.id,
+        provider: feed.provider,
+        kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+        stream_type: "snapshot",
+        stream_url: caltransSnap,
+        embed_url: feed.embedUrl,
+        snapshot_url: caltransSnap,
+      })
+      return () => { cancelled = true }
+    }
+    const windySnap = windyProxiedSnapshot(feed.id, feed.embedUrl)
+    if (providerLc === "windy" && windySnap) {
+      setResolved({
+        id: feed.id,
+        provider: feed.provider,
+        kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+        stream_type: "snapshot",
+        stream_url: windySnap,
+        embed_url: feed.embedUrl,
+        snapshot_url: windySnap,
+      })
+      return () => { cancelled = true }
+    }
+    const isSnapshotPageProvider = providerLc === "webcamtaxi"
 
-    const de = caltransNeedsResolve
-      ? undefined
-      : pickLiveUrl(feed.directEmbed)
+    const de = pickLiveUrl(feed.directEmbed)
 
     // 1: live video (HLS / WebRTC / MJPEG) wins
     if (de && (isHls(de) || isWhep(de) || isMjpeg(de))) {

@@ -67,22 +67,20 @@ export async function GET(request: Request) {
   try {
     const startTime = Date.now()
 
-    // ── Multi-source fetch via Aircraft Registry ──────────────────────────
-    const registryResult = await fetchAllAircraftWithMeta()
+    const bbox =
+      lamin && lamax && lomin && lomax
+        ? {
+            south: parseFloat(lamin),
+            north: parseFloat(lamax),
+            west: parseFloat(lomin),
+            east: parseFloat(lomax),
+          }
+        : undefined
+    const parsedLimit = limit ? parseInt(limit) : undefined
+
+    const registryResult = await fetchAllAircraftWithMeta({ bbox, limit: parsedLimit })
     let aircraft: AircraftRecord[] = registryResult.aircraft
 
-    // Apply bounding box filter if provided
-    if (lamin && lamax && lomin && lomax) {
-      const south = parseFloat(lamin)
-      const north = parseFloat(lamax)
-      const west = parseFloat(lomin)
-      const east = parseFloat(lomax)
-      aircraft = aircraft.filter(
-        (a) => a.lat >= south && a.lat <= north && a.lng >= west && a.lng <= east
-      )
-    }
-
-    // Apply airline filter (match callsign prefix, e.g. "UAL" for United)
     if (airline) {
       const prefix = airline.toUpperCase()
       aircraft = aircraft.filter(
@@ -90,17 +88,8 @@ export async function GET(request: Request) {
       )
     }
 
-    // Apply limit
-    if (limit) {
-      const max = parseInt(limit)
-      if (aircraft.length > max) aircraft = aircraft.slice(0, max)
-    }
-
     const latency = Date.now() - startTime
-    const activeSource = Object.entries(registryResult.sources)
-      .filter(([, c]) => c > 0)
-      .map(([s]) => s)
-      .join("+") || "none"
+    const activeSource = registryResult.usedSource || "none"
 
     // Log to MINDEX
     logDataCollection("aircraft-registry", "multi-source", aircraft.length, latency, false)
@@ -111,6 +100,9 @@ export async function GET(request: Request) {
     const responseData = {
       source: activeSource,
       sources: registryResult.sources,
+      usedSource: registryResult.usedSource,
+      failedUpstreams: registryResult.failedUpstreams,
+      attempts: registryResult.attempts,
       timestamp: new Date().toISOString(),
       total: aircraft.length,
       aircraft,
@@ -133,7 +125,9 @@ export async function GET(request: Request) {
 
     // Return empty data on error instead of error status (graceful fallback)
     return NextResponse.json({
-      source: "aircraft-registry",
+      source: "none",
+      usedSource: null,
+      failedUpstreams: [String(error)],
       timestamp: new Date().toISOString(),
       total: 0,
       aircraft: [],

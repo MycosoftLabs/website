@@ -4,15 +4,24 @@ import { useEffect, useRef } from "react"
 import maplibregl, { type Map as MapLibreMap } from "maplibre-gl"
 import { isParticulateFeature } from "@/lib/fusarium/aerosol/shared-earth-contracts"
 
+type MapLike = MapLibreMap | { current: MapLibreMap | null } | null | undefined
+
 interface AerosolParticulateLayerProps {
-  map: MapLibreMap
+  map: MapLike
   visible: boolean
+}
+
+function resolveMap(m: MapLike): MapLibreMap | null {
+  if (!m) return null
+  if (typeof (m as MapLibreMap).getStyle === "function") return m as MapLibreMap
+  return (m as { current?: MapLibreMap | null }).current ?? null
 }
 
 const SOURCE_ID = "fusarium-aerosol-particulate"
 const HEAT_LAYER_ID = `${SOURCE_ID}-heat`
 const DOT_LAYER_ID = `${SOURCE_ID}-dot`
 const ENDPOINT = "/api/crep/environment/air-quality"
+const AIRNOW_ENDPOINT = "/api/crep/airnow/bbox"
 
 /**
  * Aerosol-only PM filter over Earth Simulator's existing MINDEX air-quality
@@ -20,10 +29,12 @@ const ENDPOINT = "/api/crep/environment/air-quality"
  * shared BFF and withholds every feature that does not explicitly name PM2.5,
  * PM10, particulate, or dust in the source-preserved summary.
  */
-export function AerosolParticulateLayer({ map, visible }: AerosolParticulateLayerProps) {
+export function AerosolParticulateLayer({ map: mapLike, visible }: AerosolParticulateLayerProps) {
   const popupRef = useRef<maplibregl.Popup | null>(null)
 
   useEffect(() => {
+    const map = resolveMap(mapLike)
+    if (!map) return
     let cancelled = false
     let debounceTimer = 0
 
@@ -97,6 +108,22 @@ export function AerosolParticulateLayer({ map, visible }: AerosolParticulateLaye
       })
       map.on("click", DOT_LAYER_ID, onClick)
     }
+    const normalizeAirNow = (features: unknown[]) => features.map((feature) => {
+      const row = (feature && typeof feature === "object" ? feature : {}) as { properties?: Record<string, unknown>; geometry?: unknown }
+      const properties = row.properties && typeof row.properties === "object" ? row.properties : {}
+      const parameter = typeof properties.parameter === "string" ? properties.parameter : "PM"
+      const aqi = properties.aqi != null ? ` AQI ${properties.aqi}` : ""
+      return {
+        ...row,
+        properties: {
+          ...properties,
+          stationName: properties.name ?? properties.stationName,
+          summary: `${parameter}${aqi}`,
+          source: "airnow",
+          measuredAt: properties.observed_at ?? properties.measuredAt,
+        },
+      }
+    })
     const read = async () => {
       if (!visible || cancelled) return
       try {
@@ -110,8 +137,25 @@ export function AerosolParticulateLayer({ map, visible }: AerosolParticulateLaye
         })
         if (!response.ok || cancelled) return
         const body = await response.json()
-        if (body?.meta?.upstream !== "mindex" || !Array.isArray(body?.features)) return
-        install(body.features)
+        if (!Array.isArray(body?.features)) return
+        const mindexPm = body.features.filter(isParticulateFeature)
+        if (mindexPm.length > 0) {
+          install(mindexPm)
+          return
+        }
+        // Same AirNow BFF the aerosol readiness rail already uses. Empty MINDEX
+        // AQ is no-data, not unbound — draw AirNow PM when that read has features.
+        const airnow = await fetch(`${AIRNOW_ENDPOINT}?bbox=${encodeURIComponent(bbox)}&parameters=PM25,PM10`, {
+          cache: "default",
+          credentials: "same-origin",
+        })
+        if (!airnow.ok || cancelled) {
+          install([])
+          return
+        }
+        const airBody = await airnow.json()
+        const airFeatures = Array.isArray(airBody?.features) ? normalizeAirNow(airBody.features) : []
+        install(airFeatures.filter(isParticulateFeature))
       } catch {
         // The readiness rail remains the source of truth; retain no replacement data.
       }
@@ -138,7 +182,7 @@ export function AerosolParticulateLayer({ map, visible }: AerosolParticulateLaye
       try { map.off("style.load", onStyleLoad) } catch { /* map teardown */ }
       remove()
     }
-  }, [map, visible])
+  }, [mapLike, visible])
 
   return null
 }

@@ -1,12 +1,9 @@
 /**
- * RECONSTRUCTED faithful shim. Cursor's real lib/geo/* refactor files went missing from this
- * worktree (uncommitted, lost in a file-deletion incident; present in no branch and no other
- * worktree). These restore compilation with LEGACY-globe behavior identical to the pre-refactor
- * inline code (a thin map.flyTo passthrough). Cursor's authoritative versions supersede this on
- * sync. — Claude, Jun 25 2026.
+ * Camera fly-to helpers for CREP / NatureOS Earth Sim.
  *
- * Camera fly-to helpers extracted from CREPDashboardClient. The optional engine arg lets the v3
- * path special-case the move; legacy ignores it and flies exactly as the inline code did.
+ * Sep 10, 2026 — retry until MapLibre is loaded/idle so Slide 2 / San Diego
+ * chips do not silently no-op when the globe is still starting or the
+ * caller passed a ref instead of the map instance.
  */
 import type { Map as MapLibreMap } from "maplibre-gl"
 
@@ -18,6 +15,7 @@ type FlyOpts = Record<string, unknown> & {
   bearing?: number
   duration?: number
   essential?: boolean
+  onEnd?: () => void
 }
 type Engine = "legacy" | "v3"
 
@@ -27,23 +25,63 @@ function resolveMap(m: MapLike): MapLibreMap | null {
   return (m as { current?: MapLibreMap | null }).current ?? null
 }
 
+function flyWhenReady(map: MapLibreMap, opts: FlyOpts): void {
+  const { onEnd, ...camera } = opts
+  const run = () => {
+    try {
+      map.stop?.()
+      map.flyTo({
+        center: camera.center,
+        zoom: camera.zoom,
+        pitch: camera.pitch ?? 0,
+        bearing: camera.bearing ?? 0,
+        duration: camera.duration ?? 1600,
+        essential: camera.essential ?? true,
+      } as never)
+      if (onEnd) {
+        map.once?.("moveend", () => {
+          try { onEnd() } catch { /* ignore */ }
+        })
+      }
+    } catch {
+      try { map.easeTo?.(camera as never) } catch { /* */ }
+    }
+  }
+  const loaded = typeof map.loaded === "function" ? map.loaded() : true
+  if (loaded) {
+    run()
+    return
+  }
+  map.once?.("load", run)
+  map.once?.("idle", run)
+}
+
 export function crepMapFlyTo(map: MapLike, opts: FlyOpts, _engine: Engine = "legacy"): void {
-  const m = resolveMap(map)
-  if (!m) return
-  try { m.flyTo(opts as never) } catch { /* */ }
+  const tryFly = (attempt: number) => {
+    const m = resolveMap(map)
+    if (m) {
+      flyWhenReady(m, opts)
+      return
+    }
+    if (attempt >= 20) return
+    if (typeof window === "undefined") return
+    window.setTimeout(() => tryFly(attempt + 1), 250)
+  }
+  tryFly(0)
 }
 
 export function crepMapJumpOrFly(map: MapLike, opts: FlyOpts, _engine: Engine = "legacy"): void {
   const m = resolveMap(map)
-  if (!m) return
+  if (!m) {
+    crepMapFlyTo(map, opts, _engine)
+    return
+  }
   try {
     if (opts && opts.duration === 0) m.jumpTo(opts as never)
-    else m.flyTo(opts as never)
+    else flyWhenReady(m, opts)
   } catch { /* */ }
 }
 
 export function crepMapTiltFlyTo(map: MapLike, opts: FlyOpts, _engine: Engine = "legacy"): void {
-  const m = resolveMap(map)
-  if (!m) return
-  try { m.flyTo(opts as never) } catch { /* */ }
+  crepMapFlyTo(map, opts, _engine)
 }

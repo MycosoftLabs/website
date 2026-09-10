@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { caltransProxiedSnapshot, resolveCaltransHls } from "@/lib/crep/caltrans-hls-resolve"
+import { windyProxiedSnapshot } from "@/lib/crep/windy-webcam-snapshot"
 import { normalizeYouTubeEmbedUrlSync } from "@/lib/crep/youtube-embed"
 
 /**
@@ -730,6 +731,7 @@ export async function GET(
       "nyctmc",
       "skylinewebcams",
       "surfline",
+      "windy",
       "youtube_live",
     ]).has(provider)
     if (
@@ -754,6 +756,22 @@ export async function GET(
     }
 
     if (provider === "caltrans") {
+      // Sep 10, 2026 — wzmedia.dot.ca.gov HLS often times out from our
+      // origin (502 on /hls-proxy). Public JPEG stills on cwwp2 stay 200.
+      // Serve the proxied still as the playable stream so the widget is
+      // never stuck on a dead HLS playlist.
+      const snap = caltransProxiedSnapshot(src.embed_url, src.media_url)
+      if (snap) {
+        return NextResponse.json({
+          id: sourceId,
+          provider,
+          kind,
+          stream_url: snap,
+          snapshot_url: snap,
+          embed_url: src.embed_url,
+          stream_type: "snapshot",
+        })
+      }
       const resolved = await resolveCaltransHls({
         sourceId,
         stream_url: src.stream_url,
@@ -768,6 +786,21 @@ export async function GET(
         )
       }
       else if (isHls) streamUrl = ""
+    }
+
+    if (provider === "windy") {
+      const snap = windyProxiedSnapshot(sourceId, src.embed_url)
+      if (snap) {
+        return NextResponse.json({
+          id: sourceId,
+          provider,
+          kind,
+          stream_url: snap,
+          snapshot_url: snap,
+          embed_url: src.embed_url,
+          stream_type: "snapshot",
+        })
+      }
     }
 
     if (provider === "nysdot" && !isHls) {

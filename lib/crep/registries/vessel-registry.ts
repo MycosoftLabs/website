@@ -22,6 +22,16 @@
 import { getAISStreamClient } from "@/lib/oei/connectors/aisstream-ships"
 import { getSdrVesselsAsRecords } from "@/lib/crep/sdr-vessel-cache"
 import { saveVesselsToDiskCache, readVesselsFromDiskCache } from "@/lib/crep/vessel-disk-cache"
+import {
+  CREP_OSINT_UA,
+  VESSEL_MAX_FEATURES,
+  capRows,
+  failedUpstreamNames,
+  firstNonEmpty,
+  inBbox,
+  type MoverQuery,
+  type UpstreamAttempt,
+} from "@/lib/crep/osint-movers-failover"
 
 // =============================================================================
 // TYPES
@@ -103,16 +113,15 @@ const AISHUB_MIN_INTERVAL = 61_000 // 61 seconds
 /**
  * Source 1 — AISstream WebSocket cache (in-process singleton)
  */
-async function fetchFromAISStream(): Promise<VesselRecord[]> {
-  try {
-    const client = getAISStreamClient()
-    if (!client.hasApiKey()) return []
-
-    const raw = client.getCachedVessels({})
-    return (raw as any[]).map((v: any) => normaliseGeneric(v, "aisstream"))
-  } catch {
-    return []
-  }
+async function fetchFromAISStream(query?: MoverQuery): Promise<VesselRecord[]> {
+  const client = getAISStreamClient()
+  if (!client.hasApiKey()) throw new Error("AISSTREAM_API_KEY unset")
+  const raw = client.getCachedVessels({})
+  const vessels = (raw as any[])
+    .map((v: any) => normaliseGeneric(v, "aisstream"))
+    .filter((v) => inBbox(v.lat, v.lng, query?.bbox))
+  if (vessels.length === 0) throw new Error("AISStream cache empty in bbox")
+  return vessels
 }
 
 /**
@@ -282,7 +291,7 @@ async function fetchFromDMA(): Promise<VesselRecord[]> {
  * Each event includes lat/lng from event geometry and vessel identity info.
  */
 async function fetchFromGFW(): Promise<VesselRecord[]> {
-  if (!GFW_TOKEN) return []
+  if (!GFW_TOKEN) throw new Error("GLOBAL_FISHING_WATCH_TOKEN unset")
 
   const now = new Date()
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
@@ -296,17 +305,17 @@ async function fetchFromGFW(): Promise<VesselRecord[]> {
 
   const res = await fetch(url, {
     cache: "no-store",
-    signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
+    signal: AbortSignal.timeout(10_000),
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${GFW_TOKEN}`,
     },
   })
-  if (!res.ok) return []
+  if (!res.ok) throw new Error(`GFW HTTP ${res.status}`)
   const data = await res.json()
   const events: any[] = Array.isArray(data) ? data : data.entries ?? data.events ?? []
 
-  return events
+  const mapped = events
     .filter((e: any) => {
       const coords = e.position ?? e.geometry?.coordinates
       return coords != null
@@ -343,6 +352,48 @@ async function fetchFromGFW(): Promise<VesselRecord[]> {
           e.end ?? e.start ?? e.timestamp ?? new Date().toISOString(),
       }
     })
+  if (mapped.length === 0) throw new Error("GFW returned no vessel positions")
+  return mapped
+}
+
+/**
+ * Finnish Transport Infrastructure Agency AIS (keyless, Baltic / Finland).
+ * Requires Digitraffic-User. Does not cover San Diego / CONUS.
+ */
+async function fetchFromDigitraffic(): Promise<VesselRecord[]> {
+  const url = "https://meri.digitraffic.fi/api/ais/v1/locations"
+  const res = await fetch(url, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
+    headers: {
+      Accept: "application/json",
+      "Digitraffic-User": "Mycosoft-CREP/1.0",
+      "User-Agent": CREP_OSINT_UA,
+    },
+  })
+  if (!res.ok) throw new Error(`Digitraffic HTTP ${res.status}`)
+  const data = await res.json()
+  const features: any[] = Array.isArray(data) ? data : data.features ?? data.locations ?? []
+  const vessels = features.map((v: any) => {
+    const props = v.properties ?? v
+    const coords = v.geometry?.coordinates
+    return {
+      id: `digitraffic-${props.mmsi ?? props.MMSI ?? Date.now()}`,
+      mmsi: String(props.mmsi ?? props.MMSI ?? ""),
+      name: props.name ?? props.shipName ?? "Unknown",
+      lat: coords ? Number(coords[1]) : parseFloat(props.latitude ?? props.lat ?? 0),
+      lng: coords ? Number(coords[0]) : parseFloat(props.longitude ?? props.lng ?? 0),
+      sog: props.sog ?? props.speedOverGround ?? null,
+      cog: props.cog ?? props.courseOverGround ?? null,
+      heading: props.heading ?? props.trueHeading ?? null,
+      shipType: props.shipType ?? null,
+      destination: props.destination ?? null,
+      source: "digitraffic" as const,
+      timestamp: props.timestamp ?? props.time ?? new Date().toISOString(),
+    }
+  })
+  if (vessels.length === 0) throw new Error("Digitraffic returned no vessels")
+  return vessels
 }
 
 /**
@@ -355,7 +406,7 @@ async function fetchFromGFW(): Promise<VesselRecord[]> {
  *   HEADING, ROT, NAVSTAT, IMO, NAME, CALLSIGN, TYPE, DRAUGHT, DEST, ETA
  */
 async function fetchFromAISHub(): Promise<VesselRecord[]> {
-  if (!AISHUB_USERNAME) return []
+  if (!AISHUB_USERNAME) throw new Error("AISHUB_USERNAME unset")
 
   // Enforce rate limit — max 1 request per minute
   const now = Date.now()
@@ -521,76 +572,71 @@ export interface VesselRegistryResult {
   sources: Record<string, number>
   totalBeforeDedup: number
   fetchedAt: string
+  usedSource: string | null
+  failedUpstreams: string[]
+  attempts: UpstreamAttempt[]
+  stale?: boolean
 }
 
 /**
  * Fetch vessels from ALL available sources in parallel, deduplicate by MMSI,
  * and return the combined set.
  */
-export async function fetchAllVessels(): Promise<VesselRecord[]> {
-  const result = await fetchAllVesselsWithMeta()
+export async function fetchAllVessels(query?: MoverQuery): Promise<VesselRecord[]> {
+  const result = await fetchAllVesselsWithMeta(query)
   return result.vessels
 }
 
 /**
- * Same as fetchAllVessels but includes per-source counts and metadata.
+ * Sequential AIS failover (AISStream → GFW → Digitrafffic → AISHub → SDR → disk).
+ * Disk is last-known real AIS, not invented. Empty + failedUpstreams if all fail.
  */
-export async function fetchAllVesselsWithMeta(): Promise<VesselRegistryResult> {
-  const sourceFetchers: Array<{ name: string; fn: () => Promise<VesselRecord[]> }> = [
-    { name: "aisstream", fn: fetchFromAISStream },
-    { name: "mindex", fn: fetchFromMINDEX },
-    { name: "marinetraffic", fn: fetchFromMarineTraffic },
-    { name: "vesselfinder", fn: fetchFromVesselFinder },
-    { name: "barentswatch", fn: fetchFromBarentsWatch },
-    { name: "dma", fn: fetchFromDMA },
-    { name: "gfw", fn: fetchFromGFW },
-    { name: "aishub", fn: fetchFromAISHub },
-    // User-owned SDR receivers (RTL-SDR + rtl-ais / AIS-catcher) that POST
-    // position reports to /api/vessels/ingest. Pulls from in-memory cache.
-    { name: "sdr", fn: async () => getSdrVesselsAsRecords() },
-    // Apr 22, 2026 — disk-backed last-known vessels. AISstream WebSocket
-    // is unstable; when it delivers, we persist to var/cache/vessels.json.
-    // Reading this source bridges AIS outages so the globe keeps showing
-    // vessels even when every live source is dry.
-    { name: "disk", fn: async () => readVesselsFromDiskCache() },
-  ]
+export async function fetchAllVesselsWithMeta(query?: MoverQuery): Promise<VesselRegistryResult> {
+  const limit = query?.limit && query.limit > 0 ? Math.min(query.limit, VESSEL_MAX_FEATURES) : VESSEL_MAX_FEATURES
 
-  const results = await Promise.allSettled(
-    sourceFetchers.map(async ({ name, fn }): Promise<SourceResult> => {
-      const start = Date.now()
-      try {
-        const fetched = await fn()
-        const vessels = Array.isArray(fetched) ? fetched : []
-        const dur = Date.now() - start
-        if (vessels.length > 0) {
-          console.log(`[VesselRegistry] ${name}: ${vessels.length} vessels (${dur}ms)`)
-        }
-        return { source: name, vessels, durationMs: dur }
-      } catch (err) {
-        const dur = Date.now() - start
-        logMovingRegistryDebug(`[VesselRegistry] ${name} failed (${dur}ms):`, (err as Error).message)
-        return { source: name, vessels: [], error: (err as Error).message, durationMs: dur }
-      }
-    })
-  )
+  const inQueryBbox = (rows: VesselRecord[]) => rows.filter((v) => inBbox(v.lat, v.lng, query?.bbox))
 
-  const allVessels: VesselRecord[] = []
+  const live = await firstNonEmpty<VesselRecord>([
+    { name: "aisstream", fn: () => fetchFromAISStream(query) },
+    { name: "gfw", fn: async () => {
+      const rows = inQueryBbox(await fetchFromGFW())
+      if (!rows.length) throw new Error("GFW empty in bbox")
+      return rows
+    } },
+    { name: "digitraffic", fn: async () => {
+      const rows = inQueryBbox(await fetchFromDigitraffic())
+      if (!rows.length) throw new Error("Digitraffic empty in bbox (Baltic feed)")
+      return rows
+    } },
+    { name: "aishub", fn: async () => {
+      const rows = inQueryBbox(await fetchFromAISHub())
+      if (!rows.length) throw new Error("AISHub empty in bbox")
+      return rows
+    } },
+    { name: "sdr", fn: async () => {
+      const rows = inQueryBbox(getSdrVesselsAsRecords())
+      if (!rows.length) throw new Error("SDR cache empty in bbox")
+      return rows
+    } },
+    { name: "mindex", fn: async () => {
+      const rows = inQueryBbox(await fetchFromMINDEX())
+      if (!rows.length) throw new Error("MINDEX empty in bbox")
+      return rows
+    } },
+    { name: "disk", fn: async () => {
+      const rows = inQueryBbox(readVesselsFromDiskCache())
+      if (!rows.length) throw new Error("vessel disk cache empty in bbox")
+      return rows
+    } },
+  ])
+
+  const inView = live.rows.filter((v) => inBbox(v.lat, v.lng, query?.bbox))
+  const deduplicated = capRows(deduplicateByMMSI(inView), limit)
   const sourceCounts: Record<string, number> = {}
-
-  for (const r of results) {
-    if (r.status === "fulfilled") {
-      allVessels.push(...r.value.vessels)
-      sourceCounts[r.value.source] = r.value.vessels.length
-    }
-  }
-
-  const deduplicated = deduplicateByMMSI(allVessels)
+  for (const attempt of live.attempts) sourceCounts[attempt.name] = attempt.count
 
   console.log(
-    `[VesselRegistry] Combined: ${allVessels.length} raw -> ${deduplicated.length} unique MMSI from ${Object.entries(sourceCounts)
-      .filter(([, c]) => c > 0)
-      .map(([s, c]) => `${s}(${c})`)
-      .join(", ") || "no sources"}`
+    `[VesselRegistry] failover used=${live.used || "none"} raw=${live.rows.length} unique=${deduplicated.length} failed=${failedUpstreamNames(live.attempts).join(",") || "none"}`
   )
 
   // Apr 22, 2026 — persist any live-source vessels to disk so they
@@ -637,7 +683,11 @@ export async function fetchAllVesselsWithMeta(): Promise<VesselRegistryResult> {
   return {
     vessels: deduplicated,
     sources: sourceCounts,
-    totalBeforeDedup: allVessels.length,
+    totalBeforeDedup: live.rows.length,
     fetchedAt: new Date().toISOString(),
+    usedSource: live.used,
+    failedUpstreams: failedUpstreamNames(live.attempts),
+    attempts: live.attempts,
+    stale: live.used === "disk",
   }
 }

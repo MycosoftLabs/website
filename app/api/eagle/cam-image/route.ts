@@ -80,6 +80,12 @@ const ALLOW_HOSTS = new Set([
   // embed CSP), but their public stream-thumbnail JPEGs are fetchable; we serve
   // them as an auto-refreshing live frame. (Jun 15 2026.)
   "storage.hdontap.com",
+  // Sep 10, 2026 — Windy / IPCamLive public stills for border + landmark cams.
+  // Browser cannot hotlink these reliably (CORS / CORP); proxy over HTTPS.
+  "images-webcams.windy.com",
+  "webcams.windy.com",
+  "ipcamlive.com",
+  "www.ipcamlive.com",
 ])
 
 // Hosts with known certificate issues — we fetch them with lenient TLS.

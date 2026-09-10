@@ -18,6 +18,20 @@
  */
 
 import { getFlightRadar24Client } from "@/lib/oei/connectors/flightradar24"
+import {
+  AIRCRAFT_MAX_FEATURES,
+  CREP_OSINT_UA,
+  bboxCenter,
+  bboxFitsPointBackup,
+  bboxIsFinite,
+  bboxRadiusNm,
+  capRows,
+  failedUpstreamNames,
+  firstNonEmpty,
+  inBbox,
+  type MoverQuery,
+  type UpstreamAttempt,
+} from "@/lib/crep/osint-movers-failover"
 
 // =============================================================================
 // TYPES
@@ -153,30 +167,50 @@ async function getOpenSkyToken(): Promise<string | null> {
  *
  * Response shape: { time: number, states: [icao24, callsign, origin_country, ...] }
  */
-async function fetchFromOpenSky(): Promise<AircraftRecord[]> {
-  const url = "https://opensky-network.org/api/states/all"
+function mapAdsbStyleAircraft(a: any, source: "adsb.lol" | "adsb.fi" | "adsbexchange"): AircraftRecord {
+  return {
+    id: `${source}-${a.hex ?? a.icao ?? Date.now()}`,
+    icao: String(a.hex ?? a.icao ?? "").trim(),
+    callsign: String(a.flight ?? a.callsign ?? "").trim() || "Unknown",
+    lat: parseFloat(a.lat),
+    lng: parseFloat(a.lon),
+    altitude: a.alt_baro != null ? parseFloat(a.alt_baro) : (a.alt_geom != null ? parseFloat(a.alt_geom) : null),
+    heading: a.track != null ? parseFloat(a.track) : null,
+    velocity: a.gs != null ? parseFloat(a.gs) : null,
+    verticalRate: a.baro_rate != null ? parseFloat(a.baro_rate) : null,
+    onGround: a.alt_baro === "ground" || a.on_ground === true,
+    source,
+    timestamp: a.seen != null ? new Date(Date.now() - (a.seen as number) * 1000).toISOString() : new Date().toISOString(),
+  }
+}
+
+async function fetchFromOpenSky(query?: MoverQuery): Promise<AircraftRecord[]> {
+  const params = new URLSearchParams()
+  if (bboxIsFinite(query?.bbox)) {
+    params.set("lamin", String(query.bbox.south))
+    params.set("lamax", String(query.bbox.north))
+    params.set("lomin", String(query.bbox.west))
+    params.set("lomax", String(query.bbox.east))
+  }
+  const qs = params.toString()
+  const url = `https://opensky-network.org/api/states/all${qs ? `?${qs}` : ""}`
   const token = await getOpenSkyToken()
-  // OpenSky payload is ~2-4MB globally, can take 5-12s. Use a longer timeout
-  // specifically for this source since it's our largest single-source returns
-  // (~6500 global aircraft vs FR24's ~1500).
   const res = await fetch(url, {
     cache: "no-store",
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(bboxIsFinite(query?.bbox) ? 10_000 : 15_000),
     headers: {
       Accept: "application/json",
-      // Some upstream CDNs block default Node fetch UA with 403. Identify
-      // ourselves so OpenSky doesn't rate-limit us as a scraper.
-      "User-Agent": "Mycosoft-CREP/1.0 (+https://mycosoft.com)",
+      "User-Agent": CREP_OSINT_UA,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   })
-  if (!res.ok) return []
+  if (!res.ok) throw new Error(`OpenSky HTTP ${res.status}`)
   const data = await res.json()
   const states: any[][] = data.states ?? []
   const now = new Date().toISOString()
 
   return states
-    .filter((s) => s[5] != null && s[6] != null) // must have position
+    .filter((s) => s[5] != null && s[6] != null)
     .map((s) => ({
       id: `osky-${s[0]}`,
       icao: String(s[0] ?? "").trim(),
@@ -191,6 +225,48 @@ async function fetchFromOpenSky(): Promise<AircraftRecord[]> {
       source: "opensky" as const,
       timestamp: s[3] ? new Date((s[3] as number) * 1000).toISOString() : now,
     }))
+}
+
+/** Community ADS-B point feed (adsb.lol). Keyless. Regional bbox only. */
+async function fetchFromADSBLolPoint(query?: MoverQuery): Promise<AircraftRecord[]> {
+  if (!bboxFitsPointBackup(query?.bbox)) {
+    throw new Error("adsb.lol point skipped: bbox too large or missing")
+  }
+  const { lat, lon } = bboxCenter(query.bbox)
+  const dist = bboxRadiusNm(query.bbox)
+  const url = `https://api.adsb.lol/v2/lat/${lat.toFixed(4)}/lon/${lon.toFixed(4)}/dist/${dist}`
+  const res = await fetch(url, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(8_000),
+    headers: { Accept: "application/json", "User-Agent": CREP_OSINT_UA },
+  })
+  if (!res.ok) throw new Error(`adsb.lol HTTP ${res.status}`)
+  const data = await res.json()
+  const aircraft: any[] = data.ac ?? data.aircraft ?? []
+  return aircraft
+    .filter((a) => a.lat != null && a.lon != null && inBbox(parseFloat(a.lat), parseFloat(a.lon), query?.bbox))
+    .map((a) => mapAdsbStyleAircraft(a, "adsb.lol"))
+}
+
+/** Community ADS-B point feed (opendata.adsb.fi). Keyless. Regional bbox only. */
+async function fetchFromADSBFiPoint(query?: MoverQuery): Promise<AircraftRecord[]> {
+  if (!bboxFitsPointBackup(query?.bbox)) {
+    throw new Error("adsb.fi point skipped: bbox too large or missing")
+  }
+  const { lat, lon } = bboxCenter(query.bbox)
+  const dist = bboxRadiusNm(query.bbox)
+  const url = `https://opendata.adsb.fi/api/v2/lat/${lat.toFixed(4)}/lon/${lon.toFixed(4)}/dist/${dist}`
+  const res = await fetch(url, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(8_000),
+    headers: { Accept: "application/json", "User-Agent": CREP_OSINT_UA },
+  })
+  if (!res.ok) throw new Error(`adsb.fi HTTP ${res.status}`)
+  const data = await res.json()
+  const aircraft: any[] = data.ac ?? data.aircraft ?? []
+  return aircraft
+    .filter((a) => a.lat != null && a.lon != null && inBbox(parseFloat(a.lat), parseFloat(a.lon), query?.bbox))
+    .map((a) => mapAdsbStyleAircraft(a, "adsb.fi"))
 }
 
 /**
@@ -380,65 +456,44 @@ export interface AircraftRegistryResult {
   sources: Record<string, number>
   totalBeforeDedup: number
   fetchedAt: string
+  usedSource: string | null
+  failedUpstreams: string[]
+  attempts: UpstreamAttempt[]
 }
 
 /**
  * Fetch aircraft from ALL available sources in parallel, deduplicate by ICAO
  * hex code, and return the combined set.
  */
-export async function fetchAllAircraft(): Promise<AircraftRecord[]> {
-  const result = await fetchAllAircraftWithMeta()
+export async function fetchAllAircraft(query?: MoverQuery): Promise<AircraftRecord[]> {
+  const result = await fetchAllAircraftWithMeta(query)
   return result.aircraft
 }
 
 /**
- * Same as fetchAllAircraft but includes per-source counts and metadata.
+ * Sequential ADS-B failover (OpenSky → adsb.lol point → adsb.fi point → mil/ladd).
+ * No invented tracks. Empty + failedUpstreams when every live source fails.
  */
-export async function fetchAllAircraftWithMeta(): Promise<AircraftRegistryResult> {
-  const sourceFetchers: Array<{ name: string; fn: () => Promise<AircraftRecord[]> }> = [
-    { name: "flightradar24", fn: fetchFromFlightRadar24 },
-    { name: "mindex", fn: fetchFromMINDEX },
-    { name: "opensky", fn: fetchFromOpenSky },
+export async function fetchAllAircraftWithMeta(query?: MoverQuery): Promise<AircraftRegistryResult> {
+  const limit = query?.limit && query.limit > 0 ? Math.min(query.limit, AIRCRAFT_MAX_FEATURES) : AIRCRAFT_MAX_FEATURES
+
+  const live = await firstNonEmpty<AircraftRecord>([
+    { name: "opensky", fn: () => fetchFromOpenSky(query) },
+    { name: "adsb.lol", fn: () => fetchFromADSBLolPoint(query) },
+    { name: "adsb.fi", fn: () => fetchFromADSBFiPoint(query) },
+    { name: "adsb.lol-mil", fn: fetchFromADSBLol },
     { name: "adsbexchange", fn: fetchFromADSBExchange },
-    { name: "adsb.lol", fn: fetchFromADSBLol },
-  ]
+    { name: "mindex", fn: fetchFromMINDEX },
+    { name: "flightradar24", fn: fetchFromFlightRadar24 },
+  ])
 
-  const results = await Promise.allSettled(
-    sourceFetchers.map(async ({ name, fn }): Promise<SourceResult> => {
-      const start = Date.now()
-      try {
-        const fetched = await fn()
-        const aircraft = Array.isArray(fetched) ? fetched : []
-        const dur = Date.now() - start
-        if (aircraft.length > 0) {
-          console.log(`[AircraftRegistry] ${name}: ${aircraft.length} aircraft (${dur}ms)`)
-        }
-        return { source: name, aircraft, durationMs: dur }
-      } catch (err) {
-        const dur = Date.now() - start
-        logMovingRegistryDebug(`[AircraftRegistry] ${name} failed (${dur}ms):`, (err as Error).message)
-        return { source: name, aircraft: [], error: (err as Error).message, durationMs: dur }
-      }
-    })
-  )
-
-  const allAircraft: AircraftRecord[] = []
+  const inView = live.rows.filter((a) => inBbox(a.lat, a.lng, query?.bbox) && !(a.lat === 0 && a.lng === 0))
+  const deduplicated = capRows(deduplicateByICAO(inView), limit)
   const sourceCounts: Record<string, number> = {}
-
-  for (const r of results) {
-    if (r.status === "fulfilled") {
-      allAircraft.push(...r.value.aircraft)
-      sourceCounts[r.value.source] = r.value.aircraft.length
-    }
-  }
-
-  const deduplicated = deduplicateByICAO(allAircraft)
+  for (const attempt of live.attempts) sourceCounts[attempt.name] = attempt.count
 
   console.log(
-    `[AircraftRegistry] Combined: ${allAircraft.length} raw -> ${deduplicated.length} unique ICAO from ${Object.entries(sourceCounts)
-      .filter(([, c]) => c > 0)
-      .map(([s, c]) => `${s}(${c})`)
-      .join(", ") || "no sources"}`
+    `[AircraftRegistry] failover used=${live.used || "none"} raw=${live.rows.length} unique=${deduplicated.length} failed=${failedUpstreamNames(live.attempts).join(",") || "none"}`
   )
 
   // Apr 20, 2026: fire-and-forget warm MINDEX crep.aircraft_live with this
@@ -481,7 +536,10 @@ export async function fetchAllAircraftWithMeta(): Promise<AircraftRegistryResult
   return {
     aircraft: deduplicated,
     sources: sourceCounts,
-    totalBeforeDedup: allAircraft.length,
+    totalBeforeDedup: live.rows.length,
     fetchedAt: new Date().toISOString(),
+    usedSource: live.used,
+    failedUpstreams: failedUpstreamNames(live.attempts),
+    attempts: live.attempts,
   }
 }

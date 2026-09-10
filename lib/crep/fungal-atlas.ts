@@ -1129,9 +1129,12 @@ function valueAt(cache: AtlasCache, lat: number, lng: number, layer: FungalAtlas
 }
 
 function fungalTileSize(z: number, layer: FungalAtlasLayer): number {
+  // AM/ECM SPUN rasters declare tileSize 512. Generating 96px at globe zoom
+  // stretches into a blurry first paint. Match native tile size so first frame is sharp.
+  if (layer === "am" || layer === "ecm") return 512
   if (z < 5) return 96
   if (z < 8) return 160
-  if (z < 9) return layer === "mycelium" || layer === "am" || layer === "ecm" ? 224 : 192
+  if (z < 9) return layer === "mycelium" ? 224 : 192
   return 256
 }
 

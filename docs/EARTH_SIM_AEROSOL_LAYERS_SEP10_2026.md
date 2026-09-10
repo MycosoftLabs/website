@@ -10,7 +10,7 @@
 | Filter | Layer id | Renderer | Truth |
 |---|---|---|---|
 | Particulates (PM) | `aerosolParticulate` | `AerosolParticulateLayer` | Live MINDEX AQ features that explicitly name PM |
-| Modeled spore dispersal | `aerosolModeledDispersal` | `SporeDispersalLayer` | Earth-2 modeled; empty if unbound |
+| Modeled spore dispersal | `aerosolModeledDispersal` | `SporeDispersalLayer` | Earth-2 modeled; empty / NOT_SUPPLIED when the BFF has no zones |
 | Wind | `aerosolWind` | `WindVectorLayer` | Earth-2 u10/v10 |
 | Air quality | `mindexAirQuality` / `liveAqi` | existing | Already on Earth Sim |
 | FIRMS fire | `mindexFirms` | existing | Already on Earth Sim |
