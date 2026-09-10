@@ -25,7 +25,17 @@ async function itdxGet(path: string, search = "") {
       : process.env.ITDX_BACKEND_URL
   )?.trim()
   const token = process.env.ITDX_BACKEND_TOKEN?.trim()
-  if (!origin || !token) return { ok: false, status: 503, data: { error: "ITDX backend is not configured" } }
+  if (!origin || !token) {
+    return {
+      ok: false,
+      status: 200,
+      data: {
+        qualification: "NOT_SUPPLIED",
+        connection_status: "NOT_SUPPLIED",
+        note: "Optional 8765 lab is unbound. Earth Sim cites MAS 188 + MINDEX 189. Not a missing owner env.",
+      },
+    }
+  }
   const response = await fetch(new URL(allowed + search, origin), {
     headers: { Authorization: "Bearer " + token },
     cache: "no-store",

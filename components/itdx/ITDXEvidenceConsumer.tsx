@@ -104,7 +104,8 @@ export default function ITDXEvidenceConsumer() {
     return () => controller.abort()
   }, [appId, context.runId, context.datasetId, context.documentId, context.revision])
 
-  if (!appId) return null
+  const onEarthSim = (pathname ?? "").startsWith("/fusarium/earth-simulator")
+  if (!appId || !onEarthSim) return null
 
   return (
     <aside className={styles.strip} data-testid="itdx-evidence-consumer" data-itdx-app={appId} aria-label="ITDX shared evidence">

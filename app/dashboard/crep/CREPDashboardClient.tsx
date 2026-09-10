@@ -8061,7 +8061,7 @@ export default function CREPDashboardPage({
   const isEarthSimulatorRoute = isEarthSimulatorPath();
   const [isFusariumEarthMount, setIsFusariumEarthMount] = useState(false);
   useEffect(() => {
-    setIsFusariumEarthMount(window.location.pathname.includes("/fusarium/"));
+    setIsFusariumEarthMount(window.location.pathname.includes("/fusarium/earth-simulator"));
   }, []);
   const [earthSimViewportPerfClass, setEarthSimViewportPerfClass] = useState<"desktop" | "tablet" | "phone">(
     () => (isEarthSimulatorPath() ? getEarthSimViewportPerfClass() : "desktop"),

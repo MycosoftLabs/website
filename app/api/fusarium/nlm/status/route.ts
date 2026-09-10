@@ -5,7 +5,12 @@ import { FUSARIUM_NLM_STATUS_SCHEMA, normalizeNlmTrainingState, normalizeProvide
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-const NLM_BASE_URL = (process.env.NLM_API_URL || process.env.NLM_API_BASE_URL || "http://192.168.0.188:8200").replace(/\/$/, "")
+const NLM_BASE_URL = (
+  process.env.MAS_API_URL ||
+  process.env.NEXT_PUBLIC_MAS_API_URL ||
+  process.env.NLM_API_URL ||
+  "http://192.168.0.188:8001"
+).replace(/\/$/, "")
 
 async function readJson(path: string, timeoutMs = 10000): Promise<{ ok: boolean; status: number | null; data: any; error: string | null; latencyMs: number }> {
   const started = Date.now()
@@ -26,11 +31,18 @@ export async function GET() {
   // The deployed NLM service is resource-constrained and may serialize requests.
   // Keep these probes sequential so this read-only dashboard does not create its
   // own false timeout by hitting health, readiness, and training concurrently.
-  const health = await readJson("/health")
-  const ready = await readJson("/ready")
-  const training = await readJson("/api/training/status", 12000)
-  const latest = (training.data?.latest ?? null) as NlmTrainingLatest | null
-  const engineState = health.ok && String(health.data?.status ?? "").toLowerCase() === "healthy" ? "available" : health.ok || ready.ok || training.ok ? "degraded" : "unavailable"
+  const health = await readJson("/api/nlm/health")
+  const ready = await readJson("/api/nlm/runtime")
+  const training = await readJson("/api/nlm/training/status", 12000)
+  const latest = (training.data?.latest ?? training.data ?? null) as NlmTrainingLatest | null
+  const forecastQualified = Boolean(health.data?.forecast_qualified)
+  const engineState = health.ok && Boolean(health.data?.model_loaded)
+    ? forecastQualified
+      ? "available"
+      : "degraded"
+    : health.ok || ready.ok
+      ? "degraded"
+      : "unavailable"
 
   return NextResponse.json({
     schema: FUSARIUM_NLM_STATUS_SCHEMA,
@@ -63,11 +75,11 @@ export async function GET() {
     },
     capabilities: ["environmental-process", "predict", "recommend", "verified-telemetry-ingest", "translate", "nmf-create", "token-vocabulary", "fruiting-prediction", "knowledge-query", "earth-search", "myca-ask", "crep-layers", "earth-stats", "sync"],
     provenance: {
-      provider: "Mycosoft NLM service",
-      healthPath: "/health",
-      readinessPath: "/ready",
-      trainingPath: "/api/training/status",
-      note: "Capability names come from the deployed NLM v0.1.0 OpenAPI inspected during the bounded recovery probe. This route performs GET status reads only.",
+      provider: "MAS scientific NLM :8001",
+      healthPath: "/api/nlm/health",
+      readinessPath: "/api/nlm/runtime",
+      trainingPath: "/api/nlm/training/status",
+      note: "Points at MAS FormSpace NLM, not standalone :8200 and not Ollama :11434. forecast_qualified stays false for the archived SYNTHETIC_TEST checkpoint.",
     },
   }, { headers: { "Cache-Control": "no-store, max-age=0" } })
 }

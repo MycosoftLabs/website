@@ -203,8 +203,8 @@ export function ITDXSituationPanel() {
         )}
       </ul>
       {data?.google?.configured ? <ITDXGoogleTrafficOverlay /> : (
-        <p className={styles.warn} data-testid="itdx-google-missing">
-          {data?.google?.reason || data?.google?.note || "google_maps_key_missing. Traffic is not faked."}
+        <p className={styles.meta} data-testid="itdx-google-missing">
+          {data?.google?.reason || data?.google?.note || "Google Maps traffic NOT_SUPPLIED. Traffic is not faked."}
         </p>
       )}
       {chips.length > 0 ? (

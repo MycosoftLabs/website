@@ -1,6 +1,7 @@
 import { CrepResourceHints } from "@/components/crep/crep-resource-hints"
 import CREPDashboardLoader from "@/app/dashboard/crep/CREPDashboardLoader"
 import EarthSimulatorViewportLock from "@/app/natureos/earth-simulator/EarthSimulatorViewportLock"
+import { ITDXEarthSimOverlay } from "@/components/itdx/ITDXEarthSimOverlay"
 
 /**
  * /fusarium/earth-simulator — the counterpart of /natureos/earth-simulator.
@@ -35,6 +36,7 @@ export default function FusariumEarthSimulatorPage() {
         homeLabel="FUSARIUM"
         earthBakedNatureMinZoom={5}
       />
+      <ITDXEarthSimOverlay />
     </EarthSimulatorViewportLock>
   )
 }
