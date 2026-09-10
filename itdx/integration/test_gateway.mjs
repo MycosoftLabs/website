@@ -1,5 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
 import {allowedPath,isFormspacePath,rewriteAsset,limitedBody,GATEWAY_BASE} from '../../lib/itdx/gateway.mjs';
+import {readLabStatic,staticLabBootstrap,staticComputeDenied} from '../../lib/itdx/static-lab.mjs';
 test('FormSpace observatory paths are allowlisted and classified',()=>{
  assert.equal(allowedPath(['formspace.html'],'GET'),'/formspace.html');
  assert.equal(allowedPath(['api','formspace'],'GET'),'/api/formspace');
@@ -28,4 +29,21 @@ test('bounded gateway body reader accepts exact limits and rejects oversized str
  assert.equal((await limitedBody(new Response('abcd'),4)).length,4);
  await assert.rejects(()=>limitedBody(new Response('abcde'),4));
  await assert.rejects(()=>limitedBody(new Response('a',{headers:{'content-length':'999'}}),4));
+});
+test('packaged lab UI is the Algorithm Lab, not a NOT_SUPPLIED stub',()=>{
+ const file=readLabStatic('/index.html');
+ assert.ok(file);
+ const html=new TextDecoder().decode(file.bytes);
+ assert.match(html,/ITDX26 Algorithm Lab/);
+ assert.match(html,/Loading Mycosoft Algorithm Lab/);
+ assert.equal(html.includes('ITDX lab NOT_SUPPLIED'),false);
+ const mounted=rewriteAsset(html);
+ assert.ok(mounted.includes(GATEWAY_BASE+'/styles.css'));
+ assert.ok(mounted.includes(GATEWAY_BASE+'/app.js'));
+ const bootstrap=staticLabBootstrap();
+ assert.equal(bootstrap.version,'1.4.0');
+ assert.equal(bootstrap.lab_ui,'SUPPLIED');
+ assert.equal(bootstrap.optional_compute,'NOT_SUPPLIED');
+ assert.ok(Array.isArray(bootstrap.documents)&&bootstrap.documents.length>0);
+ assert.equal(staticComputeDenied().connection_status,'NOT_SUPPLIED');
 });

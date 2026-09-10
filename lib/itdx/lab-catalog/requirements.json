@@ -1,0 +1,93 @@
+[
+  {
+    "id": "R-SCOPE",
+    "name": "Four selected tasks",
+    "source": "Task Selection Memo, 2026-09-01",
+    "authority": "Mycosoft plan",
+    "check": "tasks"
+  },
+  {
+    "id": "R-BASE",
+    "name": "Matched baselines and measured task metrics",
+    "source": "Mathematical Demonstration Plan",
+    "authority": "Mycosoft plan",
+    "check": "metrics"
+  },
+  {
+    "id": "R-INTERACTION",
+    "name": "Component interaction and overhead",
+    "source": "Mathematical Demonstration Plan",
+    "authority": "Mycosoft plan",
+    "check": "interaction"
+  },
+  {
+    "id": "R-SPLITS",
+    "name": "Frozen data, train/validation/test boundaries",
+    "source": "Evaluation Harness",
+    "authority": "Mycosoft plan",
+    "check": "splits"
+  },
+  {
+    "id": "R-SEEDS",
+    "name": "Five-seed comparison",
+    "source": "Metrics One-Pager",
+    "authority": "Mycosoft plan",
+    "check": "benchmark"
+  },
+  {
+    "id": "R-PROOF",
+    "name": "Integrity, signatures and independent verification",
+    "source": "Evaluation Harness / DIRTNet addendum",
+    "authority": "Mycosoft plan",
+    "check": "proof"
+  },
+  {
+    "id": "R-FAULT",
+    "name": "Scenario stress tests and explicit failure modes",
+    "source": "Mathematical Demonstration Plan / FormSpace overlay",
+    "authority": "Mycosoft plan",
+    "check": "suite"
+  },
+  {
+    "id": "R-TIMING",
+    "name": "90/120/240 s task caps; integrated 420 s",
+    "source": "Metrics One-Pager",
+    "authority": "Mycosoft targets, not confirmed Army thresholds",
+    "check": "timing"
+  },
+  {
+    "id": "R-OFFLINE",
+    "name": "Local replay and export",
+    "source": "Evaluation Harness",
+    "authority": "Mycosoft plan",
+    "check": "offline"
+  },
+  {
+    "id": "R-SME",
+    "name": "SME ratings and adjudication",
+    "source": "Metrics / task sheets",
+    "authority": "Evaluator input required",
+    "check": "sme"
+  },
+  {
+    "id": "R-AGENDA",
+    "name": "Final Army scenario, rubric and agenda",
+    "source": "Not supplied in reviewed attachments",
+    "authority": "Requires government confirmation",
+    "check": "manual"
+  },
+  {
+    "id": "R-FIELD",
+    "name": "Accepted physical field evidence",
+    "source": "Coastal Sentinel acceptance gates",
+    "authority": "Requires real accepted records",
+    "check": "manual"
+  },
+  {
+    "id": "R-LARGE",
+    "name": "Full SSM/GNN/LLM checkpoints and deployment qualification",
+    "source": "NLM change-history / Known Limitations",
+    "authority": "Requires supplied trained services/checkpoints",
+    "check": "integrations"
+  }
+]

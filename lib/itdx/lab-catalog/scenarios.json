@@ -1,0 +1,371 @@
+[
+  {
+    "id": "clean",
+    "family": "Reference",
+    "name": "Clean coastal replay",
+    "expected": "All four tasks on a reproducible synthetic environmental dataset.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S12-1",
+    "family": "Core / Pattern",
+    "name": "Duplicate reporting burst",
+    "expected": "Deduplicate identical observations; do not count copies as independent sources.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S12-2",
+    "family": "Core / Pattern",
+    "name": "Clock jitter and ingestion delay",
+    "expected": "Preserve observation/ingestion time and report late or uncertain samples.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S12-3",
+    "family": "Core / Pattern",
+    "name": "Ontology remapping",
+    "expected": "Flag unknown schema/ontology and exclude unsupported interpretation.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S12-4",
+    "family": "Core / Pattern",
+    "name": "Missing geography",
+    "expected": "Retain signals while omitting unsupported map points.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S12-5",
+    "family": "Core / Pattern",
+    "name": "Novel source aliases",
+    "expected": "Keep unknown identities separate until an alias mapping is supplied.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S13-1",
+    "family": "Core / Link",
+    "name": "Same-name entities",
+    "expected": "Stable IDs prevent two same-name entities from being merged.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S13-2",
+    "family": "Core / Link",
+    "name": "Hub-source removal",
+    "expected": "Recompute affected links and expose lost evidence.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S13-3",
+    "family": "Core / Link",
+    "name": "Relation imbalance",
+    "expected": "Retain per-relation counts and disclose a dominant relation.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S13-4",
+    "family": "Core / Link",
+    "name": "Inverse-edge leakage trap",
+    "expected": "Audit overlapping/reversed train/test edges; invalidate contaminated evaluation.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S13-5",
+    "family": "Core / Link",
+    "name": "Type-invalid negatives",
+    "expected": "Reject type-invalid inferred edges and report candidate exclusions.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S8-1",
+    "family": "Core / Options",
+    "name": "Contradictory constraints",
+    "expected": "Return gated or rejected options when the allowed budget is impossible.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S8-2",
+    "family": "Core / Options",
+    "name": "Instructions embedded in evidence",
+    "expected": "Keep source text as data; the local policy remains unchanged.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S8-3",
+    "family": "Core / Options",
+    "name": "Incomplete scenario",
+    "expected": "Expose missing goal/resource fields and gate the output.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S8-4",
+    "family": "Core / Options",
+    "name": "Proposal mode collapse",
+    "expected": "Detect duplicate option envelopes and retain reviewer dissent.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S14-1",
+    "family": "Core / Map",
+    "name": "Mixed coordinate systems",
+    "expected": "Transform supported EPSG:3857 points or exclude unsupported CRS.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S14-2",
+    "family": "Core / Map",
+    "name": "Stale source layer",
+    "expected": "Show source age relative to the replay cutoff and stale status.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "S14-3",
+    "family": "Core / Map",
+    "name": "Dense map labels",
+    "expected": "Stable grouping and accessible marker details preserve readability.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "F-1",
+    "family": "Field ablation",
+    "name": "Remove FCI",
+    "expected": "Remove bioelectric observations and compare held-out quality and missingness.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "F-2",
+    "family": "Field ablation",
+    "name": "Remove Agaric imagery",
+    "expected": "Remove the imagery source and inspect lost supporting paths.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "F-3",
+    "family": "Field ablation",
+    "name": "Remove Psathyrella acoustics",
+    "expected": "Remove acoustic evidence and inspect changed support.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "F-4",
+    "family": "Field ablation",
+    "name": "250 ms clock offset",
+    "expected": "Apply a declared offset and retain a clock-quality flag.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "F-5",
+    "family": "Field ablation",
+    "name": "Delay 5% of packets",
+    "expected": "Delay exactly a seeded 5% sample by 30 seconds; this is delay, not loss.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "F-6",
+    "family": "Field ablation",
+    "name": "Linear calibration drift",
+    "expected": "Apply a drift to one source; report detection degradation honestly.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "F-7",
+    "family": "Field ablation",
+    "name": "Central raw versus edge summaries",
+    "expected": "Compare serialized payload sizes; this measures software payloads, not RF performance.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "D-1",
+    "family": "DIRTNet",
+    "name": "Six-hour partition",
+    "expected": "Simulate contact loss, preserve recorded queued events, then reconcile.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "software_simulation"
+  },
+  {
+    "id": "D-2",
+    "family": "DIRTNet",
+    "name": "Duplicate replay",
+    "expected": "Authenticated store-and-forward accepts each event identity once.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "software_simulation"
+  },
+  {
+    "id": "D-3",
+    "family": "DIRTNet",
+    "name": "Forged authenticator",
+    "expected": "Reject a modified record with the original HMAC authenticator.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "software_simulation"
+  },
+  {
+    "id": "D-4",
+    "family": "DIRTNet",
+    "name": "Identity equivocation",
+    "expected": "Quarantine conflicting payloads at one identity and sequence.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "software_simulation"
+  },
+  {
+    "id": "D-5",
+    "family": "DIRTNet",
+    "name": "Stale model version",
+    "expected": "Quarantine a model version outside the configured allowlist.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "software_simulation"
+  },
+  {
+    "id": "D-6",
+    "family": "DIRTNet",
+    "name": "Poisoned update candidate",
+    "expected": "Exercise bounded update validation only; this is not federated training.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "software_simulation"
+  },
+  {
+    "id": "D-7",
+    "family": "DIRTNet",
+    "name": "Gateway interruption",
+    "expected": "Queue recorded evidence and resume deterministic reconciliation.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "software_simulation"
+  },
+  {
+    "id": "D-8",
+    "family": "DIRTNet",
+    "name": "90% bandwidth reduction",
+    "expected": "Use a simulated byte budget and report additional queue clearance time.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "software_simulation"
+  },
+  {
+    "id": "D-9",
+    "family": "DIRTNet",
+    "name": "Clock spoofing",
+    "expected": "Quarantine a record outside the allowed timestamp window.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "software_simulation"
+  },
+  {
+    "id": "D-10",
+    "family": "DIRTNet",
+    "name": "Conflicting sensors",
+    "expected": "Preserve counterevidence and show lower independent corroboration.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "software_simulation"
+  },
+  {
+    "id": "M-1",
+    "family": "Pattern motif",
+    "name": "Rate escalation",
+    "expected": "Increase injected event prevalence while preserving source mix.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "M-2",
+    "family": "Pattern motif",
+    "name": "Source-role shift",
+    "expected": "Move event-bearing sources without changing the sample count.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "M-3",
+    "family": "Pattern motif",
+    "name": "Spatial displacement",
+    "expected": "Move the synthetic event footprint; retain coordinate provenance.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "M-4",
+    "family": "Pattern motif",
+    "name": "Periodicity disruption",
+    "expected": "Break a background periodic component and inspect response.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "M-5",
+    "family": "Pattern motif",
+    "name": "Coordinated multi-source motif",
+    "expected": "Correlate a controlled signal change across independent sources.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  },
+  {
+    "id": "M-6",
+    "family": "Pattern motif",
+    "name": "Source-volume false-positive trap",
+    "expected": "Replay copies without introducing a new underlying event.",
+    "source": "Mycosoft supplied ITDX26 plans",
+    "authority": "internal_preparation",
+    "execution": "synthetic_injection"
+  }
+]

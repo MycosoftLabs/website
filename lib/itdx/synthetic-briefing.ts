@@ -260,5 +260,6 @@ export function wekaLine(receipt: WekaWalkthrough | null, error: string | null) 
 
 export function defaultOpenSections(variant: ItdxBriefingVariant): ItdxBriefingSectionId[] {
   if (variant === "overlay") return ["ao", "pirs", "playback", "models"]
+  if (variant === "workspace") return []
   return ["ao", "pirs", "playback", "models", "movement", "traffic"]
 }

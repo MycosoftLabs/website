@@ -1,0 +1,21 @@
+{
+  "goal": "Review a coastal environmental change and preserve evidence.",
+  "max_cost": 100.0,
+  "max_duration_minutes": 60,
+  "min_sources": 2,
+  "min_modalities": 2,
+  "uncertainty_limit": 0.65,
+  "max_evidence_age_seconds": 300,
+  "available_resources": [
+    "analyst",
+    "sampling_team",
+    "network_operator"
+  ],
+  "allowed_actions": [
+    "observe",
+    "request_sample",
+    "restore_link"
+  ],
+  "human_authority": "Analyst review only",
+  "max_revisions": 2
+}

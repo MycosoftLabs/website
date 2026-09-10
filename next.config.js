@@ -72,6 +72,12 @@ const nextConfig = {
     parallelServerCompiles: false,
     parallelServerBuildTraces: false,
   },
+  outputFileTracingIncludes: {
+    '/api/fusarium/itdx/bridge/**': [
+      './lib/itdx/lab-web/**/*',
+      './lib/itdx/lab-catalog/**/*',
+    ],
+  },
   // Increase timeout for "Collecting page data" (fixes build failures on large apps)
   staticPageGenerationTimeout: 120,
   // Configure webpack for Cesium

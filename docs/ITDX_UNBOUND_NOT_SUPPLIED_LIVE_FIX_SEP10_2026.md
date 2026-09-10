@@ -21,8 +21,8 @@ Earth-2 **249** and Gemini stay honest-empty / unused. They are not a reason to 
 
 - Badge and workspace copy say **ITDX v1.4**.
 - Tabs (lab, walkthrough, sources, ranking, frames, tests, exports, services, replay, apps) stay mounted regardless of 8765.
-- Optional lab card says **optional algorithm lab NOT_SUPPLIED**, not “ITDX unavailable.”
-- Header distinguishes v1.4 SUPPLIED cite path vs optional lab.
+- Packaged Algorithm Lab iframe always mounts. Optional 8765/8766 is a chip (`optional 8765 compute NOT_SUPPLIED`), not a wall.
+- Header distinguishes v1.4 SUPPLIED application vs optional compute.
 
 ## Verify on 3010
 

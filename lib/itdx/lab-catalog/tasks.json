@@ -1,0 +1,66 @@
+[
+  {
+    "id": "12",
+    "name": "Pattern analysis",
+    "system": "NLM",
+    "question": "What changed, when, and with what evidence?",
+    "budget_s": 90,
+    "algorithm": "Native NatureEmbeddingEncoder + fitted temporal logistic readout",
+    "baseline": "Robust median/MAD detector and native encoder anomaly score",
+    "product": "Ranked observations, calibration, held-out predictions, Form States",
+    "steps": [
+      "Inspect data origin, capture splits and missingness.",
+      "Compare the baseline, native encoder and temporal readout on held-out observations.",
+      "Open an observation to inspect its inputs, prediction and inclusion proof.",
+      "Inject drift or duplicate reporting and inspect the actual change."
+    ]
+  },
+  {
+    "id": "13",
+    "name": "Link analysis",
+    "system": "FUSARIUM",
+    "question": "What is connected, and what supports the relationship?",
+    "budget_s": 120,
+    "algorithm": "Typed evidence graph with source-independent temporal corroboration",
+    "baseline": "Spatial proximity on the same candidate pairs",
+    "product": "Observed and inferred edges, pair scores, evidence paths",
+    "steps": [
+      "Distinguish recorded source edges from inferred corroboration.",
+      "Inspect the same held-out candidate pairs for both scorers.",
+      "Remove a source and inspect the resulting evidence gap.",
+      "Export the graph, pair scores and evidence references."
+    ]
+  },
+  {
+    "id": "8",
+    "name": "Courses of action",
+    "system": "MYCA + AVANI",
+    "question": "Which options satisfy the declared constraints?",
+    "budget_s": 240,
+    "algorithm": "Bounded deterministic seven-role review with native AVANI; optional MYCA service consultation",
+    "baseline": "Ungoverned deterministic option proposals",
+    "product": "Three distinct option envelopes, critique trace and hard-check dispositions",
+    "steps": [
+      "Review the analyst goal, available resources and constraints.",
+      "Compare proposals with reviewed options and visible dissent.",
+      "Inspect native AVANI verdicts and the additional hard envelope checks.",
+      "Record an SME rating or abstention; no actuator command is issued."
+    ]
+  },
+  {
+    "id": "14",
+    "name": "Map product",
+    "system": "Earth Simulator + CREP",
+    "question": "Where and when does the evidence apply?",
+    "budget_s": 5,
+    "algorithm": "Native CREPMapBridge and Earth Simulator grid functions; offline coordinate rendering",
+    "baseline": "Observed-data-only projection",
+    "product": "GeoJSON, interactive map, legend, time and source labels",
+    "steps": [
+      "Inspect the coordinate system, time reference and source freshness.",
+      "Select a marker and follow its evidence.",
+      "Filter stale or uncertain estimates and compare observed-only mode.",
+      "Export the same GeoJSON consumed by the renderer."
+    ]
+  }
+]
