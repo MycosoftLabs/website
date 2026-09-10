@@ -1,0 +1,89 @@
+{
+  "index": {
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "text_len": 83,
+    "white": false,
+    "heads": [],
+    "has_walkthrough": false
+  },
+  "formspace_html": {
+    "status": 200,
+    "bytes": 1752
+  },
+  "formspace_api": {
+    "status": 404,
+    "error": "HTTPError"
+  },
+  "bootstrap": {
+    "status": 200,
+    "version": "1.3.0",
+    "documents": 40,
+    "tasks": [
+      {
+        "algorithm": "Native NatureEmbeddingEncoder + fitted temporal logistic readout",
+        "baseline": "Robust median/MAD detector and native encoder anomaly score",
+        "budget_s": 90,
+        "id": "12",
+        "name": "Pattern analysis",
+        "product": "Ranked observations, calibration, held-out predictions, Form States",
+        "question": "What changed, when, and with what evidence?",
+        "steps": [
+          "Inspect data origin, capture splits and missingness.",
+          "Compare the baseline, native encoder and temporal readout on held-out observations.",
+          "Open an observation to inspect its inputs, prediction and inclusion proof.",
+          "Inject drift or duplicate reporting and inspect the actual change."
+        ],
+        "system": "NLM"
+      },
+      {
+        "algorithm": "Typed evidence graph with source-independent temporal corroboration",
+        "baseline": "Spatial proximity on the same candidate pairs",
+        "budget_s": 120,
+        "id": "13",
+        "name": "Link analysis",
+        "product": "Observed and inferred edges, pair scores, evidence paths",
+        "question": "What is connected, and what supports the relationship?",
+        "steps": [
+          "Distinguish recorded source edges from inferred corroboration.",
+          "Inspect the same held-out candidate pairs for both scorers.",
+          "Remove a source and inspect the resulting evidence gap.",
+          "Export the graph, pair scores and evidence references."
+        ],
+        "system": "FUSARIUM"
+      },
+      {
+        "algorithm": "Bounded deterministic seven-role review with native AVANI; optional MYCA service consultation",
+        "baseline": "Ungoverned deterministic option proposals",
+        "budget_s": 240,
+        "id": "8",
+        "name": "Courses of action",
+        "product": "Three distinct option envelopes, critique trace and hard-check dispositions",
+        "question": "Which options satisfy the declared constraints?",
+        "steps": [
+          "Review the analyst goal, available resources and constraints.",
+          "Compare proposals with reviewed options and visible dissent.",
+          "Inspect native AVANI verdicts and the additional hard envelope checks.",
+          "Record an SME rating or abstention; no actuator command is issued."
+        ],
+        "system": "MYCA + AVANI"
+      },
+      {
+        "algorithm": "Native CREPMapBridge and Earth Simulator grid functions; offline coordinate rendering",
+        "baseline": "Observed-data-only projection",
+        "budget_s": 5,
+        "id": "14",
+        "name": "Map product",
+        "product": "GeoJSON, interactive map, legend, time and source labels",
+        "question": "Where and when does the evidence apply?",
+        "steps": [
+          "Inspect the coordinate system, time reference and source freshness.",
+          "Select a marker and follow its evidence.",
+          "Filter stale or uncertain estimates and compare observed-only mode.",
+          "Export the same GeoJSON consumed by the renderer."
+        ],
+        "system": "Earth Simulator + CREP"
+      }
+    ]
+  }
+}

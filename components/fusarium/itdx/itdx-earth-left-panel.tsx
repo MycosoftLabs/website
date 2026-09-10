@@ -14,6 +14,8 @@ import { ITDXWekaWalkthrough } from "@/components/itdx/ITDXWekaWalkthrough"
 import { LOCAL_DATASET_ID } from "@/lib/itdx/run-narration.mjs"
 import styles from "./itdx-earth-left-panel.module.css"
 
+const LEFT_EXPAND_KEY = "itdx-earth-left-expanded"
+
 const LAYER_ROWS: Array<{ id: ItdxReplayLayerKey | "overlay"; label: string }> = [
   { id: "overlay", label: "Exercise overlay" },
   { id: "assets", label: "Units / assets" },
@@ -34,8 +36,14 @@ export function ItdxEarthLeftPanel() {
   const frame = snapshot(state.index)
   const selected = frame.assets.find((asset) => asset.id === state.selected) ?? frame.assets[0]
   const [logEntries, setLogEntries] = useState<ItdxDemoLogEvent[]>([])
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   useEffect(() => {
+    try {
+      setDetailsOpen(window.sessionStorage.getItem(LEFT_EXPAND_KEY) === "1")
+    } catch {
+      /* default compact */
+    }
     replay.enable(true)
     if (replay.getState().focusRequest === 0) replay.focus()
     try {
@@ -77,8 +85,26 @@ export function ItdxEarthLeftPanel() {
     replay.setLayer(id, !state.layers[id])
   }
 
+  function persistDetails(next: boolean) {
+    setDetailsOpen(next)
+    try {
+      window.sessionStorage.setItem(LEFT_EXPAND_KEY, next ? "1" : "0")
+    } catch {
+      /* collapse still applies this session */
+    }
+  }
+
   return (
     <div className={styles.wrap} data-testid="itdx-left-panel" data-itdx-live="false">
+      <button
+        type="button"
+        className={styles.toggle}
+        aria-expanded={detailsOpen}
+        onClick={() => persistDetails(!detailsOpen)}
+      >
+        <span>ITDX cite panels</span>
+        <span className={detailsOpen ? styles.on : styles.off}>{detailsOpen ? "Collapse" : "Expand"}</span>
+      </button>
       <p className={styles.kicker}>SYNTHETIC · EXERCISE · live=false · replay=true</p>
       <p className={styles.meta}>
         Codex v1.3 fictional replay on the shared CREP globe. Sources stay under{" "}
@@ -158,12 +184,23 @@ export function ItdxEarthLeftPanel() {
         </div>
       </section>
 
-      <ITDXExplanationCards compact />
-      <ITDXWekaWalkthrough compact />
-      <ITDXSituationPanel />
-      <ITDXTruthPanel />
-      <ITDXTask8Panel />
+      {detailsOpen ? (
+        <>
+          <ITDXExplanationCards compact />
+          <ITDXWekaWalkthrough compact />
+          <ITDXSituationPanel />
+          <ITDXTruthPanel />
+          <ITDXTask8Panel />
+        </>
+      ) : (
+        <p className={styles.meta}>
+          Cite panels collapsed so the globe stays usable. Expand for Weka / situation / Task 8.
+          Unbound channels stay NOT_SUPPLIED / UNQUALIFIED.
+        </p>
+      )}
 
+      {detailsOpen ? (
+        <>
       <section aria-labelledby="itdx-earth-insights-h">
         <h3 id="itdx-earth-insights-h" className={styles.h}>
           Insights
@@ -236,6 +273,8 @@ export function ItdxEarthLeftPanel() {
           )}
         </ul>
       </section>
+        </>
+      ) : null}
 
       <Link className={styles.action} href="/fusarium/itdx">
         <span>Open dedicated ITDX application</span>

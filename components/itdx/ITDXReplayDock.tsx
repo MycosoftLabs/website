@@ -11,8 +11,8 @@ export default function ITDXReplayDock(){
  const context=useITDXContext()
  const state=useReplay(),[open,setOpen]=useState(false),pathname=usePathname()
  const frame=snapshot(state.index),asset=frame.assets.find(a=>a.id===state.selected)??frame.assets[0]
- const mapRoute=pathname?.startsWith('/fusarium/earth-simulator')||pathname?.startsWith('/fusarium/crep')
- if(!asset)return null
+ const mapRoute=pathname?.startsWith('/fusarium/earth-simulator')
+ if(!pathname?.startsWith('/fusarium/earth-simulator')||!asset)return null
  return <aside className={styles.dock} aria-label="ITDX fictional replay controls">
    <div className={styles.row}><span className={styles.badge}>ITDX · SYNTHETIC DEMO</span><button onClick={()=>setOpen(!open)} aria-expanded={open}>{open?'Collapse':'Open'}</button></div>
    {open&&<>

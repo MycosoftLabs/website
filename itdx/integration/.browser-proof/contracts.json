@@ -1,0 +1,92 @@
+{
+  "generated": "2026-09-09T16:13:16.363Z",
+  "tree": "website-itdx-codex-v13",
+  "publish": false,
+  "sandbox_deploy": false,
+  "rows": [
+    {
+      "surface": "FormSpace observatory HTML",
+      "bind": "http://127.0.0.1:8766/formspace.html",
+      "verdict": "PASS",
+      "http": 200,
+      "note": "loopback desktop launcher"
+    },
+    {
+      "surface": "FormSpace recorded atlas",
+      "bind": "http://127.0.0.1:8766/api/form-atlas",
+      "verdict": "PASS",
+      "http": 200,
+      "counts": {
+        "form_charts": 3,
+        "form_claims": 3,
+        "form_observations": 1600,
+        "form_relations": 32,
+        "form_states": 1706,
+        "forms": 41
+      },
+      "note": "synthetic recorded pack"
+    },
+    {
+      "surface": "FormSpace recorded run",
+      "bind": "http://127.0.0.1:8766/api/formspace",
+      "verdict": "PASS",
+      "http": 200,
+      "origin": "BUNDLED_RECORDED_RUN",
+      "note": "no mock substitution"
+    },
+    {
+      "surface": "ITDX 8765 unauthenticated health",
+      "bind": "http://127.0.0.1:8765/api/health",
+      "verdict": "PASS",
+      "http": 403,
+      "note": "Bearer required"
+    },
+    {
+      "surface": "ITDX 8765 Bearer health",
+      "bind": "http://127.0.0.1:8765/api/health",
+      "verdict": "PASS",
+      "http": 200,
+      "version": "1.3.0",
+      "transport": "authenticated-service",
+      "note": "token loaded from env, not printed"
+    },
+    {
+      "surface": "MAS orchestrator",
+      "bind": "http://192.168.0.188:8001/health",
+      "verdict": "PASS",
+      "http": 200,
+      "status": "degraded",
+      "note": "real LAN bind"
+    },
+    {
+      "surface": "NLM contract",
+      "bind": "http://192.168.0.188:8001/api/nlm/health",
+      "verdict": "UNQUALIFIED",
+      "http": 200,
+      "model_loaded": false,
+      "note": "weights not loaded ⇒ UNQUALIFIED"
+    },
+    {
+      "surface": "MYCA / AVANI contract",
+      "bind": "http://192.168.0.188:8001/api/avani/health",
+      "verdict": "UNQUALIFIED",
+      "http": 200,
+      "agent": "healthy",
+      "note": "not 7-role Task 8; local FormSpace uses 3 advisory templates"
+    },
+    {
+      "surface": "MINDEX API",
+      "bind": "http://192.168.0.189:8000/health",
+      "verdict": "PASS",
+      "http": 200,
+      "note": "real 189:8000, no mock"
+    },
+    {
+      "surface": "Fusarium ITDX route",
+      "bind": "http://127.0.0.1:3010/fusarium/itdx",
+      "verdict": "PASS",
+      "http": 200,
+      "note": "owner gate expected before browser rehearsal"
+    }
+  ]
+}

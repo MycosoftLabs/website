@@ -1,0 +1,104 @@
+{
+  "date": "2026-09-09",
+  "steps": [
+    {
+      "name": "fs8766-load",
+      "url": "http://127.0.0.1:8766/formspace.html",
+      "status": 200,
+      "text_len": 3939,
+      "white": false
+    },
+    {
+      "name": "tab-atlas",
+      "label": "FormSpace atlas",
+      "pass": true,
+      "hasMath": true,
+      "text_len": 3908,
+      "snippet": "NLM × FORM SPACE Map form. Measure behavior. An experimental mathematical atlas of states, goals, dynamics and persistent capabilities. Each claim stays connected to its observations, protocol and uncertainty. Seed R"
+    },
+    {
+      "name": "tab-overview",
+      "label": "Architecture",
+      "pass": true,
+      "hasMath": true,
+      "text_len": 1964,
+      "snippet": "NLM × FORM SPACE Map form. Measure behavior. An experimental mathematical atlas of states, goals, dynamics and persistent capabilities. Each claim stays connected to its observations, protocol and uncertainty. Seed R"
+    },
+    {
+      "name": "tab-patterns",
+      "label": "12",
+      "pass": true,
+      "hasMath": true,
+      "text_len": 63394,
+      "snippet": "NLM × FORM SPACE Map form. Measure behavior. An experimental mathematical atlas of states, goals, dynamics and persistent capabilities. Each claim stays connected to its observations, protocol and uncertainty. Seed R"
+    },
+    {
+      "name": "tab-links",
+      "label": "13",
+      "pass": true,
+      "hasMath": true,
+      "text_len": 9172,
+      "snippet": "NLM × FORM SPACE Map form. Measure behavior. An experimental mathematical atlas of states, goals, dynamics and persistent capabilities. Each claim stays connected to its observations, protocol and uncertainty. Seed R"
+    },
+    {
+      "name": "tab-options",
+      "label": "8",
+      "pass": true,
+      "hasMath": true,
+      "text_len": 1041,
+      "snippet": "NLM × FORM SPACE Map form. Measure behavior. An experimental mathematical atlas of states, goals, dynamics and persistent capabilities. Each claim stays connected to its observations, protocol and uncertainty. Seed R"
+    },
+    {
+      "name": "tab-map",
+      "label": "14",
+      "pass": true,
+      "hasMath": true,
+      "text_len": 1076,
+      "snippet": "NLM × FORM SPACE Map form. Measure behavior. An experimental mathematical atlas of states, goals, dynamics and persistent capabilities. Each claim stays connected to its observations, protocol and uncertainty. Seed R"
+    },
+    {
+      "name": "tab-behavior",
+      "label": "Behav",
+      "pass": true,
+      "hasMath": true,
+      "text_len": 1631,
+      "snippet": "NLM × FORM SPACE Map form. Measure behavior. An experimental mathematical atlas of states, goals, dynamics and persistent capabilities. Each claim stays connected to its observations, protocol and uncertainty. Seed R"
+    },
+    {
+      "name": "fs8766-root",
+      "url": "http://127.0.0.1:8766/",
+      "status": 200,
+      "text_len": 3687,
+      "white": false
+    },
+    {
+      "name": "8766-walkthrough-anchor",
+      "pass": true,
+      "text": "Skip to application\n◈\nMYCOSOFT\nITDX26 / ALGORITHM LAB\nEVALUATION WORKSPACE\n◫\nOverview\n▷\nGuided walkthrough\n▤\nData & documents\n12\nPattern analysis\n13\nLink analysis\n08\nCourses of action\n14\nEarth Simulat"
+    },
+    {
+      "name": "fs8765-formspace",
+      "url": "http://127.0.0.1:8765/formspace.html",
+      "status": 403,
+      "text_len": 43,
+      "white": false
+    },
+    {
+      "name": "itdx8765-walkthrough",
+      "url": "http://127.0.0.1:8765/index.html#walkthrough",
+      "status": 403,
+      "text_len": 43,
+      "white": false
+    },
+    {
+      "name": "fusarium-itdx-3010",
+      "status": 200,
+      "url": "http://localhost:3010/fusarium/login?redirectTo=%2Ffusarium%2Fitdx",
+      "text_len": 2413,
+      "white": false,
+      "snippet": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\n\nFUSARIUM OPERATOR\n\nOwner sign-in\n\nThis is the Fusarium operational console. Civilian website accounts use mycosoft.com/login. Only the owner session may continue. Google is limited "
+    }
+  ],
+  "white_screens": [],
+  "pass": true
+}

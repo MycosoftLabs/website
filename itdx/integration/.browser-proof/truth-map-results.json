@@ -1,0 +1,43 @@
+{
+  "generated": "2026-09-09T17:51:21.458Z",
+  "steps": [
+    {
+      "name": "truth panel visible",
+      "ok": true,
+      "note": "P(truth) 97.0% P(unsupported) 3.0%"
+    },
+    {
+      "name": "geometry channel listed",
+      "ok": true,
+      "note": "geometry BOUND · 97% · w=0.4 nlm_pattern NOT_SUPPLIED · w=0.12 authority_task8 NOT_SUPPLIED · w=0.1 weather NOT_SUPPLIED · w=0.08 physics NOT_SUPPLIED · w=0.06 biology NOT_SUPPLIED · w=0.05 chemistry NOT_SUPPLIED · w=0.0"
+    },
+    {
+      "name": "formula shown",
+      "ok": true
+    },
+    {
+      "name": "who decided shown",
+      "ok": true
+    },
+    {
+      "name": "numbers present after seek",
+      "ok": true,
+      "note": "P(truth) 91.1% P(unsupported) 8.9%"
+    },
+    {
+      "name": "vehicle bad-data or bias visible",
+      "ok": true,
+      "note": "Data BAD · contradicted, bias"
+    },
+    {
+      "name": "not decorative only",
+      "ok": true,
+      "before": "P(truth) 97.0%\nP(unsupported) 3.0%",
+      "after": "P(truth) 91.1%\nP(unsupported) 8.9%"
+    },
+    {
+      "name": "mobile panel still present",
+      "ok": true
+    }
+  ]
+}
