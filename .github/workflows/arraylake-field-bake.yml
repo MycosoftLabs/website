@@ -54,14 +54,17 @@ jobs:
             done
           fi
 
-      # CRITICAL: publish the baked frames to the production asset mount, otherwise the
-      # bake writes to the ephemeral runner and the data never reaches the website. The
-      # field BFF reads ARRAYLAKE_FIELD_BASE = https://mycosoft.com/assets/fields, which
-      # is the NAS mount /opt/mycosoft/media/website/assets (mounted read-only into the
-      # container at /app/public/assets → served at /assets). Reuses the same
-      # Cloudflare-tunnel SSH the prod blue/green deploy uses (ci-cd.yml).
+      # NAS publish uses the same Cloudflare Tunnel SSH as blue/green deploy.
+      # That path has been timing out (UNKNOWN:65535 / Access) and must not fail
+      # the bake gate or touch mycosoft-website. Opt in with repo variable
+      # ARRAYLAKE_PUBLISH_SSH=true after the tunnel hostname/Access token works.
+      - name: Skip NAS publish unless tunnel SSH is opted in
+        if: github.ref == 'refs/heads/main' && vars.ARRAYLAKE_PUBLISH_SSH != 'true'
+        run: |
+          echo "::warning::Arraylake bake artifact uploaded; NAS publish skipped (ARRAYLAKE_PUBLISH_SSH!=true). Cloudflare Tunnel SSH is blocked — do not start a second 187 cutover."
+
       - name: Setup SSH via Cloudflare Tunnel
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && vars.ARRAYLAKE_PUBLISH_SSH == 'true'
         uses: ./.github/actions/setup-ssh
         with:
           ssh-key: ${{ secrets.SSH_KEY }}
@@ -73,7 +76,7 @@ jobs:
           require-cloudflare-access: true
 
       - name: Publish baked fields to production asset mount
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && vars.ARRAYLAKE_PUBLISH_SSH == 'true'
         run: |
           if [ ! -d "${ARRAYLAKE_FIELD_OUT}" ] || [ -z "$(ls -A "${ARRAYLAKE_FIELD_OUT}" 2>/dev/null)" ]; then
             echo "::warning::no baked output in ${ARRAYLAKE_FIELD_OUT} — nothing to publish (auth/introspect likely failed)"
