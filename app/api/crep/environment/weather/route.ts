@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+import { fetchMindexMapLayer } from "@/lib/crep/environment-live-sources"
 
 /**
  * Earth Simulator weather BFF — proxies the internal MINDEX route
@@ -70,7 +71,15 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Math.max(Number(params.get("limit") || 1000), 1), 2000)
   const bounds = parseBounds(params) ?? { west: -179.9, south: -89.9, east: 179.9, north: 89.9 }
 
-  const items = await fetchMindexWeather(bounds, limit).catch(() => null)
+  let items = await fetchMindexWeather(bounds, limit).catch(() => null)
+  let sourceLabel = "mindex.atmos.weather_observations"
+  if (!items || items.length === 0) {
+    const bboxRows = await fetchMindexMapLayer("weather", bounds, limit)
+    if (bboxRows && bboxRows.length > 0) {
+      items = bboxRows
+      sourceLabel = "mindex.earth/map/bbox:weather"
+    }
+  }
   const upstreamOk = items != null
 
   const features = (items || [])
@@ -78,22 +87,23 @@ export async function GET(request: NextRequest) {
       const lat = Number(row.lat ?? row.latitude)
       const lng = Number(row.lng ?? row.longitude)
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+      const props = row.properties || {}
       return {
         type: "Feature" as const,
         geometry: { type: "Point" as const, coordinates: [lng, lat] },
         properties: {
-          source: row.source ?? "mindex",
-          stationId: row.station_id ?? null,
-          stationName: row.station_name ?? null,
-          temperatureC: row.temperature_c ?? null,
-          humidityPct: row.humidity_pct ?? null,
-          pressureHpa: row.pressure_hpa ?? null,
-          windSpeedMs: row.wind_speed_ms ?? null,
+          source: row.source ?? props.source ?? "mindex",
+          stationId: row.station_id ?? row.id ?? null,
+          stationName: row.station_name ?? row.name ?? null,
+          temperatureC: row.temperature_c ?? props.temp_c ?? null,
+          humidityPct: row.humidity_pct ?? props.humidity ?? null,
+          pressureHpa: row.pressure_hpa ?? props.pressure_hpa ?? null,
+          windSpeedMs: row.wind_speed_ms ?? props.wind_ms ?? null,
           windDirection: row.wind_direction ?? null,
           precipitationMm: row.precipitation_mm ?? null,
           cloudCoverPct: row.cloud_cover_pct ?? null,
-          conditions: row.conditions ?? null,
-          observedAt: row.observed_at ?? null,
+          conditions: row.conditions ?? props.conditions ?? null,
+          observedAt: row.observed_at ?? row.occurred_at ?? null,
         },
       }
     })
@@ -106,8 +116,8 @@ export async function GET(request: NextRequest) {
       features,
       count: features.length,
       meta: {
-        source: "mindex.atmos.weather_observations",
-        upstream: upstreamOk ? "mindex" : "unavailable",
+        source: sourceLabel,
+        upstream: items && items.length > 0 ? sourceLabel : (upstreamOk ? "empty" : "unavailable"),
         bbox: bounds,
         renderer: "mycosoft-maplibre",
         timings: { totalMs, budgetMs: 1000, withinBudget: totalMs <= 1000 },

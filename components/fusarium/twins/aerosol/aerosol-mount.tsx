@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { CrepResourceHints } from "@/components/crep/crep-resource-hints"
 import { AerosolMapWorkbench } from "@/components/fusarium/aerosol/aerosol-map-workbench"
 import { FusariumTwinSurface } from "@/components/fusarium/twins/fusarium-twin-surface"
+import { FusariumRoleLens } from "@/components/fusarium/personnel/fusarium-role-lens"
 
 /**
  * Fusarium-only operational rebuild of Aerosol.
@@ -13,6 +14,7 @@ import { FusariumTwinSurface } from "@/components/fusarium/twins/fusarium-twin-s
 export function FusariumAerosolMount() {
   return (
     <FusariumTwinSurface>
+      <FusariumRoleLens surface="aerosol" />
       <CrepResourceHints />
       <AerosolMapWorkbench />
     </FusariumTwinSurface>

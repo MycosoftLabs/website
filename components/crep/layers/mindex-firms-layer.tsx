@@ -24,11 +24,27 @@
 import { useEffect, useRef } from "react"
 import maplibregl from "maplibre-gl"
 import type { Map as MapLibreMap } from "maplibre-gl"
+import { bboxQueryString, getLogicalViewportBounds, pointInBounds } from "@/lib/crep/viewport-memory-governor"
+
+type MapLike = MapLibreMap | { current: MapLibreMap | null } | null | undefined
 
 interface Props {
-  map: MapLibreMap | null
+  map: MapLike
   enabled: boolean
   opacity?: number
+}
+
+function resolveMap(m: MapLike): MapLibreMap | null {
+  if (m && typeof (m as MapLibreMap).getStyle === "function") return m as MapLibreMap
+  const fromRef = m && typeof m === "object" && "current" in m
+    ? (m as { current?: MapLibreMap | null }).current
+    : null
+  if (fromRef && typeof fromRef.getStyle === "function") return fromRef
+  if (typeof window !== "undefined") {
+    const globalMap = (window as unknown as { __crep_map?: MapLibreMap }).__crep_map
+    if (globalMap && typeof globalMap.getStyle === "function") return globalMap
+  }
+  return null
 }
 
 const SRC = "crep-mindex-firms"
@@ -43,7 +59,9 @@ export default function MindexFirmsLayer({ map, enabled, opacity = 0.85 }: Props
 
   // Lifecycle: create source + layers when enabled, tear down when not.
   useEffect(() => {
-    if (!map) return
+    const resolved = resolveMap(map)
+    if (!resolved) return
+    const map = resolved
     let cancelled = false
 
     const onClick = (e: any) => {
@@ -131,8 +149,9 @@ export default function MindexFirmsLayer({ map, enabled, opacity = 0.85 }: Props
     const fetchData = async (force = false) => {
       if (cancelled || !enabled || !map) return
       try {
-        const b = map.getBounds()
-        const bbox = `${b.getWest().toFixed(3)},${b.getSouth().toFixed(3)},${b.getEast().toFixed(3)},${b.getNorth().toFixed(3)}`
+        const view = getLogicalViewportBounds(map)
+        if (!view) return
+        const bbox = bboxQueryString(view)
         if (!force && bbox === lastBboxRef.current) return
         lastBboxRef.current = bbox
         const res = await fetch(
@@ -141,7 +160,11 @@ export default function MindexFirmsLayer({ map, enabled, opacity = 0.85 }: Props
         )
         if (!res.ok || cancelled || !enabled) return
         const fc = await res.json()
-        ensureLayers({ type: "FeatureCollection", features: Array.isArray(fc?.features) ? fc.features : [] })
+        const features = (Array.isArray(fc?.features) ? fc.features : []).filter((f: { geometry?: { coordinates?: number[] } }) => {
+          const c = f?.geometry?.coordinates
+          return Array.isArray(c) && pointInBounds(Number(c[0]), Number(c[1]), view)
+        })
+        ensureLayers({ type: "FeatureCollection", features })
       } catch { /* fail open: keep prior data, no error surfaced */ }
     }
 

@@ -3,6 +3,7 @@ import CREPDashboardLoader from "@/app/dashboard/crep/CREPDashboardLoader"
 import EarthSimulatorViewportLock from "@/app/natureos/earth-simulator/EarthSimulatorViewportLock"
 import { ITDXEarthSimOverlay } from "@/components/itdx/ITDXEarthSimOverlay"
 import { EarthSimMovementHost } from "@/components/fusarium/movement/earth-sim-movement-host"
+import { FusariumRoleLens } from "@/components/fusarium/personnel/fusarium-role-lens"
 
 /**
  * /fusarium/earth-simulator — the counterpart of /natureos/earth-simulator.
@@ -38,6 +39,7 @@ export default function FusariumEarthSimulatorPage() {
           homeLabel="FUSARIUM"
           earthBakedNatureMinZoom={5}
         />
+        <FusariumRoleLens surface="earth-simulator" />
         <ITDXEarthSimOverlay />
         <EarthSimMovementHost />
       </div>

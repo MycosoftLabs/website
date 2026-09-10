@@ -21,6 +21,22 @@
 import { useEffect, useRef } from "react"
 import maplibregl from "maplibre-gl"
 import type { Map as MapLibreMap } from "maplibre-gl"
+import { bboxQueryString, getLogicalViewportBounds, pointInBounds } from "@/lib/crep/viewport-memory-governor"
+
+type MapLike = MapLibreMap | { current: MapLibreMap | null } | null | undefined
+
+function resolveMap(m: MapLike): MapLibreMap | null {
+  if (m && typeof (m as MapLibreMap).getStyle === "function") return m as MapLibreMap
+  const fromRef = m && typeof m === "object" && "current" in m
+    ? (m as { current?: MapLibreMap | null }).current
+    : null
+  if (fromRef && typeof fromRef.getStyle === "function") return fromRef
+  if (typeof window !== "undefined") {
+    const globalMap = (window as unknown as { __crep_map?: MapLibreMap }).__crep_map
+    if (globalMap && typeof globalMap.getStyle === "function") return globalMap
+  }
+  return null
+}
 
 export interface MindexEnvPopupField {
   key: string
@@ -29,7 +45,7 @@ export interface MindexEnvPopupField {
 }
 
 interface Props {
-  map: MapLibreMap | null
+  map: MapLike
   enabled: boolean
   opacity?: number
   /** BFF endpoint, e.g. "/api/crep/environment/air-quality" */
@@ -72,7 +88,9 @@ export default function MindexEnvPointsLayer({
   const lastBboxRef = useRef<string>("")
 
   useEffect(() => {
-    if (!map) return
+    const resolved = resolveMap(map)
+    if (!resolved) return
+    const map = resolved
     let cancelled = false
     const SRC = idBase
     const HEAT = `${idBase}-heat`
@@ -165,14 +183,19 @@ export default function MindexEnvPointsLayer({
     const fetchData = async (force = false) => {
       if (cancelled || !enabled || !map) return
       try {
-        const b = map.getBounds()
-        const bbox = `${b.getWest().toFixed(3)},${b.getSouth().toFixed(3)},${b.getEast().toFixed(3)},${b.getNorth().toFixed(3)}`
+        const view = getLogicalViewportBounds(map)
+        if (!view) return
+        const bbox = bboxQueryString(view)
         if (!force && bbox === lastBboxRef.current) return
         lastBboxRef.current = bbox
         const res = await fetch(`${endpoint}?bbox=${encodeURIComponent(bbox)}&limit=2000`, { cache: "default" })
         if (!res.ok || cancelled || !enabled) return
         const fc = await res.json()
-        ensureLayers({ type: "FeatureCollection", features: Array.isArray(fc?.features) ? fc.features : [] })
+        const features = (Array.isArray(fc?.features) ? fc.features : []).filter((f: { geometry?: { coordinates?: number[] } }) => {
+          const c = f?.geometry?.coordinates
+          return Array.isArray(c) && pointInBounds(Number(c[0]), Number(c[1]), view)
+        })
+        ensureLayers({ type: "FeatureCollection", features })
       } catch { /* fail open: keep prior data, no error surfaced */ }
     }
 
@@ -197,13 +220,14 @@ export default function MindexEnvPointsLayer({
 
   // Opacity follows the layer's opacity slider without re-fetching.
   useEffect(() => {
-    if (!map || !enabled) return
+    const m = resolveMap(map)
+    if (!m || !enabled) return
     try {
-      if (map.getLayer(`${idBase}-heat`)) {
-        map.setPaintProperty(`${idBase}-heat`, "heatmap-opacity", ["interpolate", ["linear"], ["zoom"], 6.5, 0.9 * opacity, 9.5, 0.4 * opacity] as any)
+      if (m.getLayer(`${idBase}-heat`)) {
+        m.setPaintProperty(`${idBase}-heat`, "heatmap-opacity", ["interpolate", ["linear"], ["zoom"], 6.5, 0.9 * opacity, 9.5, 0.4 * opacity] as any)
       }
-      if (map.getLayer(`${idBase}-dot`)) {
-        map.setPaintProperty(`${idBase}-dot`, "circle-opacity", ["interpolate", ["linear"], ["zoom"], 6, 0, 8, opacity] as any)
+      if (m.getLayer(`${idBase}-dot`)) {
+        m.setPaintProperty(`${idBase}-dot`, "circle-opacity", ["interpolate", ["linear"], ["zoom"], 6, 0, 8, opacity] as any)
       }
     } catch { /* */ }
   }, [map, enabled, opacity, idBase])

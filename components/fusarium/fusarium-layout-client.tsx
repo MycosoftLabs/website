@@ -36,6 +36,9 @@ import {
   useClassification,
 } from "@/components/fusarium/fusarium-classification"
 import { FusariumAccountControl } from "@/components/fusarium/fusarium-account-control"
+import { FusariumRoleProvider } from "@/lib/fusarium/personnel/role-context"
+import { FusariumRoleSwitcher } from "@/components/fusarium/personnel/fusarium-role-switcher"
+import "@/components/fusarium/personnel/personnel.css"
 
 /** Routes whose workspace is a full-bleed app and must not get chrome padding. */
 function isAppRoute(pathname: string): boolean {
@@ -165,7 +168,9 @@ function useTheme() {
 export default function FusariumLayoutClient({ children }: { children: React.ReactNode }) {
   return (
     <ClassificationProvider>
-      <FusariumChrome>{children}</FusariumChrome>
+      <FusariumRoleProvider>
+        <FusariumChrome>{children}</FusariumChrome>
+      </FusariumRoleProvider>
     </ClassificationProvider>
   )
 }
@@ -246,6 +251,8 @@ function FusariumChrome({ children }: { children: React.ReactNode }) {
         <ClassificationFloorControl />
 
         <HealthStrip />
+
+        <FusariumRoleSwitcher />
 
         <FusariumAccountControl />
 

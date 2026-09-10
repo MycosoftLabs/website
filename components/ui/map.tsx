@@ -229,11 +229,13 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       console.warn("[EarthSim] WebGL context lost — globe paused. It will restore when the tab is visible.");
       if (typeof window !== "undefined") {
         (window as any).__crep_webgl_lost = true;
+        try { window.dispatchEvent(new CustomEvent("crep:webgl-lost")); } catch { /* */ }
       }
     };
     const onWebGlContextRestored = () => {
       if (typeof window !== "undefined") {
         (window as any).__crep_webgl_lost = false;
+        try { window.dispatchEvent(new CustomEvent("crep:webgl-restored")); } catch { /* */ }
       }
       try {
         map.resize();

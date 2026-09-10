@@ -13,6 +13,9 @@ import {ITDXSituationPanel} from './ITDXSituationPanel'
 import {ITDXWekaWalkthrough} from './ITDXWekaWalkthrough'
 import {ITDXSyntheticArmyIntelBriefing} from './ITDXSyntheticArmyIntelBriefing'
 import {LOCAL_DATASET_ID} from '@/lib/itdx/run-narration.mjs'
+import {useFusariumRoleOptional} from '@/lib/fusarium/personnel/role-context'
+import {FusariumRoleLens} from '@/components/fusarium/personnel/fusarium-role-lens'
+import {FusariumCatalogBrowser,FusariumOutcomesPanel,FusariumSurveyPanel} from '@/components/fusarium/personnel/personnel-panels'
 import styles from './itdx.module.css'
 
 type Backend={status:string;version?:string;documents?:number;message?:string;optionalCompute?:string}
@@ -23,9 +26,14 @@ function labReady(status:string){
 }
 
 export default function ITDXApplication(){
+ const duty=useFusariumRoleOptional()
  const [view,setView]=useState('lab'),[backend,setBackend]=useState<Backend>({status:'CHECKING'}),[runtime,setRuntime]=useState('NOT_CHECKED'),[counter,setCounter]=useState(0)
  const frame=useRef<HTMLIFrameElement>(null),context=useITDXContext()
  const selected=views.find(v=>v[0]===view)
+ useEffect(()=>{
+  const next=duty?.persona.entitlements.defaultItdxView
+  if(next)setView(next)
+ },[duty?.persona.persona_id])
  useEffect(()=>{
   let cancelled=false;const controller=new AbortController()
   const check=async()=>{
@@ -69,12 +77,16 @@ export default function ITDXApplication(){
   <p>v1.4 cite path is MAS <code>http://192.168.0.188:8001</code>, MINDEX <code>http://192.168.0.189:8000</code>, and Google Maps traffic/pathways. Optional 8765/8766 compute is extra, not a gate. Earth Sim overlay lives on /fusarium/earth-simulator.</p>
   <div className={styles.row}><strong>ITDX application: {labReady(backend.status)?'v1.4 SUPPLIED':backend.status}</strong><span className={styles.chip} data-testid="itdx-lab-status">optional 8765 compute {backend.optionalCompute||'NOT_CHECKED'}</span><span>{backend.version?'v'+backend.version:''} {backend.documents!==undefined?backend.documents+' documents':''}</span><span>Fusarium runtime: {runtime}</span><button onClick={()=>setCounter(c=>c+1)}>Refresh connections</button><Link href="/fusarium/earth-simulator">Earth Simulator</Link></div>
   <p className={styles.muted}>Selected run: {context.runId||'none'} · dataset: {context.datasetId||'none'} · origin: {context.dataOrigin}. Google Maps Directions/Matrix/Geocode remain SUPPLIED on the website BFF. 8765 down or AirNow missing does not hide these tabs.</p>
-  <nav className={styles.row} aria-label="ITDX application views">{views.map(v=><button key={v[0]} aria-pressed={view===v[0]} onClick={()=>setView(v[0])}>{v[1]}</button>)}<button aria-pressed={view==='replay'} onClick={()=>setView('replay')}>Earth replay & portable reader</button><button aria-pressed={view==='apps'} onClick={()=>setView('apps')}>Fusarium applications</button></nav>
+  <FusariumRoleLens surface="itdx"/>
+  <nav className={styles.row} aria-label="ITDX application views">{views.map(v=><button key={v[0]} aria-pressed={view===v[0]} onClick={()=>setView(v[0])}>{v[1]}</button>)}<button aria-pressed={view==='replay'} onClick={()=>setView('replay')}>Earth replay & portable reader</button><button aria-pressed={view==='apps'} onClick={()=>setView('apps')}>Fusarium applications</button><button aria-pressed={view==='personnel'} onClick={()=>setView('personnel')}>Personnel catalog</button><button aria-pressed={view==='survey'} onClick={()=>setView('survey')}>Survey</button><button aria-pressed={view==='outcomes'} onClick={()=>setView('outcomes')}>Outcomes / KO</button></nav>
   {(view==='lab'||view==='walkthrough'||view==='replay'||view==='tests')&&<ITDXSyntheticArmyIntelBriefing variant="workspace" isActive/>}
   {(view==='walkthrough'||view==='replay'||view==='tests'||view==='frames')&&<ITDXWekaWalkthrough compact={view==='lab'||view==='replay'}/>}
   {(view==='walkthrough'||view==='replay'||view==='tests')&&<><ITDXExplanationCards/><ITDXSituationPanel/><ITDXTruthPanel/><ITDXTask8Panel/></>}
   {selected&&<iframe ref={frame} className={styles.applicationFrame} data-testid="itdx-application-frame" title={'ITDX '+selected[1]} src={GATEWAY_BASE+selected[2]} sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"/>}
   {view==='replay'&&<ITDXWorkspace/>}
   {view==='apps'&&<div className={styles.columns}>{FUSARIUM_SECTIONS.map(section=><article className={styles.card} key={section.id}><h2>{section.title}</h2><div className={styles.list}>{section.items.map(app=><Link key={app.id} href={app.href}>{app.title}</Link>)}</div><p className={styles.muted}>Navigation and shared context interface available. App-specific evidence consumption must be registered and tested; opening a route does not establish backend integration.</p></article>)}</div>}
+  {view==='personnel'&&<FusariumCatalogBrowser/>}
+  {view==='survey'&&<FusariumSurveyPanel/>}
+  {view==='outcomes'&&<FusariumOutcomesPanel/>}
  </section>
 }

@@ -36,6 +36,9 @@ export const FUSARIUM_SECTIONS: FusariumSection[] = [
     defaultOpen: true,
     items: [
       s("overview", "Overview"),
+      s("personnel", "Personnel catalog"),
+      { id: "personnel-outcomes", title: "Personnel outcomes", href: "/fusarium/personnel/outcomes" },
+      { id: "personnel-survey", title: "Personnel survey", href: "/fusarium/personnel/survey" },
       s("situational-awareness", "Situational Awareness"),
       s("threat-assessment", "Threat Assessment"),
       s("data-fusion", "Data Fusion"),

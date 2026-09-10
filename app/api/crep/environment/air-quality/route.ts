@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+import { fetchMindexMapLayer } from "@/lib/crep/environment-live-sources"
 
 /**
  * Earth Simulator air-quality BFF — proxies the internal MINDEX route
@@ -69,7 +70,22 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Math.max(Number(params.get("limit") || 1000), 1), 2000)
   const bounds = parseBounds(params) ?? { west: -179.9, south: -89.9, east: 179.9, north: 89.9 }
 
-  const items = await fetchMindexAirQuality(bounds, limit).catch(() => null)
+  let items = await fetchMindexAirQuality(bounds, limit).catch(() => null)
+  let sourceLabel = "mindex.atmos.air_quality"
+  if (!items || items.length === 0) {
+    const bboxRows = await fetchMindexMapLayer("air_quality", bounds, limit)
+    if (bboxRows && bboxRows.length > 0) {
+      items = bboxRows.map((row: any) => ({
+        ...row,
+        parameter: row.parameter ?? row.properties?.parameter,
+        value: row.value ?? row.properties?.value,
+        unit: row.unit ?? row.properties?.unit,
+        station_name: row.station_name ?? row.name,
+        measured_at: row.measured_at ?? row.occurred_at,
+      }))
+      sourceLabel = "mindex.earth/map/bbox:air_quality"
+    }
+  }
   const upstreamOk = items != null
 
   // Aggregate per station: MINDEX returns one row per pollutant, so multiple
@@ -131,8 +147,8 @@ export async function GET(request: NextRequest) {
       features,
       count: features.length,
       meta: {
-        source: "mindex.atmos.air_quality",
-        upstream: upstreamOk ? "mindex" : "unavailable",
+        source: sourceLabel,
+        upstream: items && items.length > 0 ? sourceLabel : (upstreamOk ? "empty" : "unavailable"),
         bbox: bounds,
         renderer: "mycosoft-maplibre",
         timings: { totalMs, budgetMs: 1000, withinBudget: totalMs <= 1000 },
