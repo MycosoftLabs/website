@@ -15,7 +15,7 @@ export default function ITDXWorkspace(){
  return <section className={styles.workspace}>
   <p className={styles.badge}>ITDX v1.3 · SOURCE REVIEW & FICTIONAL REPLAY</p>
   <h1>Evidence, time, and uncertainty</h1>
-  <p>Review cited training documents and show predefined demo assets in the shared Earth Simulator map. The ITDX control dock stays available across Fusarium apps.</p>
+  <p>Review cited training documents and show predefined demo assets in the shared Earth Simulator map. The ITDX overlay is Earth Simulator only and stays live=false.</p>
   <div className={styles.row}><Link href="/fusarium/earth-simulator" onClick={()=>replay.enable(true)}>Open Earth Simulator with demo enabled</Link><button onClick={()=>download('itdx-fictional-frame-'+state.index+'.geojson',frame.geojson)}>Export current GeoJSON</button><button onClick={()=>download('itdx-fictional-measurements.json',allMeasurements())}>Export all 484 measurement records</button></div>
   <div className={styles.columns}>
    <article className={styles.card}><h2>Reproducible observation limits</h2><p>{frame.model.formula}</p><p>At σ = 35 m, nominal radius is {frame.model.radius_m.toFixed(2)} m. Coverage counts errors inside this circle against known synthetic ground truth. It is a finite replay measurement, not validation on field data.</p><p className={styles.muted}>{frame.model.boundary}</p></article>

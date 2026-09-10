@@ -43,11 +43,33 @@ export async function GET() {
     : health.ok || ready.ok
       ? "degraded"
       : "unavailable"
+  const weightsSha =
+    (typeof health.data?.weights_sha256 === "string" && health.data.weights_sha256) ||
+    (typeof health.data?.model_sha256 === "string" && health.data.model_sha256) ||
+    (typeof health.data?.sha256 === "string" && health.data.sha256) ||
+    (typeof ready.data?.weights_sha256 === "string" && ready.data.weights_sha256) ||
+    null
 
   return NextResponse.json({
     schema: FUSARIUM_NLM_STATUS_SCHEMA,
     classification: "UNCLASSIFIED",
     receivedAt,
+    nlm: {
+      model_loaded: health.ok ? Boolean(health.data?.model_loaded) : null,
+      forecast_qualified: forecastQualified,
+      bound_to_ollama: health.ok ? Boolean(health.data?.bound_to_ollama) : false,
+      model_name: typeof health.data?.model_name === "string" ? health.data.model_name : "nlm",
+      weights_sha256: weightsSha,
+      p: null,
+      qualification_status:
+        typeof health.data?.qualification_status === "string"
+          ? health.data.qualification_status
+          : forecastQualified
+            ? "qualified"
+            : "UNQUALIFIED",
+      training_origin:
+        typeof health.data?.training_origin === "string" ? health.data.training_origin : "synthetic",
+    },
     engine: {
       state: engineState,
       health: health.ok ? String(health.data?.status ?? "unknown") : "unavailable",

@@ -5,9 +5,19 @@ import {logDemoEvent} from './demo-log'
 
 export type ItdxReplayLayerKey='assets'|'tracks'|'uncertainty'|'boundary'|'corridor'
 export type ItdxReplayLayers=Record<ItdxReplayLayerKey,boolean>
+export const ITDX_REPLAY_SPEEDS=[1,5,10,20] as const
+export type ItdxReplaySpeed=(typeof ITDX_REPLAY_SPEEDS)[number]
 const defaultLayers:ItdxReplayLayers={assets:true,tracks:true,uncertainty:true,boundary:true,corridor:true}
-type State={enabled:boolean;playing:boolean;index:number;selected:string;focusRequest:number;focusTarget:string|null;layers:ItdxReplayLayers;layerStatus:string}
-const initial:State={enabled:false,playing:false,index:0,selected:ASSETS[0].id,focusRequest:0,focusTarget:null,layers:defaultLayers,layerStatus:'LAYER_DETACHED'}
+type State={enabled:boolean;playing:boolean;index:number;speed:ItdxReplaySpeed;selected:string;focusRequest:number;focusTarget:string|null;layers:ItdxReplayLayers;layerStatus:string}
+const initial:State={enabled:false,playing:false,index:0,speed:20,selected:ASSETS[0].id,focusRequest:0,focusTarget:null,layers:defaultLayers,layerStatus:'LAYER_DETACHED'}
+
+function sampleIntervalMs(speed:number){
+  return Math.max(50,(10*1000)/Math.max(1,speed))
+}
+
+function asSpeed(value:unknown):ItdxReplaySpeed{
+  return ITDX_REPLAY_SPEEDS.includes(value as ItdxReplaySpeed)?(value as ItdxReplaySpeed):20
+}
 const CHANNEL='itdx-demo-replay'
 let state=initial
 let seq=0
@@ -20,7 +30,8 @@ let applyingRemote=false
 function advanceClock(){
   if(!state.playing)return
   const now=Date.now()
-  const steps=Math.max(1,Math.min(12,Math.floor((now-lastTick)/500)||1))
+  const interval=sampleIntervalMs(state.speed)
+  const steps=Math.max(1,Math.min(12,Math.floor((now-lastTick)/interval)||1))
   lastTick=now
   for(let i=0;i<steps;i++){
     if(!state.playing)break
@@ -31,22 +42,21 @@ function advanceClock(){
 function syncClock(playing:boolean){
   if(typeof window==='undefined')return
   const hidden=typeof document!=='undefined'&&document.hidden
-  if(playing&&!hidden&&!clock){
-    lastTick=Date.now()
-    clock=window.setInterval(advanceClock,200)
-    window.setTimeout(advanceClock,0)
-    return
-  }
-  if((!playing||hidden)&&clock){
+  if(clock){
     window.clearInterval(clock)
     clock=null
+  }
+  if(playing&&!hidden){
+    lastTick=Date.now()
+    clock=window.setInterval(advanceClock,Math.min(200,sampleIntervalMs(state.speed)))
+    window.setTimeout(advanceClock,0)
   }
 }
 
 function publish(next:State,reason:string){
   if(typeof window==='undefined'||applyingRemote)return
   try{
-    window.sessionStorage.setItem(CHANNEL,JSON.stringify({enabled:next.enabled,playing:next.playing,index:next.index,selected:next.selected,layers:next.layers,seq}))
+    window.sessionStorage.setItem(CHANNEL,JSON.stringify({enabled:next.enabled,playing:next.playing,index:next.index,speed:next.speed,selected:next.selected,layers:next.layers,seq}))
     window.dispatchEvent(new CustomEvent('fusarium:itdx-replay',{detail:{...next,reason,seq}}))
     if(reason!=='tick-quiet'&&reason!=='layer-status'&&reason!=='fly-to'){
       channel?.postMessage({...next,reason,seq})
@@ -101,7 +111,7 @@ if(typeof window!=='undefined'){
       const parsed=JSON.parse(saved) as Partial<State>&{seq?:number}
       const {seq:savedSeq,...rest}=parsed
       if(typeof savedSeq==='number')seq=savedSeq
-      state={...state,...rest,playing:false,focusRequest:0,focusTarget:null}
+      state={...state,...rest,speed:asSpeed(rest.speed),playing:false,focusRequest:0,focusTarget:null}
     }
   }catch{/* Ignore corrupt session restore. */}
   try{
@@ -113,6 +123,7 @@ if(typeof window!=='undefined'){
         enabled:data.enabled,
         playing:data.playing,
         index:data.index,
+        speed:asSpeed(data.speed),
         selected:data.selected,
         layers:data.layers||state.layers,
         layerStatus:data.layerStatus||state.layerStatus,
@@ -132,6 +143,7 @@ export const replay={
   set({enabled:true,playing:true,index:state.index===SAMPLE_COUNT-1?0:state.index},'play')
  },
  pause:()=>set({playing:false},'pause'),
+ setSpeed:(speed:ItdxReplaySpeed)=>{if(!ITDX_REPLAY_SPEEDS.includes(speed))return;set({speed},'speed')},
  seek:(index:number)=>{if(!Number.isInteger(index)||index<0||index>=SAMPLE_COUNT)throw Error('Invalid replay index');set({index,playing:false},'seek')},
  tick:()=>{if(!state.playing)return;const index=Math.min(SAMPLE_COUNT-1,state.index+1);set({index,playing:index<SAMPLE_COUNT-1},index%5===0||index===SAMPLE_COUNT-1?'tick':'tick-quiet')},
  select:(selected:string)=>{if(ASSETS.some(a=>a.id===selected))set({selected,enabled:true,focusTarget:selected,focusRequest:state.focusRequest+1},'select')},

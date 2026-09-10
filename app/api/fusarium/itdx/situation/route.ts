@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { requireFusariumOwner } from "@/lib/auth/api-auth"
-import { FORT_STEWART_SLICE } from "@/lib/itdx/run-narration.mjs"
+import { FORT_STEWART_SLICE, officialInjectsStatus } from "@/lib/itdx/run-narration.mjs"
 import { assessSituation, collectDemoSituationLayers, itdxHealth, mindexHealth, probeMasTask8Fast } from "@/lib/itdx/task8-client.mjs"
 
 export const runtime = "nodejs"
@@ -52,6 +52,7 @@ export async function POST() {
       health_status: health.status,
       mindex,
       p_truth_owner: "website_geometry",
+      official_injects: officialInjectsStatus(null),
       synthetic: true,
       live_cop: false,
     },
