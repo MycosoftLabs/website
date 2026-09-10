@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-23T00:24:40.860Z",
+  "generated_at": "2026-05-27T12:23:31.516Z",
   "bbox": [
     -117.9,
     32.3,
@@ -9,13 +9,13 @@
   "layers": {
     "hospitals": {
       "file": "sdtj-hospitals.geojson",
-      "count": 136,
-      "bytes": 78556
+      "count": 139,
+      "bytes": 79781
     },
     "police": {
       "file": "sdtj-police.geojson",
-      "count": 128,
-      "bytes": 52061
+      "count": 119,
+      "bytes": 47649
     },
     "sewage": {
       "file": "sdtj-sewage.geojson",
@@ -24,8 +24,8 @@
     },
     "cell-towers": {
       "file": "sdtj-cell-towers.geojson",
-      "count": 449,
-      "bytes": 158804
+      "count": 461,
+      "bytes": 162780
     },
     "am-fm-antennas": {
       "file": "sdtj-am-fm-antennas.geojson",
