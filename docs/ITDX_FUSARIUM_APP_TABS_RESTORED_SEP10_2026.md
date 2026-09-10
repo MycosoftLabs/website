@@ -1,7 +1,7 @@
 # ITDX Fusarium App Tabs Restored — September 10, 2026
 
 **Date:** September 10, 2026  
-**Status:** Complete  
+**Status:** Complete on 3010. 187 Instant Deploy **held** — see `ITDX_INSTANT_DEPLOY_OOM_HOLD_SEP10_2026.md` (viewport-cull / memory governor not in SHA yet).  
 **Worktree:** `WEBSITE/website-itdx-codex-v13`  
 **Product route:** `/fusarium/itdx`  
 **RJ Ricasata = CFO.** Briefing is SYNTHETIC EXERCISE `live: false`. Mycosoft is pursuing CMMC L2 — this document does not claim CMMC compliance. No invented p. No mock COP.
