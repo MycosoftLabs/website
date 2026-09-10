@@ -89,6 +89,11 @@ jobs:
       is_fast: ${{ steps.check.outputs.is_fast }}
       skip_deploy: ${{ steps.check.outputs.skip_deploy }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/HOLD_187_DEPLOY
+          sparse-checkout-cone-mode: false
+
       - name: Check commit message for [fast]
         id: check
         env:
@@ -100,9 +105,9 @@ jobs:
           else
             echo "is_fast=false" >> "$GITHUB_OUTPUT"
           fi
-          if echo "$COMMIT_MSG" | grep -qiE '\[no-deploy\]|\[ci-only\]'; then
+          if [ -f .github/HOLD_187_DEPLOY ] || echo "$COMMIT_MSG" | grep -qiE '\[no-deploy\]|\[ci-only\]|\[hold-187\]'; then
             echo "skip_deploy=true" >> "$GITHUB_OUTPUT"
-            echo "CI-only / no-deploy hold — skip VM cutover"
+            echo "187 hold / no-deploy — skip VM cutover"
           else
             echo "skip_deploy=false" >> "$GITHUB_OUTPUT"
           fi
@@ -884,7 +889,7 @@ jobs:
       group: production-deploy
       cancel-in-progress: false
     needs: [check-fast, instant-build]
-    if: needs.check-fast.outputs.is_fast == 'true' && github.ref == 'refs/heads/main' && needs.instant-build.result == 'success'
+    if: needs.check-fast.outputs.is_fast == 'true' && needs.check-fast.outputs.skip_deploy != 'true' && github.ref == 'refs/heads/main' && needs.instant-build.result == 'success'
     environment: production
     # No on-VM build any more → 15 min is plenty for pull (~20s for a
     # warm base image) + cutover (~90s) + health check (~30s) + CF purge.
