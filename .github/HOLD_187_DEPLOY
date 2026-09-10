@@ -1,0 +1,8 @@
+187 website cutover is on hold.
+
+Earth Sim Instant Deploy was cancelled on 2026-09-10 (OOM hold). Do not
+blue/green cut 192.168.0.187 until Morgan lifts this file.
+
+ci-cd.yml check-fast reads this path and sets skip_deploy=true.
+
+Remove this file when the next Instant Deploy candidate is authorized.
