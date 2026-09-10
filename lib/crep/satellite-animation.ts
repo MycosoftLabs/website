@@ -75,6 +75,34 @@ let worker: ReturnType<typeof getSGP4Worker> | null = null
 let useWorker = false
 let workerPropagationInFlight = false
 let lastWorkerPositions: SatellitePosition[] = []
+let visibilityBound = false
+
+function onSatelliteVisibilityChange(): void {
+  if (typeof document === "undefined") return
+  if (document.hidden) {
+    if (animationFrameId !== null) {
+      cancelAnimationFrame(animationFrameId)
+      animationFrameId = null
+    }
+    return
+  }
+  if (running && animationFrameId === null) {
+    lastTickTime = 0
+    animationFrameId = requestAnimationFrame(tick)
+  }
+}
+
+function bindSatelliteVisibility(): void {
+  if (typeof document === "undefined" || visibilityBound) return
+  visibilityBound = true
+  document.addEventListener("visibilitychange", onSatelliteVisibilityChange)
+}
+
+function unbindSatelliteVisibility(): void {
+  if (!visibilityBound || typeof document === "undefined") return
+  visibilityBound = false
+  document.removeEventListener("visibilitychange", onSatelliteVisibilityChange)
+}
 
 // ─── GeoJSON Builders ────────────────────────────────────────────────────────
 
@@ -169,6 +197,10 @@ function getSatTimeScale(): number {
 /** The main animation tick, called by requestAnimationFrame */
 function tick(timestamp: number) {
   if (!running) return
+  if (typeof document !== "undefined" && document.hidden) {
+    animationFrameId = null
+    return
+  }
 
   // Throttle. When accelerated, tick faster (600ms) so each interpolation segment
   // stays a small orbital arc (smooth); real time (scale 1) keeps the 2.5s cadence.
@@ -375,6 +407,11 @@ export function startSatelliteAnimation(
   lastTickTime = 0
   lastOrbitPathTime = 0
   workerPropagationInFlight = false
+  bindSatelliteVisibility()
+  if (typeof document !== "undefined" && document.hidden) {
+    animationFrameId = null
+    return
+  }
   animationFrameId = requestAnimationFrame(tick)
 }
 
@@ -383,6 +420,7 @@ export function startSatelliteAnimation(
  */
 export function stopSatelliteAnimation(): void {
   running = false
+  unbindSatelliteVisibility()
   if (animationFrameId !== null) {
     cancelAnimationFrame(animationFrameId)
     animationFrameId = null

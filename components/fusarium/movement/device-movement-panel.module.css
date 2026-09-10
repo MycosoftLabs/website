@@ -1,0 +1,131 @@
+.panel {
+  min-width: 0;
+  width: 100%;
+  margin: 0 0 0.85rem;
+  padding: 0.8rem 0.85rem 0.9rem;
+  border: 1px solid color-mix(in srgb, #67e8f9 28%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, #0b1418 88%, #122026);
+  color: #e2e8f0;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.header p,
+.status,
+.empty,
+.error,
+.note,
+.gap,
+.proposal,
+.math p,
+.math small {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #94a3b8;
+}
+
+.empty,
+.error {
+  color: #fbbf24;
+}
+
+.refresh,
+.commands button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.55rem;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: inherit;
+  touch-action: manipulation;
+}
+
+.chips,
+.devices,
+.commands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+}
+
+.chips span,
+.devices li,
+.math li {
+  display: inline-flex;
+  flex-direction: column;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.5rem;
+  background: #111827;
+  font-size: 0.78rem;
+}
+
+.chips span[data-tone="live"] { border: 1px solid #22c55e; }
+.chips span[data-tone="hyp"] { border: 1px solid #fbbf24; }
+.chips span[data-tone="gap"] { border: 1px solid #64748b; }
+
+.devices {
+  list-style: none;
+  padding: 0;
+}
+
+.devices li {
+  flex: 1 1 14rem;
+}
+
+.math h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.8rem 0 0.2rem;
+  font-size: 0.88rem;
+}
+
+.math ul {
+  margin: 0.3rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.commands button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.commands button:disabled {
+  opacity: 0.48;
+}
+
+.proposal {
+  color: #fde68a;
+}
+
+.panel[data-compact="true"] {
+  margin-bottom: 0.5rem;
+  padding: 0.65rem;
+}
+
+@media (max-width: 640px) {
+  .refresh,
+  .commands button {
+    width: 100%;
+  }
+}

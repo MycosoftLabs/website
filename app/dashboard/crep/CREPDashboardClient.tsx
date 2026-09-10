@@ -300,6 +300,10 @@ import MindexEnvPointsLayer from "@/components/crep/layers/mindex-env-points-lay
 import { SmokeLayer } from "@/components/crep/earth2/smoke-layer";
 import { FireLayer } from "@/components/crep/earth2/fire-layer";
 import { SporeDispersalLayer } from "@/components/crep/earth2/spore-dispersal-layer";
+import { WindVectorLayer } from "@/components/crep/earth2/wind-vector-layer";
+import { AerosolParticulateLayer } from "@/components/fusarium/aerosol/aerosol-particulate-layer";
+import { OpenTopoBasemapLayer } from "@/components/crep/layers/opentopo-basemap-layer";
+import { DeviceMovementLayers } from "@/components/fusarium/movement/device-movement-layers";
 // Right-click â†’ waypoint / places-saving system. Apr 20, 2026 (Morgan:
 // "right click should be able to open up a widget for markers to add
 // waypoints check what this is and places saving").
@@ -2831,6 +2835,15 @@ const NATURE_ENVIRONMENT_LAYER_IDS = new Set<string>([
   "mindexFirms",      // MINDEX FIRMS (live NASA FIRMS VIIRS wildfire detections)
   "mindexAirQuality", // MINDEX Air Quality (atmos.air_quality — OpenAQ/AirNow)
   "mindexWeather",    // MINDEX Weather (atmos.weather_observations — POWER/Open-Meteo/METAR)
+  "opentopoBasemap",
+  "aerosolParticulate",
+  "aerosolModeledDispersal",
+  "aerosolWind",
+  "aerosolSmoke",
+  "deviceMovementPaths",
+  "deviceCoordination",
+  "deviceTriangulation",
+  "devicePathTree",
 ]);
 
 const INFRA_BASE_MAP_LAYER_IDS = new Set<string>([
@@ -2973,6 +2986,12 @@ const HEAVY_TABLET_OFF_LAYER_IDS = new Set<string>([
   "orbitalDebris",
   "debrisCloud",
   "oilGas",
+  "ships",
+  "satellites",
+  "weatherRadar",
+  "stormLightning",
+  "eagleEyeCameras",
+  "aerosolSmoke",
 ]);
 
 /** iPad/tablet freeze guard (Jun 24 2026): keep the heavy multi-MB GeoJSON infra layers
@@ -10459,6 +10478,15 @@ export default function CREPDashboardPage({
     { id: "mindexFirms", name: "MINDEX FIRMS (live)", category: "events", icon: <Flame className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#fb923c", description: "MINDEX earth.wildfires — live NASA FIRMS VIIRS 375m thermal detections. Default OFF.", dataStatus: "real", dataSource: "MINDEX earth.wildfires" },
     { id: "mindexAirQuality", name: "MINDEX Air Quality (live)", category: "environment", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#2dd4bf", description: "MINDEX atmos.air_quality — OpenAQ/AirNow station readings. Default OFF; empty until ETL keys land on 189.", dataStatus: "real", dataSource: "MINDEX atmos.air_quality" },
     { id: "mindexWeather", name: "MINDEX Weather (live)", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#38bdf8", description: "MINDEX atmos.weather_observations — NASA POWER / Open-Meteo / METAR stations. Default OFF; sparse until ETL scales.", dataStatus: "real", dataSource: "MINDEX atmos.weather_observations" },
+    { id: "opentopoBasemap", name: "OpenTopoMap (OSINT)", category: "environment", icon: <Mountain className="w-3 h-3" />, enabled: false, opacity: 0.72, color: "#a3e635", description: "Public OpenTopoMap raster (OSM + SRTM). Attribution: © OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA). Does not move Fort Stewart AO.", dataStatus: "real", dataSource: "OpenTopoMap" },
+    { id: "aerosolParticulate", name: "Aerosol particulates (PM)", category: "environment", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#ffc46b", description: "Same MINDEX air-quality BFF as /fusarium/aerosol, filtered to explicit PM/dust features. Empty until stations name PM.", dataStatus: "real", dataSource: "/api/crep/environment/air-quality" },
+    { id: "aerosolModeledDispersal", name: "Modeled spore dispersal", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#f97316", description: "Earth-2 modeled spore dispersal. Honest empty when the forecast API is unbound.", dataStatus: "real", dataSource: "/api/earth2/spore-dispersal" },
+    { id: "aerosolWind", name: "Aerosol wind vectors", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.75, color: "#38bdf8", description: "Earth-2 u10/v10 wind vectors used by the aerosol workbench.", dataStatus: "real", dataSource: "/api/earth2/layers/wind" },
+    { id: "aerosolSmoke", name: "Aerosol smoke", category: "environment", icon: <Flame className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#94a3b8", description: "Quarantined. CREP SmokeLayer injects stochastic defaults. NOT_SUPPLIED until a deterministic plume contract exists.", dataStatus: "planned_real", dataSource: "NOT_SUPPLIED" },
+    { id: "deviceMovementPaths", name: "Device movement paths", category: "environment", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#67e8f9", description: "Recorded telemetry polylines from live MAS/MINDEX/operator devices only. No invented convoy.", dataStatus: "real", dataSource: "/api/fusarium/movement/snapshot" },
+    { id: "deviceCoordination", name: "Device coordination", category: "environment", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Haversine range + forward azimuth between ≥2 live devices.", dataStatus: "real", dataSource: "/api/fusarium/movement/snapshot" },
+    { id: "deviceTriangulation", name: "Device triangulation", category: "environment", icon: <Target className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#c084fc", description: "Geometric fix when ≥3 live observers exist; otherwise an unqualified proposal (live: false).", dataStatus: "real", dataSource: "/api/fusarium/movement/snapshot" },
+    { id: "devicePathTree", name: "Hypothesis path tree", category: "environment", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#86efac", description: "Kinematic reachability tree labeled hypothesis. ITDX Weka/NLM path proposals are NOT_SUPPLIED.", dataStatus: "planned_real", dataSource: "local-geometry hypothesis" },
     { id: "storms", name: "Storm Systems", category: "events", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#6366f1", description: "NOAA storm tracking and forecasts" },
     { id: "floods", name: "Floods & Hydrology", category: "events", icon: <Droplets className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#0284c7", description: "Active flood, tsunami, and landslide alerts" },
     { id: "solar", name: "Space Weather", category: "events", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Solar flares, CME, geomagnetic storms" },
@@ -23881,6 +23909,31 @@ export default function CREPDashboardPage({
             popupTitle="Weather"
             popupFields={[{ key: "temperatureC", label: "temp", suffix: "°C" }, { key: "humidityPct", label: "humidity", suffix: "%" }, { key: "conditions", label: "cond" }, { key: "source", label: "src" }, { key: "observedAt", label: "obs" }]}
           />}
+          {!auditAllOffMode && !assetIsolationMode && mapRef && (
+            <OpenTopoBasemapLayer
+              map={mapRef}
+              enabled={layers.find(l => l.id === "opentopoBasemap")?.enabled ?? false}
+              opacity={layers.find(l => l.id === "opentopoBasemap")?.opacity ?? 0.72}
+            />
+          )}
+          {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "aerosolParticulate")?.enabled ?? false) && (
+            <AerosolParticulateLayer map={mapRef} visible />
+          )}
+          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && mapRef && (layers.find(l => l.id === "aerosolModeledDispersal")?.enabled ?? false) && (
+            <SporeDispersalLayer map={mapRef} visible forecastHours={earth2Filter.forecastHours} opacity={layers.find(l => l.id === "aerosolModeledDispersal")?.opacity ?? 0.7} showConcentrationGradient />
+          )}
+          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && mapRef && (layers.find(l => l.id === "aerosolWind")?.enabled ?? false) && (
+            <WindVectorLayer map={mapRef} visible forecastHours={earth2Filter.forecastHours} opacity={layers.find(l => l.id === "aerosolWind")?.opacity ?? 0.75} />
+          )}
+          {!auditAllOffMode && !assetIsolationMode && mapRef && (
+            <DeviceMovementLayers
+              map={mapRef}
+              showPaths={layers.find(l => l.id === "deviceMovementPaths")?.enabled ?? false}
+              showCoordination={layers.find(l => l.id === "deviceCoordination")?.enabled ?? false}
+              showTriangulation={layers.find(l => l.id === "deviceTriangulation")?.enabled ?? false}
+              showPathTree={layers.find(l => l.id === "devicePathTree")?.enabled ?? false}
+            />
+          )}
 
           {/* BlueSite v2 — wildfire FLAMES + volumetric SMOKE (Earth-2 fire feed) and
               SPORE DISPERSAL. These were built but dormant (unimported); wired here and

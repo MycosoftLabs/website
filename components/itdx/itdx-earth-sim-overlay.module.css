@@ -51,6 +51,7 @@
   border-radius: 8px;
   background: #203936;
   color: #f0f8f5;
+  font-size: 16px;
   text-decoration: none;
   cursor: pointer;
   touch-action: manipulation;
@@ -81,11 +82,20 @@
   align-items: center;
   gap: 0.5rem;
   min-height: 44px;
+  font-size: 16px;
+}
+
+.check input {
+  width: 1.15rem;
+  height: 1.15rem;
 }
 
 .range {
   width: 100%;
+  min-height: 44px;
+  font-size: 16px;
   accent-color: #78dcba;
+  touch-action: manipulation;
 }
 
 @media (min-width: 768px) {

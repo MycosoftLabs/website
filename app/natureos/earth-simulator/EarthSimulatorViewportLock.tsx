@@ -61,7 +61,7 @@ export default function EarthSimulatorViewportLock({ children }: { children: Rea
   }, [])
 
   return (
-    <div ref={rootRef} className="min-h-0 overflow-hidden">
+    <div ref={rootRef} className="min-h-dvh min-h-0 overflow-hidden">
       {children}
     </div>
   )

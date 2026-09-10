@@ -30,13 +30,14 @@ function advanceClock(){
 
 function syncClock(playing:boolean){
   if(typeof window==='undefined')return
-  if(playing&&!clock){
+  const hidden=typeof document!=='undefined'&&document.hidden
+  if(playing&&!hidden&&!clock){
     lastTick=Date.now()
     clock=window.setInterval(advanceClock,200)
     window.setTimeout(advanceClock,0)
     return
   }
-  if(!playing&&clock){
+  if((!playing||hidden)&&clock){
     window.clearInterval(clock)
     clock=null
   }
@@ -91,6 +92,9 @@ function applyRemote(next:Partial<State>&{seq?:number;reason?:string}){
 }
 
 if(typeof window!=='undefined'){
+  document.addEventListener('visibilitychange',()=>{
+    syncClock(state.playing)
+  })
   try{
     const saved=window.sessionStorage.getItem(CHANNEL)
     if(saved){

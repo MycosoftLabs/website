@@ -223,6 +223,27 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
     });
 
     mapRef.current = map;
+    const mapCanvas = map.getCanvas?.() ?? null;
+    const onWebGlContextLost = (event: Event) => {
+      event.preventDefault();
+      console.warn("[EarthSim] WebGL context lost — globe paused. It will restore when the tab is visible.");
+      if (typeof window !== "undefined") {
+        (window as any).__crep_webgl_lost = true;
+      }
+    };
+    const onWebGlContextRestored = () => {
+      if (typeof window !== "undefined") {
+        (window as any).__crep_webgl_lost = false;
+      }
+      try {
+        map.resize();
+        map.triggerRepaint?.();
+      } catch {
+        /* restore can race teardown */
+      }
+    };
+    mapCanvas?.addEventListener("webglcontextlost", onWebGlContextLost, false);
+    mapCanvas?.addEventListener("webglcontextrestored", onWebGlContextRestored, false);
     (map as any).__debugMapId = `map-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
     if (isEarthSimulatorRoute && typeof window !== "undefined") {
       (window as any).__crep_map = map;
@@ -439,6 +460,8 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       clearTimeout(loadRetryTimeout);
       clearTimeout(forceReadyTimeout);
       clearTimeout(forceRevealId);
+      mapCanvas?.removeEventListener("webglcontextlost", onWebGlContextLost);
+      mapCanvas?.removeEventListener("webglcontextrestored", onWebGlContextRestored);
       try { map.off("load", loadHandler); } catch { /* map may already be disposed */ }
       try { map.off("style.load", styleLoadHandler); } catch { /* map may already be disposed */ }
       try { map.off("styledata", styleReadyHandler); } catch { /* map may already be disposed */ }
