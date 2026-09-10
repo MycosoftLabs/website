@@ -1,4 +1,6 @@
-# Earth Simulator — Arraylake field bake (data plane)
+# Earth Simulator — canonical Arraylake field bake (data plane)
+# Feeds the shared Website/Fusarium field artifact contract. Keep one scheduler so the
+# two views cannot drift or consume separate API-client quotas.
 # Re-bakes live cubes on a schedule; static cubes can be run manually once.
 name: Arraylake field bake
 
@@ -17,6 +19,13 @@ on:
         required: false
         default: ""
 
+permissions:
+  contents: read
+
+concurrency:
+  group: arraylake-field-bake
+  cancel-in-progress: false
+
 jobs:
   bake:
     runs-on: ubuntu-latest
@@ -25,34 +34,73 @@ jobs:
       ARRAYLAKE_TOKEN: ${{ secrets.ARRAYLAKE_TOKEN }}
       ARRAYLAKE_FIELD_OUT: ${{ vars.ARRAYLAKE_FIELD_OUT || 'fields_out' }}
       ARRAYLAKE_CATALOG_URL: ${{ vars.ARRAYLAKE_CATALOG_URL || 'https://mycosoft.com/api/crep/field/_catalog' }}
+      REQUESTED_DATASET: ${{ inputs.dataset || '' }}
+      REQUESTED_VARIABLE: ${{ inputs.variable || '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
+      # Fail before dependency installation with an actionable error. Never print the
+      # credential: this job is intended to use the Earth Simulator Bake API client via
+      # the repository Actions secret named ARRAYLAKE_TOKEN.
+      - name: Validate bake configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${ARRAYLAKE_TOKEN:-}" ]; then
+            echo "::error title=Arraylake credential missing::Configure the Earth Simulator Bake client as the repository Actions secret ARRAYLAKE_TOKEN. The value must not be committed or printed."
+            exit 2
+          fi
+          case "${ARRAYLAKE_TOKEN}" in
+            ema_*|eyJ*.*.*) ;;
+            *)
+              echo "::error title=Arraylake credential rejected::ARRAYLAKE_TOKEN is present but is not an Earthmover API token or JWT. Replace the repository secret without exposing its value."
+              exit 2
+              ;;
+          esac
+          if [ -n "${REQUESTED_VARIABLE}" ] && [ -z "${REQUESTED_DATASET}" ]; then
+            echo "::error title=Invalid manual request::A variable can be requested only when a dataset is also supplied."
+            exit 2
+          fi
+          case "${REQUESTED_DATASET}${REQUESTED_VARIABLE}" in
+            *[!A-Za-z0-9_-]*)
+              echo "::error title=Invalid manual request::Dataset and variable names may contain only letters, numbers, underscores, and hyphens."
+              exit 2
+              ;;
+          esac
+
       - name: Install bake dependencies
         run: |
-          pip install "arraylake" "zarr>=3" "icechunk" "xarray>=2024.9" "numpy" "pillow" "rioxarray" "pyproj"
+          python -m pip install --disable-pip-version-check --requirement scripts/arraylake/requirements-ci.txt
+          python -m pip check
+
+      - name: Validate workflow contract
+        run: python scripts/arraylake/verify_workflow_contract.py
 
       - name: Introspect cubes (schema audit)
         run: python scripts/arraylake/introspect.py
 
       - name: Bake live field cubes
+        shell: bash
         run: |
-          ARGS=""
-          if [ -n "${{ github.event.inputs.dataset }}" ]; then
-            ARGS="${{ github.event.inputs.dataset }}"
-            if [ -n "${{ github.event.inputs.variable }}" ]; then
-              ARGS="$ARGS ${{ github.event.inputs.variable }}"
+          set -euo pipefail
+          if [ -n "${REQUESTED_DATASET}" ]; then
+            if [ -n "${REQUESTED_VARIABLE}" ]; then
+              python scripts/arraylake/bake_field.py "${REQUESTED_DATASET}" "${REQUESTED_VARIABLE}"
+            else
+              python scripts/arraylake/bake_field.py "${REQUESTED_DATASET}"
             fi
-            python scripts/arraylake/bake_field.py $ARGS
           else
             for ds in era5 hrrr helios alive sentinel2 geo-stereo-wind mrms; do
-              python scripts/arraylake/bake_field.py "$ds" || true
+              python scripts/arraylake/bake_field.py "$ds"
             done
           fi
+
+      - name: Validate baked artifact contract
+        run: python scripts/arraylake/validate_bake_output.py "${ARRAYLAKE_FIELD_OUT}"
 
       # CRITICAL: publish the baked frames to the production asset mount, otherwise the
       # bake writes to the ephemeral runner and the data never reaches the website. The
@@ -75,9 +123,10 @@ jobs:
       - name: Publish baked fields to production asset mount
         if: github.ref == 'refs/heads/main'
         run: |
+          set -euo pipefail
           if [ ! -d "${ARRAYLAKE_FIELD_OUT}" ] || [ -z "$(ls -A "${ARRAYLAKE_FIELD_OUT}" 2>/dev/null)" ]; then
-            echo "::warning::no baked output in ${ARRAYLAKE_FIELD_OUT} — nothing to publish (auth/introspect likely failed)"
-            exit 0
+            echo "::error title=Arraylake publication blocked::No validated baked output exists in ${ARRAYLAKE_FIELD_OUT}."
+            exit 1
           fi
           ssh-retry production 'mkdir -p /opt/mycosoft/media/website/assets/fields'
           rsync -avz -e ssh "${ARRAYLAKE_FIELD_OUT}/" production:/opt/mycosoft/media/website/assets/fields/
@@ -85,8 +134,10 @@ jobs:
 
       - name: Upload bake artifact (debug)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: arraylake-fields-manifest-snapshot
-          path: fields_out/**/manifest.json
+          path: |
+            arraylake_cubes.json
+            ${{ env.ARRAYLAKE_FIELD_OUT }}/**/manifest.json
           if-no-files-found: ignore

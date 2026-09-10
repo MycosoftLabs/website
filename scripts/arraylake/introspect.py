@@ -17,8 +17,9 @@ Usage:
 Read-only (readonly_session) — never writes to the cubes.
 """
 import json
+import os
+import re
 import sys
-import traceback
 
 REPOS = [
     "mycosoft/era5",
@@ -87,6 +88,18 @@ def _safe_attrs(attrs):
     return out
 
 
+def _safe_error(exc):
+    """Return bounded diagnostics without risking a credential in logs/artifacts."""
+    message = f"{type(exc).__name__}: {exc}"
+    message = re.sub(r"ema_[A-Za-z0-9._-]+", "[REDACTED_ARRAYLAKE_TOKEN]", message)
+    message = re.sub(
+        r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+",
+        "[REDACTED_JWT]",
+        message,
+    )
+    return message[:1000]
+
+
 def main():
     import importlib
     zarr = importlib.import_module("zarr")
@@ -95,19 +108,28 @@ def main():
     client = Client()
     targets = sys.argv[1:] or REPOS
     out = {}
+    failures = []
     for repo in targets:
         try:
             out[repo] = introspect(repo, client, zarr)
             print(f"[ok] {repo}: {len(out[repo]['arrays'])} arrays", file=sys.stderr)
         except Exception as e:
-            out[repo] = {"repo": repo, "error": repr(e), "tb": traceback.format_exc()[-1000:]}
-            print(f"[ERR] {repo}: {e}", file=sys.stderr)
+            error = _safe_error(e)
+            out[repo] = {"repo": repo, "error": error}
+            failures.append(repo)
+            print(f"[ERR] {repo}: {error}", file=sys.stderr)
 
-    with open("arraylake_cubes.json", "w") as f:
+    output = os.environ.get("ARRAYLAKE_SCHEMA_OUT", "arraylake_cubes.json")
+    temporary = f"{output}.tmp"
+    with open(temporary, "w", encoding="utf-8") as f:
         json.dump(out, f, indent=2)
-    print(json.dumps(out, indent=2)[:6000])
-    print("\n-> wrote arraylake_cubes.json", file=sys.stderr)
+    os.replace(temporary, output)
+    print(f"-> wrote {output}: {len(out)} repo(s), {len(failures)} failure(s)", file=sys.stderr)
+    if failures:
+        print("[ERR] schema inventory is incomplete; refusing to continue", file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

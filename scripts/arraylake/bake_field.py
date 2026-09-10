@@ -34,6 +34,9 @@ import os
 import sys
 import json
 import datetime as dt
+import re
+import shutil
+import tempfile
 import urllib.request
 
 import numpy as np
@@ -49,9 +52,24 @@ def log(*a):
     print(*a, file=sys.stderr, flush=True)
 
 
+def safe_error(exc):
+    message = f"{type(exc).__name__}: {exc}"
+    message = re.sub(r"ema_[A-Za-z0-9._-]+", "[REDACTED_ARRAYLAKE_TOKEN]", message)
+    message = re.sub(
+        r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+",
+        "[REDACTED_JWT]",
+        message,
+    )
+    return message[:1000]
+
+
 def fetch_catalog():
     with urllib.request.urlopen(CATALOG_URL, timeout=30) as r:
-        return json.load(r)["datasets"]
+        payload = json.load(r)
+    datasets = payload.get("datasets")
+    if not isinstance(datasets, list) or not datasets:
+        raise ValueError("field catalog contains no datasets")
+    return datasets
 
 
 def _rgb(c):
@@ -303,24 +321,66 @@ def main():
     cats = fetch_catalog()
     only = sys.argv[1:]  # optional: dataset [variable]
     now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    selected = 0
+    failures = []
     for ds in cats:
         if only and ds["id"] != only[0]:
             continue
         for v in ds["variables"]:
             if len(only) > 1 and v["key"] != only[1]:
                 continue
+            selected += 1
             out_dir = os.path.join(OUT, ds["id"], v["key"])
-            os.makedirs(out_dir, exist_ok=True)
+            parent_dir = os.path.dirname(out_dir)
+            os.makedirs(parent_dir, exist_ok=True)
+            stage_dir = tempfile.mkdtemp(prefix=f".{v['key']}-", dir=parent_dir)
             try:
-                frames, bounds = bake_one(ds, v, out_dir)
+                frames, bounds = bake_one(ds, v, stage_dir)
+                if not frames:
+                    raise ValueError("bake produced no frames")
+                if not isinstance(bounds, list) or len(bounds) != 4:
+                    raise ValueError("bake produced no valid bounds")
                 man = {"dataset": ds["id"], "variable": v["key"], "render": v["render"],
                        "frames": frames, "bounds": bounds, "updated": now}
-                with open(os.path.join(out_dir, "manifest.json"), "w") as f:
+                manifest_tmp = os.path.join(stage_dir, "manifest.json.tmp")
+                with open(manifest_tmp, "w", encoding="utf-8") as f:
                     json.dump(man, f, indent=2)
+                os.replace(manifest_tmp, os.path.join(stage_dir, "manifest.json"))
+
+                # Keep the prior complete variable release until the replacement is fully
+                # baked, then swap directories on the same filesystem. A failed bake never
+                # publishes a partial manifest into the local output tree.
+                backup_dir = f"{out_dir}.previous"
+                if os.path.exists(backup_dir):
+                    shutil.rmtree(backup_dir)
+                if os.path.exists(out_dir):
+                    os.replace(out_dir, backup_dir)
+                try:
+                    os.replace(stage_dir, out_dir)
+                except Exception:
+                    if os.path.exists(backup_dir) and not os.path.exists(out_dir):
+                        os.replace(backup_dir, out_dir)
+                    raise
+                if os.path.exists(backup_dir):
+                    shutil.rmtree(backup_dir)
                 log(f"[ok] {ds['id']}/{v['key']}: {len(frames)} frames -> {out_dir}")
             except Exception as e:
-                log(f"[ERR] {ds['id']}/{v['key']}: {e!r}")
+                failures.append(f"{ds['id']}/{v['key']}")
+                log(f"[ERR] {ds['id']}/{v['key']}: {safe_error(e)}")
+            finally:
+                if os.path.exists(stage_dir):
+                    shutil.rmtree(stage_dir)
+
+    if selected == 0:
+        requested = "/".join(only) if only else "<all>"
+        log(f"[ERR] no catalog entry matched {requested}")
+        return 1
+    if failures:
+        log(f"[ERR] {len(failures)} of {selected} selected field(s) failed; refusing publication")
+        return 1
+    log(f"[ok] {selected} selected field(s) baked successfully")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
