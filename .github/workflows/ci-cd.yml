@@ -87,6 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       is_fast: ${{ steps.check.outputs.is_fast }}
+      skip_deploy: ${{ steps.check.outputs.skip_deploy }}
     steps:
       - name: Check commit message for [fast]
         id: check
@@ -98,6 +99,12 @@ jobs:
             echo "Fast deploy requested — skipping full CI/CD"
           else
             echo "is_fast=false" >> "$GITHUB_OUTPUT"
+          fi
+          if echo "$COMMIT_MSG" | grep -qiE '\[no-deploy\]|\[ci-only\]'; then
+            echo "skip_deploy=true" >> "$GITHUB_OUTPUT"
+            echo "CI-only / no-deploy hold — skip VM cutover"
+          else
+            echo "skip_deploy=false" >> "$GITHUB_OUTPUT"
           fi
 
   # ===========================================================================
@@ -400,6 +407,7 @@ jobs:
     if: >-
       always()
       && needs.check-fast.outputs.is_fast != 'true'
+      && needs.check-fast.outputs.skip_deploy != 'true'
       && needs.build.result == 'success'
       && (github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true'))
     permissions:

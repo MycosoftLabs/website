@@ -99,7 +99,7 @@ ENV SOURCE_COMMIT=${SOURCE_COMMIT}
 # Disable worker threads for better CPU compatibility
 ENV NEXT_PRIVATE_DISABLE_WORKER_THREADS=1
 # Increase memory for large builds
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV NODE_OPTIONS="--max-old-space-size=8192"
 
 # Cache-bust token MUST change when routes must register on prod (BuildKit GHA cache).
 RUN echo "DEPLOY_CACHE_BUST=launchpad-payments-welcome-aug13 commit=${SOURCE_COMMIT}" && npm run build
