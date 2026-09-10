@@ -131,12 +131,8 @@ export const EARTH_SIM_BOUNDARY_BOOT_LAYER_IDS = [
 
 /** Movers, space weather, Earth-2, AQI/transit, devices, projects — OFF at refresh. */
 export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
-  // ships + satellites are NOT off-at-boot — sea/space traffic is wanted (AISstream
-  // ~44k vessels, TLE/SGP4 satellites, now denser). aviation (live aircraft) IS now
-  // off-at-boot (Jun 23 2026, Morgan): aircraft are the heaviest movers (~70% of the
-  // frame budget at globe zoom) and too costly for a fresh production load — the user
-  // opts in via the Air Traffic toggle. aviationRoutes (flight paths) and
-  // orbitalDebris/debrisCloud also stay off (debris excluded per request).
+  // Sep 10 2026 PC/iPad demo: ships, satellites, animated weather, and Eagle Eye
+  // cameras stay OFF at refresh. Operators opt in. Aviation/routes/debris stay off.
   "aviation",
   "aviationRoutes",
   "ships",
