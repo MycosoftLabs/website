@@ -163,13 +163,23 @@ type TimeWindowId = (typeof TIME_WINDOWS)[number]["id"]
 type AerosolViewMode = "shared-earth" | "offline-evidence"
 
 function statusLabel(state: AerosolLayerState) {
-  if (state === "empty") return "verified empty"
+  if (state === "available") return "on"
+  if (state === "empty") return "no data"
+  if (state === "loading") return "checking"
+  if (state === "stale") return "stale"
+  if (state === "error") return "error"
+  if (state === "unbound") return "unbound"
   return state
 }
 
 function arraylakeStatusLabel(state: ArraylakeFieldState) {
-  if (state === "cataloged") return "cataloged"
+  if (state === "available") return "on"
+  if (state === "empty") return "no data"
+  if (state === "cataloged") return "off"
   if (state === "loading") return "checking"
+  if (state === "stale") return "stale"
+  if (state === "error") return "error"
+  if (state === "unbound") return "unbound"
   return state
 }
 
@@ -468,8 +478,8 @@ export function AerosolMapWorkbench() {
               <Layers3 />
               <span>Arraylake fields</span>
               <strong>{readyArraylakeCount} ready · {enabledFieldLayerIds.length} enabled · {ARRAYLAKE_FIELD_OPTIONS.length} cataloged</strong>
-              <b data-state={arraylake.refreshing ? "loading" : selectedArraylakeStatuses.some((status) => status.state === "stale") ? "stale" : readyArraylakeCount > 0 ? "available" : "unbound"}>
-                {arraylake.refreshing ? "checking" : enabledFieldLayerIds.length === 0 ? "off" : readyArraylakeCount > 0 ? "real frames" : "unbound"}
+              <b data-state={arraylake.refreshing ? "loading" : selectedArraylakeStatuses.some((status) => status.state === "stale") ? "stale" : readyArraylakeCount > 0 ? "available" : selectedArraylakeStatuses.some((status) => status.state === "unbound") ? "unbound" : enabledFieldLayerIds.length === 0 ? "cataloged" : "empty"}>
+                {arraylake.refreshing ? "checking" : enabledFieldLayerIds.length === 0 ? "off" : readyArraylakeCount > 0 ? "on" : selectedArraylakeStatuses.some((status) => status.state === "unbound") ? "unbound" : "no data"}
               </b>
             </article>
             <article>

@@ -268,7 +268,7 @@ export const EARTH_SIM_FUNGI_ONLY_GROUND_FILTER = {
   showWaterPollution: false,
 } as const
 
-export const EARTH_SIM_FUNGAL_OPACITY = 0.55
+export const EARTH_SIM_FUNGAL_OPACITY = 0.88
 
 /** DOM fungal markers when zoom ≥ this (US fly-to is z≈3). */
 export const EARTH_SIM_FUNGAL_DOM_MIN_ZOOM = 3

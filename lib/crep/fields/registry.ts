@@ -276,15 +276,14 @@ export const FIELD_REGISTRY: FieldDataset[] = [
   },
 ]
 
-/** field group → CREP layer-panel category. All field cubes live under the dedicated
- *  "nature" panel section (the Arraylake gridded fields), mirroring FEED_GROUP_CATEGORY. */
+/** field group → CREP layer-panel category. Arraylake cubes live under Live Data. */
 export const FIELD_GROUP_CATEGORY: Record<FieldGroup, string> = {
-  weather: "nature",
-  solar: "nature",
-  carbon: "nature",
-  vegetation: "nature",
-  wind: "nature",
-  imagery: "nature",
+  weather: "liveData",
+  solar: "liveData",
+  carbon: "liveData",
+  vegetation: "liveData",
+  wind: "liveData",
+  imagery: "liveData",
 }
 
 /** master flag — the whole field framework is dark unless this is "1". */

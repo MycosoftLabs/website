@@ -175,8 +175,17 @@ export async function GET(request: NextRequest) {
     // Ensure stream is running (no-op if already started)
     ensureAISStream()
 
-    // ── Multi-source fetch via Vessel Registry ────────────────────────────
-    const registryResult = await fetchAllVesselsWithMeta()
+    const bbox =
+      lamin && lamax && lomin && lomax
+        ? {
+            south: parseFloat(lamin),
+            north: parseFloat(lamax),
+            west: parseFloat(lomin),
+            east: parseFloat(lomax),
+          }
+        : undefined
+
+    const registryResult = await fetchAllVesselsWithMeta({ bbox, limit })
     let vessels: VesselRecord[] = registryResult.vessels
 
     // If the registry got nothing, wait briefly for AISStream cold start
@@ -186,7 +195,7 @@ export async function GET(request: NextRequest) {
       if (remaining > 500) {
         await new Promise(resolve => setTimeout(resolve, remaining))
         // Re-fetch from registry after AIS stream has had time to populate
-        const retry = await fetchAllVesselsWithMeta()
+        const retry = await fetchAllVesselsWithMeta({ bbox, limit })
         vessels = retry.vessels
       }
     }
@@ -231,10 +240,7 @@ export async function GET(request: NextRequest) {
     }
 
     const latency = Date.now() - startTime
-    const activeSource = Object.entries(registryResult.sources)
-      .filter(([, c]) => c > 0)
-      .map(([s]) => s)
-      .join("+") || "none"
+    const activeSource = registryResult.usedSource || "none"
 
     if (publish) {
       const query = {
@@ -256,6 +262,9 @@ export async function GET(request: NextRequest) {
         available: result.entities.length > 0,
         source: activeSource,
         sources: registryResult.sources,
+        usedSource: registryResult.usedSource,
+        failedUpstreams: registryResult.failedUpstreams,
+        stale: registryResult.stale === true,
         timestamp: new Date().toISOString(),
         cached: false,
       }
@@ -270,6 +279,9 @@ export async function GET(request: NextRequest) {
         isLive: aisState.streamRunning,
         source: activeSource,
         sources: registryResult.sources,
+        usedSource: registryResult.usedSource,
+        failedUpstreams: registryResult.failedUpstreams,
+        stale: registryResult.stale === true,
         available: vessels.length > 0,
         timestamp: new Date().toISOString(),
         cached: false,

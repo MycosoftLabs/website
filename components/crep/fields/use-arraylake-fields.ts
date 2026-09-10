@@ -7,7 +7,7 @@ import {
   isDynamicFieldManifestStale,
 } from "@/lib/crep/fields/field-playback"
 
-export type ArraylakeFieldState = "cataloged" | "loading" | "available" | "stale" | "unbound" | "error"
+export type ArraylakeFieldState = "cataloged" | "loading" | "available" | "stale" | "empty" | "unbound" | "error"
 
 export interface ArraylakeFieldOption {
   dataset: FieldDataset
@@ -72,13 +72,13 @@ function statusFromManifest(
   if (!manifest.baked || frames.length === 0) {
     return {
       ...option,
-      state: "unbound",
+      state: "empty",
       frameCount: frames.length,
       updatedAt: manifest.updated ?? null,
       newestFrameAt,
       checkedAt,
       storage: manifest.storage ?? null,
-      reason: manifest.reason || "No renderable baked frames are bound to this field.",
+      reason: manifest.reason || "No baked frames in view. This is not an environmental all-clear.",
     }
   }
 
@@ -136,13 +136,9 @@ export function useArraylakeFields(active: boolean, enabledFieldIds: readonly st
           cache: "no-store",
           signal: controller.signal,
         })
-        if (!catalogResponse.ok) throw new Error(`catalog ${catalogResponse.status}`)
-        const catalog = await catalogResponse.json() as CatalogResponse
-        const configured = catalog.base_configured === true
-        setBaseConfigured(configured)
-        setLocalBaseConfigured(catalog.local_base_configured === true)
-
-        if (!configured) {
+        if (catalogResponse.status === 404) {
+          setBaseConfigured(false)
+          setLocalBaseConfigured(false)
           setStatusOverrides(Object.fromEntries(
             ARRAYLAKE_FIELD_OPTIONS
               .filter((option) => selected.has(option.layerId))
@@ -150,11 +146,15 @@ export function useArraylakeFields(active: boolean, enabledFieldIds: readonly st
                 ...catalogedStatus(option),
                 state: "unbound" as const,
                 checkedAt,
-                reason: "No local or configured Arraylake bake store is available.",
+                reason: "Field BFF returned 404. ARRAYLAKE catalog route is missing.",
               }]),
           ))
           return
         }
+        if (!catalogResponse.ok) throw new Error(`catalog ${catalogResponse.status}`)
+        const catalog = await catalogResponse.json() as CatalogResponse
+        setBaseConfigured(catalog.base_configured !== false)
+        setLocalBaseConfigured(catalog.local_base_configured === true || catalog.configured_base_present === true)
 
         const resolved = await Promise.all(
           ARRAYLAKE_FIELD_OPTIONS
@@ -165,6 +165,14 @@ export function useArraylakeFields(active: boolean, enabledFieldIds: readonly st
                   cache: "no-store",
                   signal: controller.signal,
                 })
+                if (response.status === 404) {
+                  return [option.layerId, {
+                    ...catalogedStatus(option),
+                    state: "unbound",
+                    checkedAt,
+                    reason: `Field BFF returned 404 for ${option.dataset.id}/${option.variable.key}. Required catalog/manifest route is missing.`,
+                  }]
+                }
                 if (!response.ok) throw new Error(`manifest ${response.status}`)
                 const manifest = await response.json() as FieldManifest
                 return [option.layerId, statusFromManifest(option, manifest, checkedAt)]

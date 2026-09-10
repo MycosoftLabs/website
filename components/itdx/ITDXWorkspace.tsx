@@ -8,12 +8,12 @@ import styles from './itdx.module.css'
 
 function download(name:string,value:unknown){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 export default function ITDXWorkspace(){
- const [workspace,setWorkspace]=useState<WorkspaceImport|null>(null),[selected,setSelected]=useState(''),[page,setPage]=useState(1),[query,setQuery]=useState(''),[message,setMessage]=useState('Load a source workspace exported by the v1.3 local application.'),[busy,setBusy]=useState(false)
+ const [workspace,setWorkspace]=useState<WorkspaceImport|null>(null),[selected,setSelected]=useState(''),[page,setPage]=useState(1),[query,setQuery]=useState(''),[message,setMessage]=useState('Load a source workspace exported by the v1.4 local application.'),[busy,setBusy]=useState(false)
  const state=useReplay(),frame=snapshot(state.index)
  const doc=workspace?.documents.find(d=>d.id===selected),source=doc?.pages[page-1]
  const docs=workspace?.documents.filter(d=>d.name.toLowerCase().includes(query.toLowerCase())||d.pages.some(p=>(p.text??'').toLowerCase().includes(query.toLowerCase())))??[]
  return <section className={styles.workspace}>
-  <p className={styles.badge}>ITDX v1.3 · SOURCE REVIEW & FICTIONAL REPLAY</p>
+  <p className={styles.badge}>ITDX v1.4 · SOURCE REVIEW & FICTIONAL REPLAY</p>
   <h1>Evidence, time, and uncertainty</h1>
   <p>Review cited training documents and show predefined demo assets in the shared Earth Simulator map. The ITDX overlay is Earth Simulator only and stays live=false.</p>
   <div className={styles.row}><Link href="/fusarium/earth-simulator" onClick={()=>replay.enable(true)}>Open Earth Simulator with demo enabled</Link><button onClick={()=>download('itdx-fictional-frame-'+state.index+'.geojson',frame.geojson)}>Export current GeoJSON</button><button onClick={()=>download('itdx-fictional-measurements.json',allMeasurements())}>Export all 484 measurement records</button></div>

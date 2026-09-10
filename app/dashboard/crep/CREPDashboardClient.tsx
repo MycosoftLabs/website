@@ -330,6 +330,7 @@ import { FEED_REGISTRY, FEED_GROUP_CATEGORY } from "@/lib/crep/feeds/registry";
 import FieldRasterLayer from "@/components/crep/layers/field-raster-layer";
 import FieldWindLayer from "@/components/crep/layers/field-wind-layer";
 import { FIELD_REGISTRY, FIELD_GROUP_CATEGORY, fieldLayerId } from "@/lib/crep/fields/registry";
+import { AEROSOL_LIVE_DATA_LAYER_IDS, isLiveDataLayerId } from "@/lib/crep/live-data-layers";
 import TijuanaStationWidget from "@/components/crep/tijuana/TijuanaStationWidget";
 import OysterSiteWidget from "@/components/crep/oyster/OysterSiteWidget";
 // Apr 22, 2026 â€” SD + TJ data coverage expansion: 7 OSM-derived
@@ -2752,8 +2753,7 @@ const layerCategories = {
   projects: { label: "MYCOSOFT Projects", icon: <Sparkles className="w-3.5 h-3.5" />, color: "text-teal-400" },
   // PRIMARY - Biodiversity and devices (shown first)
   environment: { label: "Biodiversity & Environment", icon: <Leaf className="w-3.5 h-3.5" />, color: "text-emerald-400" },
-  // Animated gridded model fields from the mycosoft Arraylake cubes (ERA5/HRRR/MRMS weather,
-  // Helios solar, ALIVE GPP, canopy, biomass, Sentinel-2 NDVI, GEO stereo wind). Flag-gated.
+  liveData: { label: "Live Data", icon: <Activity className="w-3.5 h-3.5" />, color: "text-emerald-400" },
   nature: { label: "Nature & Climate", icon: <Thermometer className="w-3.5 h-3.5" />, color: "text-lime-400" },
   devices: { label: "MycoBrain Devices", icon: <Radar className="w-3.5 h-3.5" />, color: "text-green-400" },
   // CONTEXT - Natural events for correlation
@@ -2832,14 +2832,8 @@ const NATURE_ENVIRONMENT_LAYER_IDS = new Set<string>([
   "usgs-streamflow",  // River Gauges / Streamflow (USGS)
   "weatherRadar",     // Live Weather Radar (animated RainViewer)
   "stormLightning",   // Live Lightning + Thunder (over real NWS storm cells)
-  "mindexFirms",      // MINDEX FIRMS (live NASA FIRMS VIIRS wildfire detections)
-  "mindexAirQuality", // MINDEX Air Quality (atmos.air_quality — OpenAQ/AirNow)
   "mindexWeather",    // MINDEX Weather (atmos.weather_observations — POWER/Open-Meteo/METAR)
   "opentopoBasemap",
-  "aerosolParticulate",
-  "aerosolModeledDispersal",
-  "aerosolWind",
-  "aerosolSmoke",
   "deviceMovementPaths",
   "deviceCoordination",
   "deviceTriangulation",
@@ -3125,8 +3119,8 @@ const EARTH_NATURE_EVENT_FOCUS_LAYER_IDS = new Set([
 
 const FUNGA_LAYER_OPACITY: Record<string, number> = {
   fungalAtlasMycelium: 0.98,
-  fungalAtlasAM: 0.55,
-  fungalAtlasECM: 0.55,
+  fungalAtlasAM: 0.88,
+  fungalAtlasECM: 0.88,
   fungalAtlasRare: 0.88,
   fungalAtlasProtected: 0.72,
   fungalAtlasUncertainty: 0.72,
@@ -4662,8 +4656,8 @@ function OpenGridOrbitMini({
   );
 }
 
-const LEGEND_BUTTON_ACTIVE_CLASSES = ["border-green-400/55", "bg-green-500/15", "text-green-100"] as const;
-const LEGEND_BUTTON_INACTIVE_CLASSES = ["border-red-500/45", "bg-red-950/25", "text-red-200"] as const;
+const LEGEND_BUTTON_ACTIVE_CLASSES = ["border-emerald-400", "bg-emerald-500/20", "text-emerald-400"] as const;
+const LEGEND_BUTTON_INACTIVE_CLASSES = ["border-white/15", "bg-black/30", "text-zinc-400"] as const;
 
 function setLegendButtonPressed(button: HTMLElement | null, pressed: boolean) {
   if (!button) return;
@@ -4760,7 +4754,7 @@ function LegendFilterButton({
         activate(event);
       }}
       className={cn(
-        "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transform,background-color,border-color,color,box-shadow] duration-75 ease-out active:scale-[0.96]",
+        "flex min-h-[44px] min-w-[44px] min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-2 py-2 text-left transition-[transform,background-color,border-color,color,box-shadow] duration-75 ease-out active:scale-[0.96]",
         active ? LEGEND_BUTTON_ACTIVE_CLASSES.join(" ") : LEGEND_BUTTON_INACTIVE_CLASSES.join(" "),
         disabled && "cursor-not-allowed opacity-50"
       )}
@@ -10456,8 +10450,8 @@ export default function CREPDashboardPage({
     // Environment - Context for fungal activity
     { id: "biodiversity", name: "Biodiversity Hotspots", category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#a855f7", description: "High biodiversity concentration areas. Apr 22 2026 flipped ON per Morgan â€” all permanent infra + project layers on from start." },
     { id: "fungalAtlasMycelium", name: "Mycelium Heat", category: "environment", icon: <span className="text-[11px]">{"\u{1F344}"}</span>, enabled: false, opacity: 1, color: "#22c55e", description: "MINDEX fungal atlas predicted mycorrhizal richness surface." },
-    { id: "fungalAtlasAM", name: "AM Fungi Distribution", category: "environment", icon: <span className="text-[9px] font-bold">AM</span>, enabled: false, opacity: 0.55, color: "#22c55e", description: "Native arbuscular mycorrhizal richness layer." },
-    { id: "fungalAtlasECM", name: "EcM Fungi Distribution", category: "environment", icon: <span className="text-[9px] font-bold">Ec</span>, enabled: false, opacity: 0.55, color: "#d946ef", description: "Native ectomycorrhizal richness layer." },
+    { id: "fungalAtlasAM", name: "AM Fungi Distribution", category: "environment", icon: <span className="text-[9px] font-bold">AM</span>, enabled: false, opacity: 0.88, color: "#22c55e", description: "Native arbuscular mycorrhizal richness layer." },
+    { id: "fungalAtlasECM", name: "EcM Fungi Distribution", category: "environment", icon: <span className="text-[9px] font-bold">Ec</span>, enabled: false, opacity: 0.88, color: "#d946ef", description: "Native ectomycorrhizal richness layer." },
     { id: "fungalAtlasRare", name: "Rare / Endemic Fungi", category: "environment", icon: <Target className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#f59e0b", description: "Native predicted endemism layer." },
     { id: "fungalAtlasProtected", name: "Fungal Protected Areas", category: "environment", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.36, color: "#60a5fa", description: "Native protected-area overlay." },
     { id: "fungalAtlasUncertainty", name: "High Uncertainty Areas", category: "environment", icon: <AlertTriangle className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#d4d4d8", description: "Native high-uncertainty overlay." },
@@ -10475,14 +10469,14 @@ export default function CREPDashboardPage({
     { id: "earthquakes", name: "Seismic Activity", category: "events", icon: <Activity className="w-3 h-3" />, enabled: true, opacity: 1, color: "#b45309", description: "Real-time USGS earthquake data" },
     { id: "volcanoes", name: "Volcanic Activity", category: "events", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1, color: "#f97316", description: "Active volcanoes and eruption alerts" },
     { id: "wildfires", name: "Active Wildfires", category: "events", icon: <Flame className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#dc2626", description: "NASA FIRMS fire detection data" },
-    { id: "mindexFirms", name: "MINDEX FIRMS (live)", category: "events", icon: <Flame className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#fb923c", description: "MINDEX earth.wildfires — live NASA FIRMS VIIRS 375m thermal detections. Default OFF.", dataStatus: "real", dataSource: "MINDEX earth.wildfires" },
-    { id: "mindexAirQuality", name: "MINDEX Air Quality (live)", category: "environment", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#2dd4bf", description: "MINDEX atmos.air_quality — OpenAQ/AirNow station readings. Default OFF; empty until ETL keys land on 189.", dataStatus: "real", dataSource: "MINDEX atmos.air_quality" },
+    { id: "mindexFirms", name: "MINDEX FIRMS (live)", category: "liveData", icon: <Flame className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#fb923c", description: "MINDEX earth.wildfires — live NASA FIRMS VIIRS 375m thermal detections. Default OFF.", dataStatus: "real", dataSource: "MINDEX earth.wildfires" },
+    { id: "mindexAirQuality", name: "MINDEX Air Quality (live)", category: "liveData", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#2dd4bf", description: "MINDEX atmos.air_quality — OpenAQ/AirNow station readings. Default OFF; empty until ETL keys land on 189.", dataStatus: "real", dataSource: "MINDEX atmos.air_quality" },
     { id: "mindexWeather", name: "MINDEX Weather (live)", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#38bdf8", description: "MINDEX atmos.weather_observations — NASA POWER / Open-Meteo / METAR stations. Default OFF; sparse until ETL scales.", dataStatus: "real", dataSource: "MINDEX atmos.weather_observations" },
     { id: "opentopoBasemap", name: "OpenTopoMap (OSINT)", category: "environment", icon: <Mountain className="w-3 h-3" />, enabled: false, opacity: 0.72, color: "#a3e635", description: "Public OpenTopoMap raster (OSM + SRTM). Attribution: © OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA). Does not move Fort Stewart AO.", dataStatus: "real", dataSource: "OpenTopoMap" },
-    { id: "aerosolParticulate", name: "Aerosol particulates (PM)", category: "environment", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#ffc46b", description: "Same MINDEX air-quality BFF as /fusarium/aerosol, filtered to explicit PM/dust features. Empty until stations name PM.", dataStatus: "real", dataSource: "/api/crep/environment/air-quality" },
-    { id: "aerosolModeledDispersal", name: "Modeled spore dispersal", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#f97316", description: "Earth-2 modeled spore dispersal. Honest empty when the forecast API is unbound.", dataStatus: "real", dataSource: "/api/earth2/spore-dispersal" },
-    { id: "aerosolWind", name: "Aerosol wind vectors", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.75, color: "#38bdf8", description: "Earth-2 u10/v10 wind vectors used by the aerosol workbench.", dataStatus: "real", dataSource: "/api/earth2/layers/wind" },
-    { id: "aerosolSmoke", name: "Aerosol smoke", category: "environment", icon: <Flame className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#94a3b8", description: "Quarantined. CREP SmokeLayer injects stochastic defaults. NOT_SUPPLIED until a deterministic plume contract exists.", dataStatus: "planned_real", dataSource: "NOT_SUPPLIED" },
+    { id: "aerosolParticulate", name: "Aerosol particulates (PM)", category: "liveData", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#ffc46b", description: "Same MINDEX air-quality BFF as /fusarium/aerosol, filtered to explicit PM/dust features. Empty until stations name PM.", dataStatus: "real", dataSource: "/api/crep/environment/air-quality" },
+    { id: "aerosolModeledDispersal", name: "Modeled spore dispersal", category: "liveData", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#f97316", description: "Earth-2 modeled spore dispersal. Honest empty / NOT_SUPPLIED when the BFF returns no zones. Unbound only if the route is missing.", dataStatus: "real", dataSource: "/api/earth2/spore-dispersal" },
+    { id: "aerosolWind", name: "Aerosol wind vectors", category: "liveData", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.75, color: "#38bdf8", description: "Earth-2 u10/v10 wind vectors used by the aerosol workbench.", dataStatus: "real", dataSource: "/api/earth2/layers/wind" },
+    { id: "aerosolSmoke", name: "Aerosol smoke", category: "liveData", icon: <Flame className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#94a3b8", description: "Quarantined. CREP SmokeLayer injects stochastic defaults. NOT_SUPPLIED until a deterministic plume contract exists.", dataStatus: "planned_real", dataSource: "NOT_SUPPLIED" },
     { id: "deviceMovementPaths", name: "Device movement paths", category: "environment", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#67e8f9", description: "Recorded telemetry polylines from live MAS/MINDEX/operator devices only. No invented convoy.", dataStatus: "real", dataSource: "/api/fusarium/movement/snapshot" },
     { id: "deviceCoordination", name: "Device coordination", category: "environment", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Haversine range + forward azimuth between ≥2 live devices.", dataStatus: "real", dataSource: "/api/fusarium/movement/snapshot" },
     { id: "deviceTriangulation", name: "Device triangulation", category: "environment", icon: <Target className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#c084fc", description: "Geometric fix when ≥3 live observers exist; otherwise an unqualified proposal (live: false).", dataStatus: "real", dataSource: "/api/fusarium/movement/snapshot" },
@@ -10781,13 +10775,10 @@ export default function CREPDashboardPage({
     for (const f of FEED_REGISTRY) {
       initialLayers.push({ id: f.id, name: f.name, category: FEED_GROUP_CATEGORY[f.group], icon: <Activity className="w-3 h-3" />, enabled: f.default_on ?? false, opacity: 0.85, color: f.color, description: f.notes || "" } as LayerConfig);
     }
-    // Config-driven Arraylake gridded FIELDS (lib/crep/fields/registry) — flag-gated, OFF by default.
-    // No flag → no entries → zero impact on v1. One toggle per dataset+variable.
-    if (process.env.NEXT_PUBLIC_ES_ARRAYLAKE_FIELDS === "1") {
-      for (const d of FIELD_REGISTRY) {
-        for (const v of d.variables) {
-          initialLayers.push({ id: fieldLayerId(d.id, v.key), name: `${d.name} — ${v.name}`, category: FIELD_GROUP_CATEGORY[d.group], icon: <Activity className="w-3 h-3" />, enabled: false, opacity: 0.85, color: (v.ramp && v.ramp[v.ramp.length - 1] && v.ramp[v.ramp.length - 1][1]) || "#38bdf8", description: d.notes || "" } as LayerConfig);
-        }
+    // Arraylake Live Data — always cataloged, default OFF. Empty bake is NOT_SUPPLIED, not UNBOUND.
+    for (const d of FIELD_REGISTRY) {
+      for (const v of d.variables) {
+        initialLayers.push({ id: fieldLayerId(d.id, v.key), name: `${d.name} — ${v.name}`, category: "liveData", icon: <Activity className="w-3 h-3" />, enabled: false, opacity: 0.85, color: (v.ramp && v.ramp[v.ramp.length - 1] && v.ramp[v.ramp.length - 1][1]) || "#38bdf8", description: d.notes || "" } as LayerConfig);
       }
     }
     const layersWithInitialFilters =
@@ -18004,7 +17995,13 @@ export default function CREPDashboardPage({
 
   const natureEnvironmentLegendItems = useMemo<LegendLayerItem[]>(() => (
     layers
-      .filter((layer) => NATURE_ENVIRONMENT_LAYER_IDS.has(layer.id))
+      .filter((layer) => NATURE_ENVIRONMENT_LAYER_IDS.has(layer.id) && !isLiveDataLayerId(layer.id))
+      .map(makeLayerLegendItem)
+  ), [layers, makeLayerLegendItem]);
+
+  const liveDataLegendItems = useMemo<LegendLayerItem[]>(() => (
+    layers
+      .filter((layer) => isLiveDataLayerId(layer.id))
       .map(makeLayerLegendItem)
   ), [layers, makeLayerLegendItem]);
 
@@ -18066,7 +18063,11 @@ export default function CREPDashboardPage({
       "fungi",
       ...FUNGAL_ATLAS_LAYER_IDS,
       ...NATURE_ENVIRONMENT_LAYER_IDS,
+      ...AEROSOL_LIVE_DATA_LAYER_IDS,
     ]);
+    for (const layer of layers) {
+      if (isLiveDataLayerId(layer.id)) skipIds.add(layer.id);
+    }
     const groupMeta: Record<string, { label: string; accent: string }> = {
       airspace: { label: "Air / Space Assets", accent: "text-sky-300" },
       maritime: { label: "Maritime / Ocean Assets", accent: "text-cyan-300" },
@@ -18220,11 +18221,16 @@ export default function CREPDashboardPage({
 
   const nativeLegendItemByKey = useMemo(() => {
     const index = new Map<string, LegendLayerItem>();
-    for (const item of [...natureEnvironmentLegendItems, ...staticInfraLegendItems, ...deviceLegendItems]) {
+    for (const item of [
+      ...natureEnvironmentLegendItems,
+      ...liveDataLegendItems,
+      ...staticInfraLegendItems,
+      ...deviceLegendItems,
+    ]) {
       index.set(legendNativeItemKey(item), item);
     }
     return index;
-  }, [deviceLegendItems, natureEnvironmentLegendItems, staticInfraLegendItems]);
+  }, [deviceLegendItems, liveDataLegendItems, natureEnvironmentLegendItems, staticInfraLegendItems]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -18914,6 +18920,29 @@ export default function CREPDashboardPage({
                           </div>
                         </>
                       )}
+                      <div className="text-[8px] text-emerald-400/80 font-semibold uppercase tracking-wider mt-2" data-testid="earth-sim-live-data">Live Data</div>
+                      <p className="text-[8px] text-zinc-500 leading-tight">Arraylake / aerosol cubes. Off until toggled. Empty bake is no data, not unbound.</p>
+                      <div className="grid grid-cols-2 gap-1" data-testid="earth-sim-live-data-filters">
+                        {(liveDataLegendItems.length > 0 ? liveDataLegendItems : FIELD_REGISTRY.flatMap((d) => d.variables.map((v) => ({
+                          id: fieldLayerId(d.id, v.key),
+                          color: (v.ramp && v.ramp[v.ramp.length - 1] && v.ramp[v.ramp.length - 1][1]) || "#34d399",
+                          label: `${d.id} ${v.name}`,
+                          icon: <Activity className="h-2.5 w-2.5" />,
+                          title: d.notes || `${d.name} — ${v.name}`,
+                            })))).map((item) => (
+                              <LegendFilterButton
+                                key={item.id ?? item.label}
+                                layerId={item.id}
+                                color={item.color}
+                                icon={item.icon}
+                                label={`${item.label} · ${item.id === "aerosolSmoke" ? "NOT_SUPPLIED" : isLegendLayerItemOn(item) ? "On" : "Off"}`}
+                                title={item.title}
+                                active={isLegendLayerItemOn(item)}
+                                nativeKey={`legend:${legendNativeItemKey(item)}`}
+                                onClick={() => toggleLegendLayerItem(item)}
+                              />
+                            ))}
+                      </div>
                     </div>
                   </details>
                 </div>
@@ -23919,10 +23948,10 @@ export default function CREPDashboardPage({
           {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "aerosolParticulate")?.enabled ?? false) && (
             <AerosolParticulateLayer map={mapRef} visible />
           )}
-          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && mapRef && (layers.find(l => l.id === "aerosolModeledDispersal")?.enabled ?? false) && (
+          {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "aerosolModeledDispersal")?.enabled ?? false) && (
             <SporeDispersalLayer map={mapRef} visible forecastHours={earth2Filter.forecastHours} opacity={layers.find(l => l.id === "aerosolModeledDispersal")?.opacity ?? 0.7} showConcentrationGradient />
           )}
-          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && mapRef && (layers.find(l => l.id === "aerosolWind")?.enabled ?? false) && (
+          {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "aerosolWind")?.enabled ?? false) && (
             <WindVectorLayer map={mapRef} visible forecastHours={earth2Filter.forecastHours} opacity={layers.find(l => l.id === "aerosolWind")?.opacity ?? 0.75} />
           )}
           {!auditAllOffMode && !assetIsolationMode && mapRef && (
@@ -23978,16 +24007,16 @@ export default function CREPDashboardPage({
           {!auditAllOffMode && !assetIsolationMode && FEED_REGISTRY.map((f) => (
             <FeedLayer key={f.id} map={mapRef} config={f} enabled={layers.find(l => l.id === f.id)?.enabled ?? false} />
           ))}
-          {/* Config-driven Arraylake gridded FIELDS (lib/crep/fields/registry) — flag-gated
-              (NEXT_PUBLIC_ES_ARRAYLAKE_FIELDS), OFF by default. Raster-loop for scalar cubes,
-              particle-flow for wind cubes. Renders nothing until the data plane bakes frames. */}
-          {process.env.NEXT_PUBLIC_ES_ARRAYLAKE_FIELDS === "1" && !auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && FIELD_REGISTRY.flatMap((d) =>
+          {/* Arraylake / Live Data fields — same BFF as /fusarium/aerosol. Always mounted
+              so a chip toggle binds in ~1–2s. enabled=false removes only this overlay.
+              Empty bake → no pixels (honest empty), not UNBOUND. */}
+          {!auditAllOffMode && !assetIsolationMode && FIELD_REGISTRY.flatMap((d) =>
             d.variables.map((v) => {
               const fid = fieldLayerId(d.id, v.key);
               const on = layers.find((l) => l.id === fid)?.enabled ?? false;
               return v.render === "wind"
-                ? <FieldWindLayer key={fid} map={mapRef} dataset={d.id} variable={v.key} enabled={on} minZoom={d.minZoom ?? 0} />
-                : <FieldRasterLayer key={fid} map={mapRef} dataset={d.id} variable={v.key} enabled={on} minZoom={d.minZoom ?? 0} />;
+                ? <FieldWindLayer key={fid} map={mapRef} dataset={d.id} variable={v.key} enabled={on} minZoom={0} />
+                : <FieldRasterLayer key={fid} map={mapRef} dataset={d.id} variable={v.key} enabled={on} minZoom={0} />;
             })
           )}
           {/* LIFE-SAFETY: GPS-geofenced NWS emergency warnings (tornado / flash flood / severe
@@ -24303,13 +24332,14 @@ export default function CREPDashboardPage({
             />
             <FlyToProjects
               onFlyTo={(t) => {
-                const map = (mapNativeRef.current || mapRef) as any;
-                if (!map?.flyTo) return;
+                const map = (mapNativeRef.current || mapRef.current || mapRef) as any;
                 crepMapFlyTo(map, {
                   center: t.center,
                   zoom: t.zoom,
-                  pitch: t.pitch3d,
+                  pitch: t.pitch3d ?? 0,
                   bearing: t.bearing ?? 0,
+                  duration: 1600,
+                  essential: true,
                   onEnd: () => publishMapCameraFromMap(map),
                 });
               }}

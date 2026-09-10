@@ -69,7 +69,10 @@ export async function GET(req: NextRequest) {
     fetch(target.toString(), {
       headers: {
         Accept: "*/*",
-        "User-Agent": "MycosoftCREP/1.0",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        Referer: "https://cwwp2.dot.ca.gov/",
+        Origin: "https://cwwp2.dot.ca.gov",
         ...(isEarthCamHost ? { Referer: "https://www.earthcam.com/", Origin: "https://www.earthcam.com" } : {}),
         ...(isHdontapHost ? { Referer: "https://portal.hdontap.com/s/embed/", Origin: "https://portal.hdontap.com" } : {}),
       },

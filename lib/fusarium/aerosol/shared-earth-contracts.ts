@@ -213,8 +213,8 @@ export function loadingSharedEarthStatuses(checkedAt: string | null = null): Sha
     }),
     status("particulate", "mindex-air-quality", "loading", checkedAt, { reason: "Checking MINDEX for explicit PM2.5, PM10, or dust readings." }),
     status("nasa-firms-fire", "mindex-firms", "loading", checkedAt, { reason: "Checking the shared MINDEX FIRMS contract." }),
-    status("smoke", "quarantined", "unbound", checkedAt, {
-      reason: "The current CREP smoke renderer injects stochastic plume defaults, so it is quarantined until a deterministic, provenance-bearing plume contract is available.",
+    status("smoke", "quarantined", "empty", checkedAt, {
+      reason: "NOT_SUPPLIED. The current CREP smoke renderer injects stochastic plume defaults, so no plume is drawn. This is not an environmental all-clear and is not an unbound Arraylake/PM/wind/AQ banner.",
     }),
     status("wind", "earth2-wind", "loading", checkedAt, { reason: "Checking shared Earth-2 vectors and MINDEX weather observations." }),
     status("air-quality", "mindex-air-quality", "loading", checkedAt, { reason: "Checking shared MINDEX and AirNow air-quality contracts." }),
@@ -246,9 +246,9 @@ export function classifyMindexFeatureCollection(options: {
     return failedSharedEarthStatus(options.layerId, options.source, options.checkedAt, "The shared MINDEX response did not match its FeatureCollection contract.")
   }
   if (meta.upstream !== "mindex") {
-    return status(options.layerId, options.source, "unbound", options.checkedAt, {
+    return status(options.layerId, options.source, "empty", options.checkedAt, {
       count: 0,
-      reason: "The view plane responded, but its MINDEX upstream was unavailable. No empty or all-clear conclusion is permitted.",
+      reason: "NOT_SUPPLIED. The BFF is bound and returned no MINDEX features in view (upstream unavailable). This is not an environmental all-clear and is not unbound.",
     })
   }
   const accepted = options.featureFilter ? features.filter(options.featureFilter) : features
@@ -275,19 +275,22 @@ export function isParticulateFeature(featureValue: unknown): boolean {
   const feature = record(featureValue)
   const properties = record(feature?.properties)
   const summary = typeof properties?.summary === "string" ? properties.summary : ""
-  return /\b(?:PM2\.5|PM2_5|PM10|particulate|dust)\b/i.test(summary)
+  const parameter = typeof properties?.parameter === "string" ? properties.parameter : ""
+  const name = typeof properties?.name === "string" ? properties.name : ""
+  return /\b(?:PM2\.5|PM2_5|PM25|PM10|particulate|dust)\b/i.test(`${summary} ${parameter} ${name}`)
 }
 
 export function classifyAirNow(payload: unknown, checkedAt: string): SharedEarthLayerStatus {
   const body = record(payload)
   if (!body) return failedSharedEarthStatus("air-quality", "airnow", checkedAt, "The AirNow response was not an object.")
   if (typeof body.error === "string") {
-    return status("air-quality", "airnow", "unbound", checkedAt, {
-      count: 0,
-      reason: body.error.includes("not configured")
-        ? "AirNow is not bound because AIRNOW_API_KEY is not configured."
-        : `AirNow did not complete a qualified read: ${body.error}`,
-    })
+    if (body.error.includes("not configured")) {
+      return status("air-quality", "airnow", "unbound", checkedAt, {
+        count: 0,
+        reason: "AirNow is unbound because required env AIRNOW_API_KEY is missing.",
+      })
+    }
+    return failedSharedEarthStatus("air-quality", "airnow", checkedAt, `AirNow did not complete a qualified read: ${body.error}`)
   }
   const features = array(body.features)
   if (!features) return failedSharedEarthStatus("air-quality", "airnow", checkedAt, "The AirNow response did not match its FeatureCollection contract.")
@@ -310,18 +313,27 @@ export function classifyEarth2Spore(payload: unknown, checkedAt: string): Shared
   const body = record(payload)
   if (!body) return failedSharedEarthStatus("modeled-spore-dispersal", "earth2-spore", checkedAt, "The Earth-2 modeled-dispersal response was not an object.")
   const source = body.source
+  const zones = array(body.zones)
+  const runs = array(body.runs)
   if (body.available === false || source === "none") {
-    return status("modeled-spore-dispersal", "earth2-spore", "unbound", checkedAt, {
+    return status("modeled-spore-dispersal", "earth2-spore", "empty", checkedAt, {
       count: 0,
-      reason: "Earth-2 modeled spore dispersal is not bound. No modeled zones are displayed and no absence is inferred.",
+      reason: "NOT_SUPPLIED. The dispersal BFF is bound and returned no modeled zones in view. This is not an environmental all-clear.",
     })
   }
-  const zones = array(body.zones)
+  if (!zones && runs) {
+    return status("modeled-spore-dispersal", "earth2-spore", "empty", checkedAt, {
+      count: runs.length,
+      reason: runs.length > 0
+        ? "NOT_SUPPLIED. MAS returned run rows without zone geometries, so nothing is drawn. This is not unbound."
+        : "NOT_SUPPLIED. The dispersal BFF returned an empty run list. No data in view.",
+    })
+  }
   if (!zones) return failedSharedEarthStatus("modeled-spore-dispersal", "earth2-spore", checkedAt, "The Earth-2 response did not provide a modeled zones array.")
   if (!hasQualifiedMeteorology(body)) {
-    return status("modeled-spore-dispersal", "earth2-spore", "unbound", checkedAt, {
+    return status("modeled-spore-dispersal", "earth2-spore", "empty", checkedAt, {
       count: 0,
-      reason: "The modeled response was withheld because it did not identify its model run and timestamped wind/meteorology driver.",
+      reason: "NOT_SUPPLIED. Zones were withheld because the model run and timestamped wind/meteorology driver were missing. No data in view.",
     })
   }
   return status("modeled-spore-dispersal", "earth2-spore", zones.length > 0 ? "available" : "empty", checkedAt, {
@@ -337,9 +349,9 @@ export function classifyEarth2Wind(payload: unknown, checkedAt: string): SharedE
   const body = record(payload)
   if (!body) return failedSharedEarthStatus("wind", "earth2-wind", checkedAt, "The Earth-2 wind response was not an object.")
   if (body.available === false || body.source === "none") {
-    return status("wind", "earth2-wind", "unbound", checkedAt, {
+    return status("wind", "earth2-wind", "empty", checkedAt, {
       count: 0,
-      reason: "Earth-2 wind vectors are not bound. The operational view will not generate replacement vectors.",
+      reason: "NOT_SUPPLIED. The wind BFF is bound and returned no vectors in view. Replacement vectors are not invented.",
     })
   }
   const u = array(body.u)
@@ -361,9 +373,9 @@ export function classifySporeBase(payload: unknown, checkedAt: string): SharedEa
   const devices = array(body.devices)
   if (!devices) return failedSharedEarthStatus("sporebase", "sporebase", checkedAt, "The SporeBase response did not provide a devices array.")
   if (typeof body.note === "string") {
-    return status("sporebase", "sporebase", "unbound", checkedAt, {
+    return status("sporebase", "sporebase", "empty", checkedAt, {
       count: 0,
-      reason: `${body.note} The proxy's empty array is not treated as a verified empty device network.`,
+      reason: `NOT_SUPPLIED. ${body.note} The BFF is bound; empty devices are no data in view, not unbound.`,
     })
   }
   return status("sporebase", "sporebase", devices.length > 0 ? "available" : "empty", checkedAt, {
@@ -380,16 +392,16 @@ export function classifySporeBaseLab(payload: unknown, checkedAt: string): Share
   const samples = array(body.samples)
   if (!samples) return failedSharedEarthStatus("sporebase-lab", "sporebase-lab", checkedAt, "The SporeBase lab response did not provide a samples array.")
   if (typeof body.note === "string" || body.available === false || body.source === "none") {
-    return status("sporebase-lab", "sporebase-lab", "unbound", checkedAt, {
+    return status("sporebase-lab", "sporebase-lab", "empty", checkedAt, {
       count: 0,
-      reason: `${text(body.note) ?? "The laboratory results source is unavailable."} No tape interval is treated as a negative detection.`,
+      reason: `NOT_SUPPLIED. ${text(body.note) ?? "The laboratory results source returned no qualified tape."} No tape interval is treated as a negative detection.`,
     })
   }
   const qualified = samples.map(qualifiedLabInterval).filter((value): value is { count: number; endAt: string } => value != null)
   if (samples.length > 0 && qualified.length === 0) {
-    return status("sporebase-lab", "sporebase-lab", "unbound", checkedAt, {
+    return status("sporebase-lab", "sporebase-lab", "empty", checkedAt, {
       count: 0,
-      reason: "Sample tracking records exist, but none supplied a 15-minute interval, delayed report time, lab/method provenance, and taxon identification. They are withheld.",
+      reason: "NOT_SUPPLIED. Sample tracking records exist, but none supplied a 15-minute interval, delayed report time, lab/method provenance, and taxon identification. They are withheld, not unbound.",
     })
   }
   const identificationCount = qualified.reduce((total, item) => total + item.count, 0)
@@ -412,16 +424,16 @@ export function classifyFungalOccurrence(payload: unknown, checkedAt: string): S
   }
   const dataSource = text(meta.dataSource)
   if (dataSource === "error_fallback" || dataSource === "mindex_empty_requires_ingest" || typeof meta.error === "string") {
-    return status("fungal-occurrence", "crep-fungal-occurrence", "unbound", checkedAt, {
+    return status("fungal-occurrence", "crep-fungal-occurrence", "empty", checkedAt, {
       count: 0,
-      reason: "CREP did not return a bound fungal occurrence source. An empty proxy body is not treated as an absence of fungi.",
+      reason: "NOT_SUPPLIED. The CREP occurrence BFF is bound and returned no qualifying fungal records in view. An empty body is not an absence of fungi.",
     })
   }
   const qualified = observations.map(qualifiedFungalOccurrence).filter((value): value is { observedAt: string | null } => value != null)
   if (observations.length > 0 && qualified.length === 0) {
-    return status("fungal-occurrence", "crep-fungal-occurrence", "unbound", checkedAt, {
+    return status("fungal-occurrence", "crep-fungal-occurrence", "empty", checkedAt, {
       count: 0,
-      reason: "Occurrence rows were withheld because they lacked a taxon, source, timestamp, or valid coordinates.",
+      reason: "NOT_SUPPLIED. Occurrence rows were withheld because they lacked a taxon, source, timestamp, or valid coordinates.",
     })
   }
   const observedAt = qualified.reduce<string | null>((latest, item) => item.observedAt && (!latest || Date.parse(item.observedAt) > Date.parse(latest)) ? item.observedAt : latest, null)

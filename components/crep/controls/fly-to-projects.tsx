@@ -323,7 +323,7 @@ export function FlyToProjects({ onFlyTo, onEnableLayers, className, compact = fa
         "rounded-lg border bg-black/40 backdrop-blur-sm transition-all font-mono tracking-wider",
         "active:scale-95",
         p.accent,
-        compact ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-[11px]",
+        compact ? "min-h-[44px] min-w-[44px] px-2 py-1 text-[10px]" : "min-h-[44px] min-w-[44px] px-3 py-1.5 text-[11px]",
       )}
       title={`${p.label} — ${p.pitch}`}
       aria-label={p.label}

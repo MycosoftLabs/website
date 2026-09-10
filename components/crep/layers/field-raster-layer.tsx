@@ -26,6 +26,7 @@
 
 import { useEffect, useRef } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
+import type { FieldPlaybackSnapshot } from "@/lib/crep/fields/field-playback";
 
 type MapLike = MapLibreMap | { current: MapLibreMap | null } | null | undefined;
 
@@ -36,8 +37,10 @@ interface Props {
   enabled: boolean;
   opacity?: number;
   frameMs?: number;
+  playing?: boolean;
   /** when set, freeze on this frame index instead of auto-playing (external scrubber). */
   scrubIndex?: number | null;
+  onPlaybackStateChange?: (snapshot: FieldPlaybackSnapshot) => void;
   /** registry zoom floor — below this the layer tears down (radar-style LOD). */
   minZoom?: number;
 }
@@ -54,7 +57,7 @@ function resolveMap(m: MapLike): MapLibreMap | null {
 
 const GLOBAL_BOUNDS: Bounds = [-180, -85, 180, 85];
 
-export default function FieldRasterLayer({ map, dataset, variable, enabled, opacity = 0.72, frameMs = 600, scrubIndex = null, minZoom = 0 }: Props) {
+export default function FieldRasterLayer({ map, dataset, variable, enabled, opacity = 0.72, frameMs = 600, playing = true, scrubIndex = null, onPlaybackStateChange, minZoom = 0 }: Props) {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -101,7 +104,7 @@ export default function FieldRasterLayer({ map, dataset, variable, enabled, opac
           sourceIds.push(sid);
           if (!m.getLayer(lid)) {
             m.addLayer({
-              id: lid, type: "raster", source: sid,
+              id: lid, type: "raster", source: sid, interactive: false,
               paint: {
                 "raster-opacity": i === idx ? opacity : 0,
                 "raster-opacity-transition": { duration: 320 },
@@ -115,14 +118,38 @@ export default function FieldRasterLayer({ map, dataset, variable, enabled, opac
       });
       showFrame(idx);
       stopTimer();
-      if (scrubIndex == null && layerIds.length > 1) {
+      if (playing !== false && scrubIndex == null && layerIds.length > 1) {
         timerRef.current = setInterval(() => {
           if (cancelled || layerIds.length === 0) return;
           idx = (idx + 1) % layerIds.length;
           showFrame(idx);
+          onPlaybackStateChange?.({
+            layerId: PFX,
+            dataset,
+            variable,
+            frameIndex: idx,
+            frameCount: layerIds.length,
+            playing: true,
+            retained: true,
+            validAt: frames[idx]?.t ?? null,
+            visibleLayerId: layerIds[idx] ?? null,
+            event: "frame-painted",
+          });
         }, Math.max(150, frameMs));
       }
       built = true;
+      onPlaybackStateChange?.({
+        layerId: PFX,
+        dataset,
+        variable,
+        frameIndex: idx,
+        frameCount: layerIds.length,
+        playing: playing !== false && layerIds.length > 1 && scrubIndex == null,
+        retained: true,
+        validAt: frames[idx]?.t ?? null,
+        visibleLayerId: layerIds[idx] ?? null,
+        event: "frame-painted",
+      });
     };
 
     // Global cubes always pass; regional cubes gate on viewport overlap (radar gets this
@@ -142,7 +169,7 @@ export default function FieldRasterLayer({ map, dataset, variable, enabled, opac
       const ok = frames.length > 0 && m.getZoom() >= minZoom && inView();
       if (ok && !built) {
         const start = () => build();
-        if (m.isStyleLoaded?.()) start(); else m.once("idle", start);
+        if (m.isStyleLoaded?.()) start(); else m.once("styledata", start);
       } else if (!ok && built) {
         removeAll();
       }
@@ -174,7 +201,7 @@ export default function FieldRasterLayer({ map, dataset, variable, enabled, opac
       try { m.off("moveend", applyGate); } catch { /* */ }
       removeAll();
     };
-  }, [map, enabled, dataset, variable, opacity, frameMs, scrubIndex, minZoom]);
+  }, [map, enabled, dataset, variable, opacity, frameMs, playing, scrubIndex, onPlaybackStateChange, minZoom]);
 
   return null;
 }

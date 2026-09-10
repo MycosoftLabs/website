@@ -80,7 +80,7 @@ export default function RainViewerRadarLayer({ map, enabled, opacity = 0.7, fram
           sourceIds.push(sid);
           if (!m.getLayer(lid)) {
             m.addLayer({
-              id: lid, type: "raster", source: sid,
+              id: lid, type: "raster", source: sid, interactive: false,
               // Smooth crossfade between frames (280ms over the 500ms cadence) so precipitation
               // dissolves frame-to-frame instead of hard-cutting. Only ~2 of the 12 light raster
               // layers paint during a transition, so the cost is trivial next to the movers.
