@@ -16,7 +16,7 @@ concurrency:
 jobs:
   lint-and-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -34,5 +34,15 @@ jobs:
         run: npm run lint
         # Warnings are allowed; fix in codebase separately.
 
+      - name: Add swap for Next.js heap
+        run: |
+          sudo swapoff -a || true
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+
       - name: Production build
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
         run: npm run build

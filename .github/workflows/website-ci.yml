@@ -48,5 +48,15 @@ jobs:
       - name: ESLint
         run: npm run lint
 
+      - name: Add swap for Next.js heap
+        run: |
+          sudo swapoff -a || true
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+
       - name: Next.js build
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
         run: npm run build

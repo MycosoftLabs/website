@@ -4,7 +4,7 @@
   "description": "Mycosoft Environmental Intelligence Platform",
   "private": true,
   "scripts": {
-    "build": "next build",
+    "build": "node --max-old-space-size=8192 node_modules/next/dist/bin/next build",
     "dev": "node --max-old-space-size=6144 node_modules/next/dist/bin/next dev --port 3010",
     "dev:with-gpu": "node scripts/start-with-gpu.js",
     "dev:next-only": "node --max-old-space-size=6144 node_modules/next/dist/bin/next dev --port 3010",
