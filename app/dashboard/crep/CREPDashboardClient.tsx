@@ -10002,6 +10002,7 @@ export default function CREPDashboardPage({
             const moverUrl = (path: string, extra: string) =>
               bboxQs ? `${path}?${bboxQs}&${extra}` : `${path}?${extra}`;
             const aircraftUrls = [
+              moverUrl("/api/oei/aircraft", `limit=${earthMoverLimits.aircraft}`),
               moverUrl("/api/oei/flightradar24", `limit=${earthMoverLimits.aircraft}`),
               moverUrl("/api/oei/opensky", `limit=${earthMoverLimits.aircraft}`),
             ];
@@ -10049,10 +10050,15 @@ export default function CREPDashboardPage({
           try {
             setMoverFetchStatus((prev) => ({ ...prev, vessels: prev.vessels === "ready" ? prev.vessels : "loading" }));
             const bboxQs = resolveMoverBboxQs();
-            const vesselBase = bboxQs
-              ? `/api/oei/aisstream?${bboxQs}&limit=${earthMoverLimits.vessels}`
-              : `/api/oei/aisstream?limit=${earthMoverLimits.vessels}`;
-            const vesselUrls = [vesselBase, `${vesselBase}&publish=true`];
+            const vesselQs = bboxQs
+              ? `${bboxQs}&limit=${earthMoverLimits.vessels}`
+              : `limit=${earthMoverLimits.vessels}`;
+            const vesselUrls = [
+              `/api/oei/vessels?${vesselQs}`,
+              `/api/oei/vessels?${vesselQs}&publish=true`,
+              `/api/oei/aisstream?${vesselQs}`,
+              `/api/oei/aisstream?${vesselQs}&publish=true`,
+            ];
             const vesselPayloads = await Promise.allSettled(
               vesselUrls.map((url) => fetchJsonWithTimeout(url, 90_000)),
             );

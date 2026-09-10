@@ -43,6 +43,8 @@ CONUS: `lamin=24&lamax=50&lomin=-125&lomax=-66.5`
 | Satellites failover | `GET /api/oei/satellites?category=stations&mode=legacy&limit=200` | **503** | — | Celestrak timeout (honest empty if registry also empty) |
 | Satellites cache | `GET /api/crep/unified?type=satellites&limit=200` | 200 | 0 in this probe (registry already 200) | CREP unified |
 
+Sep 10 2026 404 fix: `GET /api/oei/aircraft` aliases flightradar24/OpenSky registry and `GET /api/oei/vessels` aliases aisstream — first paint uses these plus the working URLs.
+
 First-paint rule: if the chip is ON, these features must land in `crep-live-aircraft` / `crep-live-vessels` / `crep-live-satellites` on the globe at z≈3. Probe: `window.__crep_mover_status()` and `window.__crep_live_stats()`.
 
 ## Test (3010)
