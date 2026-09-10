@@ -10,6 +10,15 @@
   box-sizing: border-box;
 }
 
+.wrap[data-variant="workspace"] {
+  gap: 0.35rem;
+}
+
+.wrap[data-variant="workspace"] .banner {
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+}
+
 .banner {
   display: flex;
   flex-direction: column;

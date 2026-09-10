@@ -27,7 +27,8 @@ After the ITDX v1.4 packet, Fusarium printed a false **“ITDX backend is not co
 - Mounted a **collapsible** `ITDXEarthSimOverlay` only on `/fusarium/earth-simulator` (default collapsed; `sessionStorage` `itdx-earth-sim-overlay-open`).
 - Intel Feed **ITDX** tab stays Fusarium Earth Sim only (`pathname` includes `/fusarium/earth-simulator`). Cite panels default compact (`itdx-earth-left-expanded`).
 - `/fusarium/itdx` keeps in-page workspace chrome. No second global float.
-- Bridge / evidence / application now emit **NOT_SUPPLIED** or **UNAVAILABLE** with cite, never “not configured properly.” Lab HTML is not framed until bootstrap is CONNECTED.
+- Bridge / evidence / application now emit **NOT_SUPPLIED** or **UNAVAILABLE** with cite, never “not configured properly.”
+- **10 Sep 2026 restore:** packaged Algorithm Lab HTML always frames on `/fusarium/itdx`. Optional 8765/8766 compute stays NOT_SUPPLIED when unbound; that is no longer a reason to hide the iframe. See `ITDX_APP_RESTORED_IN_FUSARIUM_TABS_SEP10_2026.md`.
 
 ## Collapse behavior
 
@@ -44,7 +45,7 @@ After the ITDX v1.4 packet, Fusarium printed a false **“ITDX backend is not co
 
 1. `http://localhost:3010/fusarium/earth-simulator` — collapsed ITDX chip; expand/collapse persists.
 2. Other Fusarium apps — no fixed ITDX dock / evidence strip.
-3. `/fusarium/itdx` — NOT_SUPPLIED card if 8765 unbound; Weka/situation still cite MAS/MINDEX; no iframe JSON error.
+3. `/fusarium/itdx` — Algorithm Lab iframe mounts even if 8765 is unbound; optional-compute chip may read NOT_SUPPLIED; Weka/situation still cite MAS/MINDEX.
 
 ## NLM BFF (same day)
 
