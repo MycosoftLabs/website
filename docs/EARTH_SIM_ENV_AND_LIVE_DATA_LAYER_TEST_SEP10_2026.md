@@ -1,9 +1,9 @@
 # Earth Sim Env and Live Data Layer Test — September 10, 2026
 
 **Date:** September 10, 2026  
-**Status:** Bind fix on worktree `website-itdx-codex-v13`  
-**Routes:** `http://localhost:3010/fusarium/earth-simulator`, `http://localhost:3010/natureos/earth-simulator`, `http://localhost:3010/fusarium/aerosol`  
-**RJ Ricasata = CFO.** No mock plumes. No 187 until Instant Deploy `34513430565` completes and this packet works on 3010.
+**Status:** 3010 Live Data binds ready. ITDX Instant Deploy owner includes these files in the same SHA. This agent did **not** cut 187.  
+**Routes:** `/fusarium/earth-simulator`, `/natureos/earth-simulator`, `/fusarium/aerosol`  
+**RJ Ricasata = CFO.** No mock plumes. Do not gut `/fusarium/itdx`.
 
 ## What was broken
 
@@ -78,3 +78,50 @@ Playwright on `http://localhost:3010/natureos/earth-simulator` (same CREP globe 
 - Repeat: `node scripts/_earth_sim_livedata_proof.mjs`
 
 `/fusarium/earth-simulator` is the same `CREPDashboardLoader` behind owner sign-in. Do not hide ITDX tabs. RJ Ricasata = CFO.
+
+## 3010 bind results — September 10, 2026 (this agent)
+
+Catalog `GET /api/crep/field/_catalog` `base_configured=true`. Ships+sats+radar were **not** enabled together.
+
+| Layer | Source | Baked frames | 3010 draw |
+|---|---|---|---|
+| era5/t2m | `/api/crep/field/era5/t2m` | 12 | **yes** — green chip; `crep-field-era5-t2m-src-0` + `src-1` (2-slot animation) |
+| era5/wind10m | `/api/crep/field/era5/wind10m` | 12 | **yes** — `canvas.crep-wind-era5-wind10m` |
+| era5/tp | `/api/crep/field/era5/tp` | 12 | **yes** — raster sources |
+| hrrr/t2m | `/api/crep/field/hrrr/t2m` | 12 | **yes** |
+| hrrr/refc | `/api/crep/field/hrrr/refc` | 12 | **yes** |
+| hrrr/wind10m | `/api/crep/field/hrrr/wind10m` | 12 | **yes** — wind canvas |
+| helios/ghi | `/api/crep/field/helios/ghi` | 18 | **yes** |
+| alive/gpp | `/api/crep/field/alive/gpp` | 24 | **yes** |
+| canopy-height/height | `/api/crep/field/canopy-height/height` | 1 | **yes** |
+| sentinel2/ndvi | `/api/crep/field/sentinel2/ndvi` | 1 | **yes** |
+| sentinel2/truecolor | `/api/crep/field/sentinel2/truecolor` | 1 | **yes** |
+| geo-stereo-wind/wind | `/api/crep/field/geo-stereo-wind/wind` | 12 | **yes** — wind canvas |
+| biomass-sample/agb | `/api/crep/field/biomass-sample/agb` | 12 | **yes** |
+| biomass-global/agb | `/api/crep/field/biomass-global/agb` | 1 | **yes** |
+| mrms/refc | `/api/crep/field/mrms/refc` | 24 | **yes** |
+| mrms/precip_rate | `/api/crep/field/mrms/precip_rate` | 24 | **yes** |
+| aerosolParticulate | `/api/crep/environment/air-quality` | live AQ | same BFF as `/fusarium/aerosol`; empty = no pixels, not UNBOUND |
+
+`mrms/refl` is not a catalog key (use `refc` / `precip_rate`).
+
+Root cause of “only ERA5 looked live”: globe `getBounds()` AABB + registry `minZoom` tore CONUS rasters down. Bind now: poll for `__crep_map`, no viewport/minZoom tear-down, 2-slot image overlay, wind polls for map.
+
+### Files for the ITDX Instant Deploy SHA
+
+- `components/crep/layers/field-raster-layer.tsx`
+- `components/crep/layers/field-wind-layer.tsx`
+- `components/fusarium/aerosol/aerosol-particulate-layer.tsx`
+- `components/fusarium/aerosol/aerosol-shared-earth-view.tsx`
+- `scripts/_earth_sim_all_livedata_proof.mjs`
+- this doc
+
+Repeat: `node scripts/_earth_sim_all_livedata_proof.mjs` from `website-itdx-codex-v13` against `http://localhost:3010`.
+
+## 187 live — September 10, 2026
+
+- PR #309 `ba8c5a83` · Instant Deploy 34521730309 success
+- Slot **green**, image `manual-ba8c5a83…`, NAS assets **ro**
+- Origin + mycosoft.com + sandbox **200**
+- Catalog `base_configured=true`; ERA5 t2m **12 baked frames**
+- `/fusarium/itdx` and `/fusarium/aerosol` **200**; briefing stays SYNTHETIC EXERCISE / `live: false`

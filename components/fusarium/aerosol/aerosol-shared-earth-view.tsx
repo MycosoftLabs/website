@@ -107,7 +107,7 @@ export function AerosolSharedEarthView({ enabledLayers, enabledFieldLayerIds, st
             dataset={dataset.id}
             variable={variable.key}
             enabled
-            minZoom={dataset.minZoom ?? 0}
+            minZoom={0}
           />
         ) : (
           <FieldRasterLayer
@@ -119,7 +119,7 @@ export function AerosolSharedEarthView({ enabledLayers, enabledFieldLayerIds, st
             playing={fieldPlayback?.layerId === layerId ? fieldPlayback.playing : undefined}
             scrubIndex={fieldPlayback?.layerId === layerId ? fieldPlayback.scrubIndex : null}
             onPlaybackStateChange={fieldPlayback?.layerId === layerId ? fieldPlayback.onStateChange : undefined}
-            minZoom={dataset.minZoom ?? 0}
+            minZoom={0}
           />
         )
       )) : null}
