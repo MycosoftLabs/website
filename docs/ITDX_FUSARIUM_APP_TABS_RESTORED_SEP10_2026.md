@@ -62,4 +62,4 @@ Owner local-dev session on `http://localhost:3010` (worktree `website-itdx-codex
 
 ## Do not revert
 
-Earth Sim Live Data / ERA5 / aerosol work from sibling lane `5eebc6ea` is out of scope for this restore and must not be reset.
+Earth Sim Live Data / ERA5 / aerosol bind from sibling lane `5eebc6ea` is included in the same Instant Deploy SHA (field raster/wind, aerosol particulate, catalog `base_configured=true`). Briefing stays SYNTHETIC EXERCISE `live: false`. Do not revert it.

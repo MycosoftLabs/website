@@ -40,10 +40,26 @@ export function AerosolParticulateLayer({ map: mapLike, visible }: AerosolPartic
   const popupRef = useRef<maplibregl.Popup | null>(null)
 
   useEffect(() => {
-    const map = resolveMap(mapLike)
-    if (!map) return
+    if (!visible) return
     let cancelled = false
     let debounceTimer = 0
+    let attached: MapLibreMap | null = null
+    let poll: ReturnType<typeof setInterval> | null = null
+    let detach = () => {}
+
+    const tryAttach = () => {
+      if (cancelled || attached) return
+      const resolved = resolveMap(mapLike)
+      if (!resolved) return
+      attached = resolved
+      if (poll) {
+        clearInterval(poll)
+        poll = null
+      }
+      start(resolved)
+    }
+
+    const start = (map: MapLibreMap) => {
 
     const escapeHtml = (value: unknown) => String(value).replace(/[&<>"']/g, (character) => (
       { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character] as string
@@ -173,21 +189,27 @@ export function AerosolParticulateLayer({ map: mapLike, visible }: AerosolPartic
     }
     const onStyleLoad = () => void read()
 
-    if (!visible) {
-      remove()
-      return
-    }
     map.on("moveend", onMoveEnd)
     map.on("style.load", onStyleLoad)
     if (map.isStyleLoaded()) void read()
     const refreshTimer = window.setInterval(() => void read(), 10 * 60 * 1000)
-    return () => {
+    detach = () => {
       cancelled = true
       window.clearTimeout(debounceTimer)
       window.clearInterval(refreshTimer)
       try { map.off("moveend", onMoveEnd) } catch { /* map teardown */ }
       try { map.off("style.load", onStyleLoad) } catch { /* map teardown */ }
       remove()
+    }
+    }
+
+    tryAttach()
+    if (!attached) poll = setInterval(tryAttach, 200)
+
+    return () => {
+      cancelled = true
+      if (poll) clearInterval(poll)
+      detach()
     }
   }, [mapLike, visible])
 

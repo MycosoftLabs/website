@@ -63,13 +63,29 @@ function resolveMap(m: MapLike): MapLibreMap | null {
   return null;
 }
 
-export default function FieldWindLayer({ map, dataset, variable, enabled, particles = 3500, trail = 0.92, minZoom = 0 }: Props) {
+export default function FieldWindLayer({ map, dataset, variable, enabled, particles = 3500, trail = 0.92 }: Props) {
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const m = resolveMap(map);
-    if (!m || !enabled) return;
+    if (!enabled) return;
     let cancelled = false;
+    let attached: MapLibreMap | null = null;
+    let poll: ReturnType<typeof setInterval> | null = null;
+    let detach = () => {};
+
+    const tryAttach = () => {
+      if (cancelled || attached) return;
+      const resolved = resolveMap(map);
+      if (!resolved) return;
+      attached = resolved;
+      if (poll) {
+        clearInterval(poll);
+        poll = null;
+      }
+      start(resolved);
+    };
+
+    const start = (m: MapLibreMap) => {
 
     const container = m.getCanvasContainer();
     const canvas = document.createElement("canvas");
@@ -168,8 +184,8 @@ export default function FieldWindLayer({ map, dataset, variable, enabled, partic
       rafRef.current = requestAnimationFrame(step);
     };
 
-    // radar-style LOD: run only when loaded, enabled, not mid-camera-move, and at/above the floor.
-    const wantRun = () => !cancelled && enabled && grid != null && !moving && m.getZoom() >= minZoom;
+    // Stay on at globe zoom. Pause only while the camera is moving.
+    const wantRun = () => !cancelled && enabled && grid != null && !moving;
     const startLoop = () => { if (rafRef.current == null && wantRun()) { lastT = 0; rafRef.current = requestAnimationFrame(step); } };
     const stopLoop = () => { if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; } };
     const reGate = () => { if (wantRun()) startLoop(); else { stopLoop(); clearCanvas(); } };
@@ -201,7 +217,7 @@ export default function FieldWindLayer({ map, dataset, variable, enabled, partic
     loadGrid();
     const refresh = setInterval(loadGrid, 5 * 60_000);
 
-    return () => {
+    detach = () => {
       cancelled = true;
       clearInterval(refresh);
       stopLoop();
@@ -212,7 +228,17 @@ export default function FieldWindLayer({ map, dataset, variable, enabled, partic
       } catch { /* */ }
       try { container.removeChild(canvas); } catch { /* */ }
     };
-  }, [map, enabled, dataset, variable, particles, trail, minZoom]);
+    };
+
+    tryAttach();
+    if (!attached) poll = setInterval(tryAttach, 200);
+
+    return () => {
+      cancelled = true;
+      if (poll) clearInterval(poll);
+      detach();
+    };
+  }, [map, enabled, dataset, variable, particles, trail]);
 
   return null;
 }
