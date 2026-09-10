@@ -2,6 +2,7 @@ import { CrepResourceHints } from "@/components/crep/crep-resource-hints"
 import CREPDashboardLoader from "@/app/dashboard/crep/CREPDashboardLoader"
 import EarthSimulatorViewportLock from "@/app/natureos/earth-simulator/EarthSimulatorViewportLock"
 import { ITDXEarthSimOverlay } from "@/components/itdx/ITDXEarthSimOverlay"
+import { EarthSimMovementHost } from "@/components/fusarium/movement/earth-sim-movement-host"
 
 /**
  * /fusarium/earth-simulator — the counterpart of /natureos/earth-simulator.
@@ -30,13 +31,16 @@ export const fetchCache = "force-no-store"
 export default function FusariumEarthSimulatorPage() {
   return (
     <EarthSimulatorViewportLock>
-      <CrepResourceHints />
-      <CREPDashboardLoader
-        homeHref="/fusarium"
-        homeLabel="FUSARIUM"
-        earthBakedNatureMinZoom={5}
-      />
-      <ITDXEarthSimOverlay />
+      <div className="relative min-h-0">
+        <CrepResourceHints />
+        <CREPDashboardLoader
+          homeHref="/fusarium"
+          homeLabel="FUSARIUM"
+          earthBakedNatureMinZoom={5}
+        />
+        <ITDXEarthSimOverlay />
+        <EarthSimMovementHost />
+      </div>
     </EarthSimulatorViewportLock>
   )
 }

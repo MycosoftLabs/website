@@ -97,6 +97,7 @@ export function ITDXEarthSimOverlay() {
             <label className={styles.check}>
               <input
                 type="checkbox"
+                className="text-base"
                 checked={state.enabled}
                 onChange={(event) => replay.enable(event.target.checked)}
               />
@@ -113,7 +114,7 @@ export function ITDXEarthSimOverlay() {
             </button>
           </div>
           <input
-            className={styles.range}
+            className={`${styles.range} text-base`}
             type="range"
             aria-label="ITDX replay sample"
             min={0}

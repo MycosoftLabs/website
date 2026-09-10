@@ -10,7 +10,7 @@ export default function ITDXReplayLayer({map}:{map:Map|null}){
  const controller=useRef<ReplayLayerController|null>(null)
  const live=useRef<{setData:(next:GeoJSON.FeatureCollection)=>void;dispose:()=>void}|null>(null)
  const didAutoFocus=useRef(false)
- const active=state.enabled&&Boolean(pathname?.startsWith('/fusarium/'))
+ const active=state.enabled&&Boolean(pathname?.startsWith('/fusarium/earth-simulator'))
  useEffect(()=>{
    if(!active||!map)return
    didAutoFocus.current=false

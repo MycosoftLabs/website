@@ -84,7 +84,7 @@ export const EARTH_SIM_EVENT_LAYER_IDS = [
   "events",
 ] as const
 
-export const EARTH_SIM_ALWAYS_ON_INFRA_IDS = ["cctv", "eagleEyeCameras", "militaryBases", "radar"] as const
+export const EARTH_SIM_ALWAYS_ON_INFRA_IDS = ["cctv", "militaryBases", "radar"] as const
 
 /** Civic/public-safety facilities should be visible at refresh anywhere viewport intel has them. */
 export const EARTH_SIM_CIVIC_BOOT_LAYER_IDS = [
@@ -139,6 +139,11 @@ export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
   // orbitalDebris/debrisCloud also stay off (debris excluded per request).
   "aviation",
   "aviationRoutes",
+  "ships",
+  "satellites",
+  "weatherRadar",
+  "stormLightning",
+  "eagleEyeCameras",
   "fishing",
   "containers",
   "orbitalDebris",
@@ -212,26 +217,14 @@ export const EARTH_SIM_TELECOM_BOOT_LAYER_IDS = [
   "signalHeatmap",
 ] as const
 
-/** Live SEA + SPACE movers ON at first paint (ships via AISstream ~44k, satellites
- *  via TLE/SGP4). Aviation (live aircraft) is intentionally NOT here — it is
- *  off-at-boot (Jun 23 2026, Morgan: aircraft are the heaviest movers, ~70% of the
- *  frame budget, too costly for a fresh load; the user opts in). Routes
- *  (aviationRoutes/shipRoutes) + debris stay off. Layers here MUST be in the
- *  profile-ON allowlist — otherwise applyEarthSimulatorBootToLayers forces the mover
- *  layers off even after they are removed from the OFF-at-boot list. */
-export const EARTH_SIM_MOVER_BOOT_LAYER_IDS = [
-  "ships",
-  "satellites",
-] as const
+/** Live SEA + SPACE movers — opt-in only (Sep 10 2026 PC/iPad demo).
+ *  AISstream ships + TLE satellites stay OFF at refresh so the globe can paint
+ *  without a 40k-entity first frame. Toggle from Environmental / movers. */
+export const EARTH_SIM_MOVER_BOOT_LAYER_IDS = [] as const
 
-/** Animated live weather ON at first paint (Jun 23 2026, Morgan: "production should
- *  start with the live weather radar and the live lightning on"). Heavy animated
- *  overlays, but explicitly requested on-at-boot; gated by shouldRenderHeavyOverlays at
- *  mount so they still defer until the map is past first-paint. */
-export const EARTH_SIM_WEATHER_ANIM_BOOT_LAYER_IDS = [
-  "weatherRadar",
-  "stormLightning",
-] as const
+/** Animated weather — opt-in only (Sep 10 2026). RainViewer + lightning rAF
+ *  stay off until the operator enables them. */
+export const EARTH_SIM_WEATHER_ANIM_BOOT_LAYER_IDS = [] as const
 
 export const EARTH_SIM_PROFILE_ON_LAYER_IDS = new Set<string>([
   ...EARTH_SIM_BASE_LAYER_IDS,

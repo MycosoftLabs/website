@@ -42,6 +42,7 @@ import {
   useState,
   type ReactNode,
 } from "react"
+import { DeviceMovementPanel } from "@/components/fusarium/movement/device-movement-panel"
 import {
   COMMAND_MODES,
   buildDecisionDisclosure,
@@ -1204,6 +1205,7 @@ export function CommandControlDashboard({ initialNowMs }: { initialNowMs: number
             context={snapshot.context}
             onSelectDevice={(selectedDeviceId) => navigate({ ...snapshot.context, selectedDeviceId })}
           />
+          <DeviceMovementPanel title="Mechanical movement / C2" />
           <section className={styles.primaryWorkspace} aria-label="Human-owned coordination and release review workbench">
             <ReviewQueue
               snapshot={snapshot}

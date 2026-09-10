@@ -35,6 +35,8 @@ describe("earth-simulator-boot fungal defaults", () => {
       { id: "ships", enabled: false },
       { id: "satellites", enabled: false },
       { id: "eagleEyeCameras", enabled: false },
+      { id: "weatherRadar", enabled: true },
+      { id: "stormLightning", enabled: true },
     ])
     for (const id of EARTH_SIM_INSTANT_LIVE_LAYER_IDS) {
       expect(layers.find((l) => l.id === id)?.enabled).toBe(true)
@@ -43,6 +45,8 @@ describe("earth-simulator-boot fungal defaults", () => {
     expect(layers.find((l) => l.id === "ships")?.enabled).toBe(false)
     expect(layers.find((l) => l.id === "satellites")?.enabled).toBe(false)
     expect(layers.find((l) => l.id === "eagleEyeCameras")?.enabled).toBe(false)
+    expect(layers.find((l) => l.id === "weatherRadar")?.enabled).toBe(false)
+    expect(layers.find((l) => l.id === "stormLightning")?.enabled).toBe(false)
   })
 
   it("treats Fusarium Earth Simulator as the same globe surface as NatureOS", () => {
