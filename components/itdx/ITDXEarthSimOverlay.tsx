@@ -6,6 +6,8 @@ import { snapshot } from "@/lib/itdx/replay-core.mjs"
 import { replay, useReplay } from "@/lib/itdx/replay-store"
 import { useITDXContext } from "@/lib/itdx/session"
 import { ITDXSyntheticArmyIntelBriefing } from "@/components/itdx/ITDXSyntheticArmyIntelBriefing"
+import { ScenarioSimLite } from "@/components/fusarium/scenario-sim/scenario-sim-panel"
+import { useScenarioSimControl } from "@/lib/fusarium/scenario-sim/store"
 import styles from "./itdx-earth-sim-overlay.module.css"
 
 const STORAGE_KEY = "itdx-earth-sim-overlay-open"
@@ -27,10 +29,11 @@ export function ITDXEarthSimOverlay() {
   const pathname = usePathname() || ""
   const context = useITDXContext()
   const state = useReplay()
+  const sim = useScenarioSimControl()
   const [open, setOpen] = useState(false)
   const [ready, setReady] = useState(false)
-  const frame = snapshot(state.index)
-  const asset = frame.assets.find((row) => row.id === state.selected) ?? frame.assets[0]
+  const frame = open ? snapshot(state.index) : null
+  const asset = frame?.assets.find((row) => row.id === state.selected) ?? frame?.assets[0]
 
   useEffect(() => {
     setOpen(readOpen())
@@ -46,7 +49,7 @@ export function ITDXEarthSimOverlay() {
     }
   }
 
-  if (!pathname.startsWith(EARTH_SIM_PREFIX) || !ready || !asset) return null
+  if (!pathname.startsWith(EARTH_SIM_PREFIX) || !ready) return null
 
   return (
     <aside
@@ -56,7 +59,7 @@ export function ITDXEarthSimOverlay() {
       aria-label="ITDX Earth Simulator panel"
     >
       <div className={styles.bar}>
-        <span className={styles.badge}>ITDX · SYNTHETIC EXERCISE · live=false</span>
+        <span className={styles.badge}>ITDX · SYNTHETIC EXERCISE · live=false{sim.running ? " · SIM LIT" : ""}</span>
         <button
           type="button"
           className={styles.toggle}
@@ -74,10 +77,12 @@ export function ITDXEarthSimOverlay() {
       {open ? (
         <div id="itdx-earth-sim-overlay-body" className={styles.body}>
           <p className={styles.meta}>
-            Run {context.runId || "none"} · origin {context.dataOrigin} · {frame.replay_time.slice(11, 19)}Z ·{" "}
-            {asset.label}. Overlay is exercise-only. Unbound Weka / droids stay NOT_SUPPLIED — not a
-            config failure.
+            Run {context.runId || "none"} · origin {context.dataOrigin} ·{" "}
+            {frame?.replay_time.slice(11, 19) || "--"}Z · {asset?.label || "exercise markers"}. Overlay
+            is exercise-only. Official Army injects stay NOT_SUPPLIED. Packaged catalog and public
+            OSINT stay bound when those sources exist.
           </p>
+          <ScenarioSimLite label="Earth Sim ITDX overlay" />
           <ITDXSyntheticArmyIntelBriefing variant="overlay" isActive={open} />
         </div>
       ) : (

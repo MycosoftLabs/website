@@ -10,6 +10,11 @@ class FakeMap{
  on(...args){this.events.push(args)}off(...args){this.events=this.events.filter(e=>!e.every((a,i)=>a===args[i]))}
  emit(name,event){for(const e of [...this.events])if(e[0]===name)e.at(-1)(event)}
 }
+test('replay attach does not listen for idle or styledata',()=>{
+ const map=new FakeMap();const controller=attachReplay(map);
+ assert.deepEqual(map.events.map(e=>e[0]).filter(name=>name==='idle'||name==='styledata'),[]);
+ controller.dispose();
+});
 test('map lifecycle preserves other feeds and restores synthetic state after style reload',()=>{
  const map=new FakeMap();let selected;const controller=attachReplay(map,{onSelect:id=>selected=id});
  assert.equal(map.sources.size,1);map.loaded=true;map.emit('load');controller.update(47);

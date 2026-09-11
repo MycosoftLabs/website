@@ -38,6 +38,7 @@ import {
 import { FusariumAccountControl } from "@/components/fusarium/fusarium-account-control"
 import { FusariumRoleProvider } from "@/lib/fusarium/personnel/role-context"
 import { FusariumRoleSwitcher } from "@/components/fusarium/personnel/fusarium-role-switcher"
+import { ScenarioSimChromeChip } from "@/components/fusarium/scenario-sim/scenario-sim-chrome-chip"
 import "@/components/fusarium/personnel/personnel.css"
 
 /** Routes whose workspace is a full-bleed app and must not get chrome padding. */
@@ -252,6 +253,7 @@ function FusariumChrome({ children }: { children: React.ReactNode }) {
 
         <HealthStrip />
 
+        <ScenarioSimChromeChip />
         <FusariumRoleSwitcher />
 
         <FusariumAccountControl />

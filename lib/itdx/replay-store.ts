@@ -7,12 +7,18 @@ export type ItdxReplayLayerKey='assets'|'tracks'|'uncertainty'|'boundary'|'corri
 export type ItdxReplayLayers=Record<ItdxReplayLayerKey,boolean>
 export const ITDX_REPLAY_SPEEDS=[1,5,10,20] as const
 export type ItdxReplaySpeed=(typeof ITDX_REPLAY_SPEEDS)[number]
+/** Wall-clock floor so playback cannot outrun MapLibre's own pump. */
+export const ITDX_PLAYBACK_MIN_MS=400
 const defaultLayers:ItdxReplayLayers={assets:true,tracks:true,uncertainty:true,boundary:true,corridor:true}
 type State={enabled:boolean;playing:boolean;index:number;speed:ItdxReplaySpeed;selected:string;focusRequest:number;focusTarget:string|null;layers:ItdxReplayLayers;layerStatus:string}
 const initial:State={enabled:false,playing:false,index:0,speed:20,selected:ASSETS[0].id,focusRequest:0,focusTarget:null,layers:defaultLayers,layerStatus:'LAYER_DETACHED'}
 
-function sampleIntervalMs(speed:number){
-  return Math.max(50,(10*1000)/Math.max(1,speed))
+export function sampleIntervalMs(speed:number){
+  return Math.max(ITDX_PLAYBACK_MIN_MS,(10*1000)/Math.max(1,speed))
+}
+
+export function playbackIntervalMs(speed:number){
+  return Math.max(ITDX_PLAYBACK_MIN_MS,Math.min(500,sampleIntervalMs(speed)))
 }
 
 function asSpeed(value:unknown):ItdxReplaySpeed{
@@ -31,12 +37,9 @@ function advanceClock(){
   if(!state.playing)return
   const now=Date.now()
   const interval=sampleIntervalMs(state.speed)
-  const steps=Math.max(1,Math.min(12,Math.floor((now-lastTick)/interval)||1))
+  if(now-lastTick<interval)return
   lastTick=now
-  for(let i=0;i<steps;i++){
-    if(!state.playing)break
-    replay.tick()
-  }
+  replay.tick()
 }
 
 function syncClock(playing:boolean){
@@ -48,8 +51,7 @@ function syncClock(playing:boolean){
   }
   if(playing&&!hidden){
     lastTick=Date.now()
-    clock=window.setInterval(advanceClock,Math.min(200,sampleIntervalMs(state.speed)))
-    window.setTimeout(advanceClock,0)
+    clock=window.setInterval(advanceClock,playbackIntervalMs(state.speed))
   }
 }
 

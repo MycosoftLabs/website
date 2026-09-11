@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useFusariumRole } from "@/lib/fusarium/personnel/role-context"
+import { ScenarioSimLite } from "@/components/fusarium/scenario-sim/scenario-sim-panel"
 
 interface OutcomesPayload {
   n: { surveys: number; telemetry: number; inferences: number }
@@ -72,6 +73,7 @@ export function FusariumSurveyPanel() {
 
   return (
     <section className="fusarium-personnel-panel" data-testid="fusarium-survey-panel">
+      <ScenarioSimLite label="Personnel survey" />
       <h2>Personnel survey</h2>
       <p>
         Duty lens: {persona.title}. Responses store role_id, timestamp, instrument, and scores. Blank fields stay
@@ -174,6 +176,7 @@ export function FusariumOutcomesPanel() {
 
   return (
     <section className="fusarium-personnel-panel" data-testid="fusarium-outcomes-panel">
+      <ScenarioSimLite label="Personnel outcomes" />
       <h2>KO / command decision support</h2>
       <p>Not a live COP. Not a CMMC-compliant claim. Package calculation checks passed: {payload.package_calc_checks_passed} (fixtures only).</p>
       <p>{payload.in_boundary_cui.copy}</p>
@@ -246,6 +249,7 @@ export function FusariumCatalogBrowser() {
 
   return (
     <section className="fusarium-personnel-panel" data-testid="fusarium-catalog-browser">
+      <ScenarioSimLite label="Personnel catalog" />
       <h2>180 proposed user roles</h2>
       <p>
         Possible users, not required headcount. Provisional codes stay flagged. Current duty: {persona.title}. Loaded:{" "}

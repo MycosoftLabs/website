@@ -23,6 +23,15 @@ export function normalizeNlmTrainingState(latest: NlmTrainingLatest | null): Nlm
   return "unknown"
 }
 
+export interface NlmCheckpointRow {
+  id: string
+  path: string | null
+  bytes: number | null
+  sha256: string | null
+  source: string
+  modifiedAt: string | null
+}
+
 export function normalizeProviderTimestamp(value: number | string | undefined): string | null {
   if (value == null) return null
   const parsed = typeof value === "number" ? new Date(value < 10_000_000_000 ? value * 1000 : value) : new Date(value)

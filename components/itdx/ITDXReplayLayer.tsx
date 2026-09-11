@@ -4,16 +4,33 @@ import {usePathname} from 'next/navigation'
 import type {Map} from 'maplibre-gl'
 import {attachLivePathways,attachReplay,type ReplayLayerController} from '@/lib/itdx/map-layer.mjs'
 import {replay,useReplay} from '@/lib/itdx/replay-store'
+import {setEarthSimScenarioActive} from '@/lib/crep/viewport-memory-governor'
+
+const EARTH_SIM_PREFIX='/fusarium/earth-simulator'
+const MAX_LIVE_PATHWAY_FEATURES=48
+
+function clipPathways(geojson:GeoJSON.FeatureCollection|null|undefined):GeoJSON.FeatureCollection|null{
+  const features=Array.isArray(geojson?.features)?geojson.features.slice(0,MAX_LIVE_PATHWAY_FEATURES):[]
+  if(!features.length)return null
+  return {type:'FeatureCollection',features}
+}
 
 export default function ITDXReplayLayer({map}:{map:Map|null}){
  const state=useReplay(),pathname=usePathname()
  const controller=useRef<ReplayLayerController|null>(null)
  const live=useRef<{setData:(next:GeoJSON.FeatureCollection)=>void;dispose:()=>void}|null>(null)
- const didAutoFocus=useRef(false)
- const active=state.enabled&&Boolean(pathname?.startsWith('/fusarium/earth-simulator'))
+ const onEarthSim=Boolean(pathname?.startsWith(EARTH_SIM_PREFIX))
+ const active=state.enabled&&onEarthSim
+ useEffect(()=>{
+   if(!onEarthSim)return
+   if(!replay.getState().enabled)replay.enable(true)
+ },[onEarthSim])
+ useEffect(()=>{
+   setEarthSimScenarioActive(active)
+   return()=>setEarthSimScenarioActive(false)
+ },[active])
  useEffect(()=>{
    if(!active||!map)return
-   didAutoFocus.current=false
    controller.current=attachReplay(map,{onSelect:replay.select,onStatus:replay.status})
    controller.current.setLayers(state.layers)
    live.current=attachLivePathways(map)
@@ -23,8 +40,8 @@ export default function ITDXReplayLayer({map}:{map:Map|null}){
    }
    const onPathways=(event:Event)=>{
      const detail=(event as CustomEvent).detail
-     const geojson=detail?.geojson
-     if(geojson?.type==='FeatureCollection')live.current?.setData(geojson)
+     const clipped=clipPathways(detail?.geojson)
+     if(clipped)live.current?.setData(clipped)
    }
    window.addEventListener('fusarium:itdx-truth',onTruth)
    window.addEventListener('fusarium:itdx-pathways',onPathways)
@@ -42,10 +59,5 @@ export default function ITDXReplayLayer({map}:{map:Map|null}){
    if(state.focusTarget)controller.current?.focusAsset(state.focusTarget)
    else controller.current?.focus()
  },[map,active,state.focusRequest,state.focusTarget])
- useEffect(()=>{
-   if(!active||!map||didAutoFocus.current)return
-   didAutoFocus.current=true
-   replay.focus()
- },[map,active])
  return null
 }

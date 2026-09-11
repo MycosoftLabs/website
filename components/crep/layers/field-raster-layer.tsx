@@ -191,27 +191,29 @@ export default function FieldRasterLayer({
         publishLiveData(PFX, [...sourceIds], frames.length, event);
       };
 
+      const isGlobal = () => bnds[0] <= -179 && bnds[2] >= 179;
       const inView = () => {
+        if (isGlobal()) return true;
         const view = getLogicalViewportBounds(m);
         const field = { west: bnds[0], south: bnds[1], east: bnds[2], north: bnds[3] };
         return boundsIntersect(view, field);
       };
-      const hideSlots = () => {
-        for (let j = 0; j < 2; j++) {
-          try { m.setPaintProperty(`${PFX}-lyr-${j}`, "raster-opacity", 0); } catch { /* */ }
-        }
+      /** Pause the extra frame timer only. Never blank a user-toggled Live Data layer. */
+      const pauseAnimation = () => {
+        stopTimer();
+        try { showSlot(0); } catch { /* first frame stays if already painted */ }
       };
       const startAnimation = () => {
         stopTimer();
         if (playing === false || scrubIndex != null || frames.length < 2) return;
         if (isAnimatedPaused(PFX) || !inView()) {
-          if (!inView()) hideSlots();
+          pauseAnimation();
           return;
         }
         timerRef.current = setInterval(() => {
           if (cancelled || frames.length === 0) return;
           if (isAnimatedPaused(PFX) || !inView()) {
-            if (!inView()) hideSlots();
+            pauseAnimation();
             return;
           }
           idx = (idx + 1) % frames.length;
@@ -247,14 +249,19 @@ export default function FieldRasterLayer({
         if (cancelled || !enabled || frames.length === 0) return;
         let hasFirst = false;
         try { hasFirst = Boolean(m.getSource(`${PFX}-src-0`)); } catch { hasFirst = false; }
-        if (hasFirst) {
-          built = true;
+        if (!hasFirst) {
+          layerIds.length = 0;
+          sourceIds.length = 0;
+          built = false;
+          try { build(); } catch { /* styledata / gatePoll retry */ }
           return;
         }
-        layerIds.length = 0;
-        sourceIds.length = 0;
-        built = false;
-        try { build(); } catch { /* styledata / gatePoll retry */ }
+        built = true;
+        if (isAnimatedPaused(PFX) || !inView()) {
+          pauseAnimation();
+          return;
+        }
+        startAnimation();
       };
 
       const load = async () => {
@@ -279,15 +286,20 @@ export default function FieldRasterLayer({
       m.on("styledata", applyGate);
       const onMoveEnd = () => {
         if (!inView()) {
-          stopTimer();
-          hideSlots();
+          pauseAnimation();
           return;
         }
         showSlot(visibleSlot);
         startAnimation();
       };
       m.on("moveend", onMoveEnd);
-      const unreg = registerAnimatedLayer(PFX, "field-raster", () => { stopTimer(); }, () => { startAnimation(); });
+      const unreg = registerAnimatedLayer(
+        PFX,
+        "field-raster",
+        () => { pauseAnimation(); },
+        () => { startAnimation(); },
+        { inView, userPinned: true },
+      );
       load();
       const refresh = setInterval(load, 5 * 60_000);
       const gatePoll = setInterval(applyGate, 400);

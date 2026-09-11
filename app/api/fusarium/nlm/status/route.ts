@@ -23,14 +23,28 @@ async function readJson(path: string, timeoutMs = 10000): Promise<{ ok: boolean;
   }
 }
 
+function mapWeightRow(row: Record<string, unknown>, fallbackSha: string | null) {
+  const path = typeof row.path === "string" ? row.path : null
+  const name = typeof row.name === "string" ? row.name : null
+  return {
+    id: String(row.id || row.checkpoint_id || name || path || "weights"),
+    name,
+    path,
+    bytes: typeof row.bytes === "number" ? row.bytes : null,
+    sha256: typeof row.sha256 === "string" ? row.sha256 : fallbackSha,
+    source: typeof row.source === "string" ? row.source : "MAS /api/nlm/weights",
+    role: typeof row.role === "string" ? row.role : null,
+    kind: typeof row.kind === "string" ? row.kind : null,
+    loaded: typeof row.loaded === "boolean" ? row.loaded : null,
+    modified_at: typeof row.modified_at === "string" ? row.modified_at : null,
+  }
+}
+
 export async function GET() {
   const auth = await requireOwner()
   if (auth.error) return auth.error
 
   const receivedAt = new Date().toISOString()
-  // The deployed NLM service is resource-constrained and may serialize requests.
-  // Keep these probes sequential so this read-only dashboard does not create its
-  // own false timeout by hitting health, readiness, and training concurrently.
   const health = await readJson("/api/nlm/health")
   const ready = await readJson("/api/nlm/runtime")
   const weights = await readJson("/api/nlm/weights")
@@ -38,17 +52,17 @@ export async function GET() {
   const latest = (training.data?.latest ?? training.data ?? null) as NlmTrainingLatest | null
   const forecastQualified = Boolean(health.data?.forecast_qualified)
   const masReachable = health.ok || ready.ok || weights.ok
-  const engineState = health.ok && Boolean(health.data?.model_loaded)
-    ? "available"
-    : masReachable
-      ? "available"
-      : "unavailable"
+  const engineState = masReachable ? "available" : "unavailable"
   const weightsSha =
     (typeof health.data?.weights_sha256 === "string" && health.data.weights_sha256) ||
-    (typeof health.data?.model_sha256 === "string" && health.data.model_sha256) ||
-    (typeof health.data?.sha256 === "string" && health.data.sha256) ||
     (typeof ready.data?.weights_sha256 === "string" && ready.data.weights_sha256) ||
     null
+  const rawItems = Array.isArray(weights.data?.weights)
+    ? weights.data.weights
+    : Array.isArray(ready.data?.weights)
+      ? ready.data.weights
+      : []
+  const items = rawItems.map((row: Record<string, unknown>) => mapWeightRow(row, weightsSha))
 
   return NextResponse.json({
     schema: FUSARIUM_NLM_STATUS_SCHEMA,
@@ -57,8 +71,13 @@ export async function GET() {
     nlm: {
       model_loaded: health.ok ? Boolean(health.data?.model_loaded) : null,
       forecast_qualified: forecastQualified,
-      bound_to_ollama: health.ok ? Boolean(health.data?.bound_to_ollama) : false,
+      bound_to_ollama: false,
       model_name: typeof health.data?.model_name === "string" ? health.data.model_name : "nlm",
+      model_id: typeof ready.data?.model_id === "string" ? ready.data.model_id : null,
+      model_dir:
+        (typeof ready.data?.model_dir === "string" && ready.data.model_dir) ||
+        (typeof health.data?.model_dir === "string" && health.data.model_dir) ||
+        null,
       weights_sha256: weightsSha,
       p: null,
       qualification_status:
@@ -70,6 +89,16 @@ export async function GET() {
       training_origin:
         typeof health.data?.training_origin === "string" ? health.data.training_origin : "synthetic",
     },
+    runtime: ready.ok
+      ? {
+          model_id: ready.data?.model_id ?? null,
+          model_dir: ready.data?.model_dir ?? null,
+          tensor_count: typeof ready.data?.tensor_count === "number" ? ready.data.tensor_count : null,
+          parameter_count: typeof ready.data?.parameter_count === "number" ? ready.data.parameter_count : null,
+          weights_sha256: typeof ready.data?.weights_sha256 === "string" ? ready.data.weights_sha256 : weightsSha,
+          architecture_family: ready.data?.architecture_family ?? null,
+        }
+      : null,
     engine: {
       state: engineState,
       health: health.ok ? String(health.data?.status ?? "unknown") : "unavailable",
@@ -86,10 +115,13 @@ export async function GET() {
       errors: [health.error, ready.error, weights.error].filter(Boolean),
     },
     weights: {
-      count: typeof weights.data?.count === "number" ? weights.data.count : Array.isArray(weights.data?.weights) ? weights.data.weights.length : 0,
-      items: Array.isArray(weights.data?.weights) ? weights.data.weights : ready.data?.weights || [],
+      source: "MAS /api/nlm/weights",
+      count: typeof weights.data?.count === "number" ? weights.data.count : items.length,
+      items,
+      checkpoints: items,
       home: weights.data?.home || null,
       reachable: weights.ok,
+      error: weights.error,
     },
     training: {
       state: normalizeNlmTrainingState(latest),
@@ -110,7 +142,7 @@ export async function GET() {
       readinessPath: "/api/nlm/runtime",
       weightsPath: "/api/nlm/weights",
       trainingPath: "/api/nlm/training/status",
-      note: "Same MAS NLM service as NatureOS/training. Not :8200. Not Ollama. Unqualified forecast p stays null.",
+      note: "Same MAS NLM service as NatureOS/training. Weight list is /api/nlm/weights — never stubbed. Not :8200. Not Ollama. Unqualified forecast p stays null.",
     },
   }, { headers: { "Cache-Control": "no-store, max-age=0" } })
 }
