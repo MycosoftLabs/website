@@ -72,19 +72,22 @@ export function NLMPanel({ deviceId = null, patterns = [], className }: NLMPanel
   
   const [anomalyScore, setAnomalyScore] = useState<number | null>(null)
   const [predictions, setPredictions] = useState<{ label: string; probability: number }[]>([])
-  const [nlmStatus, setNlmStatus] = useState<"loading" | "degraded" | "live">("degraded")
+  const [nlmStatus, setNlmStatus] = useState<"loading" | "degraded" | "live">("loading")
+  const [weightCount, setWeightCount] = useState(0)
+  const [weightsSha, setWeightsSha] = useState<string | null>(null)
 
-  // Fetch NLM status from MAS; no mock analysis
+  // Same MAS NLM service the training app uses. Same-origin BFF — no :8200, no Ollama.
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_MAS_API_URL || ""
-    if (!base) {
-      setNlmStatus("degraded")
-      return
-    }
     setNlmStatus("loading")
-    fetch(`${base}/api/nlm/health`)
+    fetch("/api/natureos/nlm-training", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : Promise.reject(res)))
-      .then(() => setNlmStatus("live"))
+      .then((data) => {
+        const reachable = Boolean(data?.connections?.mas || data?.nlmStatus?.model_loaded || data?.connections?.nlm)
+        setNlmStatus(reachable ? "live" : "degraded")
+        const listed = Array.isArray(data?.weights) ? data.weights : []
+        setWeightCount(Number(data?.weight_count || listed.length || 0))
+        setWeightsSha(typeof data?.nlmStatus?.weights_sha256 === "string" ? data.nlmStatus.weights_sha256 : null)
+      })
       .catch(() => setNlmStatus("degraded"))
   }, [])
 
@@ -298,7 +301,8 @@ export function NLMPanel({ deviceId = null, patterns = [], className }: NLMPanel
       {nlmStatus === "live" && (
         <>
           <div className="flex-none p-1 mt-1 rounded bg-black/40 border border-purple-500/20 text-[8px] text-gray-400">
-            Classification: No analysis data
+            MAS NLM {weightCount ? `${weightCount} on-disk weights` : "loaded"}
+            {weightsSha ? ` · ${weightsSha.slice(0, 12)}…` : ""} · forecast unqualified · p null
           </div>
           <div className="flex-none flex items-center justify-between p-1 mt-1 rounded bg-black/40 border border-cyan-500/20 text-[8px] text-gray-400">
             <Activity className="h-2.5 w-2.5 text-cyan-500/50" />

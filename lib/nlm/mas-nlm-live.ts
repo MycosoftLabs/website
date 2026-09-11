@@ -41,6 +41,18 @@ export interface LiveNlmConsole {
     run_count?: number
   }
   checkpoints?: unknown[]
+  weights?: Array<{
+    name?: string
+    path?: string
+    role?: string
+    kind?: string
+    bytes?: number
+    sha256?: string | null
+    loaded?: boolean
+    forecast_qualified?: boolean
+  }>
+  weight_count?: number
+  weight_home?: string
   bound_to_ollama?: boolean
   forecast_qualified?: boolean
   forecast_p?: number | null
@@ -95,9 +107,10 @@ export async function fetchMasNlmConsole(): Promise<LiveNlmConsole | null> {
     return consolePayload
   }
 
-  const [nlmHealth, masHealth] = await Promise.all([
+  const [nlmHealth, masHealth, nlmWeights] = await Promise.all([
     fetchJson(masBase, ['/api/nlm/health'], 12000, headers),
     fetchJson(masBase, ['/health', '/api/myca/status'], 8000, headers),
+    fetchJson(masBase, ['/api/nlm/weights', '/api/nlm/runtime'], 12000, headers),
   ])
   if (!nlmHealth && !masHealth) return null
 
@@ -133,6 +146,9 @@ export async function fetchMasNlmConsole(): Promise<LiveNlmConsole | null> {
       jobs_available: false,
       reason: 'Training compute is fail-closed on MAS 188. Catalogs and the loaded NLM remain available.',
     },
+    weights: Array.isArray(nlmWeights?.weights) ? nlmWeights.weights : [],
+    weight_count: typeof nlmWeights?.count === 'number' ? nlmWeights.count : nlmWeights?.weight_count,
+    weight_home: nlmWeights?.home || nlmWeights?.weight_home,
     bound_to_ollama: false,
     forecast_qualified: false,
     forecast_p: null,

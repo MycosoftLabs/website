@@ -33,15 +33,15 @@ export async function GET() {
   // own false timeout by hitting health, readiness, and training concurrently.
   const health = await readJson("/api/nlm/health")
   const ready = await readJson("/api/nlm/runtime")
+  const weights = await readJson("/api/nlm/weights")
   const training = await readJson("/api/nlm/training/status", 12000)
   const latest = (training.data?.latest ?? training.data ?? null) as NlmTrainingLatest | null
   const forecastQualified = Boolean(health.data?.forecast_qualified)
+  const masReachable = health.ok || ready.ok || weights.ok
   const engineState = health.ok && Boolean(health.data?.model_loaded)
-    ? forecastQualified
+    ? "available"
+    : masReachable
       ? "available"
-      : "degraded"
-    : health.ok || ready.ok
-      ? "degraded"
       : "unavailable"
   const weightsSha =
     (typeof health.data?.weights_sha256 === "string" && health.data.weights_sha256) ||
@@ -76,12 +76,20 @@ export async function GET() {
       ready: ready.ok
         ? Boolean(
             ready.data?.ready ??
+              ready.data?.model_loaded ??
               (ready.data?.status === "ready" || ready.data?.status === "healthy"),
           )
         : null,
+      forecast_state: forecastQualified ? "qualified" : "unqualified",
       healthLatencyMs: health.latencyMs,
       readyLatencyMs: ready.latencyMs,
-      errors: [health.error, ready.error].filter(Boolean),
+      errors: [health.error, ready.error, weights.error].filter(Boolean),
+    },
+    weights: {
+      count: typeof weights.data?.count === "number" ? weights.data.count : Array.isArray(weights.data?.weights) ? weights.data.weights.length : 0,
+      items: Array.isArray(weights.data?.weights) ? weights.data.weights : ready.data?.weights || [],
+      home: weights.data?.home || null,
+      reachable: weights.ok,
     },
     training: {
       state: normalizeNlmTrainingState(latest),
@@ -100,8 +108,9 @@ export async function GET() {
       provider: "MAS scientific NLM :8001",
       healthPath: "/api/nlm/health",
       readinessPath: "/api/nlm/runtime",
+      weightsPath: "/api/nlm/weights",
       trainingPath: "/api/nlm/training/status",
-      note: "Points at MAS FormSpace NLM, not standalone :8200 and not Ollama :11434. forecast_qualified stays false for the archived SYNTHETIC_TEST checkpoint.",
+      note: "Same MAS NLM service as NatureOS/training. Not :8200. Not Ollama. Unqualified forecast p stays null.",
     },
   }, { headers: { "Cache-Control": "no-store, max-age=0" } })
 }

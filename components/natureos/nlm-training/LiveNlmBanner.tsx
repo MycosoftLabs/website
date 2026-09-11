@@ -11,6 +11,7 @@ interface LiveNlmBannerState {
   compoundCount: number;
   skipStartup: boolean;
   trainingReason: string;
+  weightCount: number;
 }
 
 export function LiveNlmBanner() {
@@ -34,6 +35,7 @@ export function LiveNlmBanner() {
           trainingReason:
             data?.training?.reason ||
             'Training jobs are fail-closed on MAS 188. No new model pulls.',
+          weightCount: Number(data?.weight_count || (data?.weights || []).length || 0),
         });
       } catch {
         if (!cancelled) setState(null);
@@ -59,7 +61,7 @@ export function LiveNlmBanner() {
           </p>
         </div>
         <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
-          NLM {state.nlmLoaded ? 'loaded' : 'unloaded'} · not Ollama · forecast unqualified
+          NLM {state.nlmLoaded ? 'loaded' : 'unloaded'} · {state.weightCount || 0} weights · not Ollama · forecast unqualified
         </p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
