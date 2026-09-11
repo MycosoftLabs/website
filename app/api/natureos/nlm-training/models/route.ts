@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/server"
-import { requireOwnerOrSuperuserIdentity, resolveVerifiedIdentity } from "@/lib/auth/verified-identity"
+import {
+  isOwnerOrSuperuserRole,
+  requireOwnerOrSuperuserIdentity,
+  resolveVerifiedIdentity,
+} from "@/lib/auth/verified-identity"
+import { fetchMasNlmConsole, liveNlmModelCard } from "@/lib/nlm/mas-nlm-live"
 
 export const dynamic = "force-dynamic"
 
@@ -20,23 +25,35 @@ function normalizeModel(row: any) {
 }
 
 export async function GET() {
+  const consolePayload = await fetchMasNlmConsole()
+  const live = liveNlmModelCard(consolePayload?.nlm)
+  const models: any[] = live ? [live] : []
+
   const identity = await resolveVerifiedIdentity()
-  const authError = requireOwnerOrSuperuserIdentity(identity)
-  if (authError) return authError
-
-  const supabase = await createAdminClient()
-  let query = supabase
-    .from("nlm_models")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(200)
-
-  const { data, error } = await query
-  if (error) {
-    return NextResponse.json({ models: [], error: error.message }, { status: 500 })
+  if (identity.isAuthenticated && (identity.isSuperuser || isOwnerOrSuperuserRole(identity.userRole))) {
+    try {
+      const supabase = await createAdminClient()
+      const { data } = await supabase
+        .from("nlm_models")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200)
+      for (const row of data || []) {
+        const normalized = normalizeModel(row)
+        if (normalized.id !== "nlm-live") models.push(normalized)
+      }
+    } catch {
+      // Live MAS card is enough; empty supabase is not a MAS outage.
+    }
   }
 
-  return NextResponse.json({ models: (data || []).map(normalizeModel), source: "supabase" })
+  return NextResponse.json({
+    models,
+    source: live ? "mas-nlm" : "empty",
+    bound_to_ollama: false,
+    forecast_qualified: false,
+    training_jobs_available: false,
+  })
 }
 
 export async function POST(request: Request) {

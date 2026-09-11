@@ -6,15 +6,10 @@ import {
   requireOwnerOrSuperuserIdentity,
   resolveVerifiedIdentity,
 } from '@/lib/auth/verified-identity';
+import { fetchMasNlmConsole, mindexServiceHeaders } from '@/lib/nlm/mas-nlm-live';
 
 const MINDEX_BASE_URL = resolveMindexServerBaseUrl();
 const MAS_BASE_URL = resolveMasServerBaseUrl();
-const NLM_BASE_URL = (
-  process.env.NLM_API_URL ||
-  process.env.NLM_API_BASE_URL ||
-  'http://192.168.0.188:8200'
-).replace(/\/$/, '');
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || '';
 
 export const revalidate = 0;
 
@@ -126,98 +121,96 @@ function normalizeTrainingStatus(trainingRuns: any, standaloneTraining: any) {
 }
 
 export async function GET() {
-  const identity = await resolveVerifiedIdentity();
-  const authError = requireOwnerOrSuperuserIdentity(identity);
-  if (authError) return authError;
-
   const now = new Date().toISOString();
+  const identity = await resolveVerifiedIdentity();
+  const serviceHeaders = masServiceHeaders({}, identity);
 
-  const [mindex, standaloneTraining] = await Promise.all([
-    getJson(MINDEX_BASE_URL, ['/api/mindex/health', '/health'], 5000, {
-      'X-API-Key': MINDEX_API_KEY,
-      Accept: 'application/json',
-    }),
-    getJson(NLM_BASE_URL, ['/api/training/status'], 3000),
+  const consolePayload = await fetchMasNlmConsole();
+  const [mindexHealth, nlmHealth, nlmModelInfo, masReachable] = await Promise.all([
+    getJson(MINDEX_BASE_URL, ['/api/mindex/health', '/health'], 5000, mindexServiceHeaders()),
+    getJson(MAS_BASE_URL, ['/api/nlm/health'], 12000, serviceHeaders),
+    getJson(MAS_BASE_URL, ['/api/nlm/model/info'], 12000, serviceHeaders),
+    getJson(MAS_BASE_URL, ['/health', '/api/myca/status'], 12000, serviceHeaders),
   ]);
 
-  // MAS can be single-worker or temporarily slow after restarts, so avoid
-  // fanning out several long-running probes at once.
-  const serviceHeaders = masServiceHeaders({}, identity);
-  const trainingRuns = await getJson(MAS_BASE_URL, ['/api/nlm/training/runs'], 15000, serviceHeaders);
-  const checkpoints = await getJson(MAS_BASE_URL, ['/api/nlm/training/checkpoints'], 15000, serviceHeaders);
-  const nlmHealth = await getJson(MAS_BASE_URL, ['/api/nlm/health'], 15000, serviceHeaders);
-  const nlmModelStatus = await getJson(MAS_BASE_URL, ['/api/nlm/model/status', '/api/nlm/model/info'], 15000, serviceHeaders);
-  const masHealth = await getJson(MAS_BASE_URL, ['/api/myca/status', '/health'], 15000, serviceHeaders);
-
-  const training = normalizeTrainingStatus(trainingRuns, standaloneTraining);
-  const masOnline = Boolean(masHealth);
-  const nlmOnline = Boolean(nlmHealth || nlmModelStatus);
-  const rawNlmStatus = String(nlmHealth?.status || nlmModelStatus?.status || '').toLowerCase();
-  const nlmStatus =
-    rawNlmStatus === 'degraded' || rawNlmStatus === 'unhealthy' || rawNlmStatus === 'not_loaded'
-      ? 'degraded'
-      : nlmOnline
-        ? 'online'
-        : 'offline';
+  const nlm = consolePayload?.nlm || nlmHealth || {};
+  const masOnline = Boolean(consolePayload?.mas?.reachable || masReachable);
+  const nlmLoaded = Boolean(nlm.model_loaded);
+  const nlmOnline = nlmLoaded || Boolean(nlmHealth);
+  const trainingRuns = {
+    runs: consolePayload?.training?.runs || [],
+    active_run_id: consolePayload?.training?.active_run_id || null,
+  };
+  const training = normalizeTrainingStatus(trainingRuns, null);
+  const taxaCount = consolePayload?.mindex?.taxa_count ?? mindexHealth?.species_count ?? mindexHealth?.count ?? 0;
 
   return NextResponse.json({
-    training,
+    training: {
+      ...training,
+      jobs_available: false,
+      reason: consolePayload?.training?.reason ||
+        'Training compute is fail-closed on MAS 188. Catalogs and the loaded NLM remain available.',
+    },
     model: {
       health: {
-        status: nlmStatus,
-        model_loaded: Boolean(nlmHealth?.model_loaded),
-        model_name: nlmHealth?.model_name || nlmModelStatus?.model_name || 'NLM',
-        model_version: nlmHealth?.model_version || nlmModelStatus?.model_version || '0.1.0',
+        status: nlmLoaded ? 'online' : nlmOnline ? 'unloaded' : 'offline',
+        model_loaded: nlmLoaded,
+        model_name: nlm.model_name || nlmModelInfo?.name || 'nlm',
+        model_version: nlm.model_version || nlmModelInfo?.version || '0.1.0',
+        bound_to_ollama: false,
+        forecast_qualified: false,
+        forecast_p: null,
+        qualification_status: nlm.qualification_status || 'unqualified',
       },
-      info: nlmModelStatus || {},
+      info: nlmModelInfo || {},
       architecture: {
-        baseModel: 'Mamba-Graph-Hybrid',
-        hiddenSize: 512,
-        numLayers: 12,
-        numAttentionHeads: 8,
-        vocabSize: 50000,
-        maxPositionEmbeddings: 4096,
-        useLora: true,
-        loraR: 8,
-        loraAlpha: 16,
+        baseModel: nlm.architecture_family || nlmModelInfo?.base_model || 'native',
+        hiddenSize: null,
+        numLayers: null,
+        numAttentionHeads: null,
       },
       hyperparameters: {},
     },
     gpu: {
-      name: masHealth?.gpu?.name || 'NLM Compute Cluster',
-      memoryUsed: masHealth?.gpu?.memoryUsed ?? 0,
-      memoryTotal: masHealth?.gpu?.memoryTotal ?? 0,
-      memoryPercent: masHealth?.gpu?.memoryPercent ?? 0,
-      utilization: masHealth?.gpu?.utilization ?? 0,
-      temperature: masHealth?.gpu?.temperature ?? 0,
-      powerDraw: masHealth?.gpu?.powerDraw ?? 0,
+      name: 'GPU Legion (fail-closed)',
+      jobs_available: false,
     },
-    gpuContainers: masHealth?.containers || [],
-    devices: masHealth?.devices || [],
-    deviceCount: masHealth?.deviceCount ?? 0,
-    checkpoints: checkpoints?.checkpoints || [],
+    gpuContainers: [],
+    devices: [],
+    deviceCount: 0,
+    checkpoints: consolePayload?.checkpoints || [],
     dataStats: {
-      mindexSpecies: mindex?.species_count ?? mindex?.count ?? 0,
-      mindexTaxonomicMatches: mindex?.taxonomic_matches ?? 0,
+      mindexSpecies: taxaCount,
+      mindexObservations: consolePayload?.mindex?.observation_count ?? 0,
+      mindexCompounds: consolePayload?.mindex?.compound_count ?? 0,
     },
     connections: {
       mas: masOnline,
-      mindex: !!mindex,
-      gpu: !!(masHealth?.gpu),
+      mindex: Boolean(consolePayload?.mindex?.reachable || mindexHealth),
+      gpu: false,
       mycobrain: masOnline,
       nlm: nlmOnline,
     },
-    mindexStatus: mindex ? {
-      status: mindex.status,
-      version: mindex.version,
-      species_count: mindex.species_count,
-    } : null,
-    masStatus: masHealth ? {
-      status: masHealth.status || masHealth.state,
-      version: masHealth.version,
-      fallback: masHealth.fallback,
-    } : null,
-    nlmStatus: nlmHealth,
+    mindexStatus: {
+      status: consolePayload?.mindex?.reachable || mindexHealth ? 'online' : 'offline',
+      taxa_count: taxaCount,
+      observation_count: consolePayload?.mindex?.observation_count ?? null,
+      source: consolePayload?.mindex ? 'mas-console' : mindexHealth ? 'mindex-health' : 'empty',
+    },
+    masStatus: {
+      status: masOnline ? 'online' : 'offline',
+      reachable: masOnline,
+      skip_startup: Boolean(consolePayload?.mas?.skip_startup),
+      note: consolePayload?.mas?.health_note || null,
+      fallback: false,
+    },
+    nlmStatus: {
+      ...nlm,
+      bound_to_ollama: false,
+      forecast_qualified: false,
+      forecast_p: null,
+    },
+    console: consolePayload,
     timestamp: now,
   });
 }

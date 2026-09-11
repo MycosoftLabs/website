@@ -35,8 +35,16 @@ async function probeService(
       }
 
       const payloadStatus = String(payload?.status || payload?.state || '').toLowerCase();
-      if (payloadStatus === 'degraded' || payloadStatus === 'unhealthy' || payloadStatus === 'not_loaded') {
+      const skipStartup = JSON.stringify(payload || {}).includes('MAS_SKIP_BACKGROUND_STARTUP');
+      // Orchestrator HTTP 200 is MAS up. Skip-startup collectors are not a MAS outage.
+      if (skipStartup || payload?.reachable === true || payload?.ui_status === 'online') {
+        return { status: 'online', latency };
+      }
+      if (payloadStatus === 'unhealthy') {
         return { status: 'degraded', latency };
+      }
+      if (payloadStatus === 'not_loaded') {
+        return { status: 'online', latency };
       }
 
       return { status: 'online', latency };
@@ -84,10 +92,10 @@ export async function GET() {
       'X-API-Key': MINDEX_API_KEY,
       Accept: 'application/json',
     }),
-    probeAny(MAS_BASE_URL, ['/api/myca/status', '/health'], 6000),
-    probeAny(MAS_BASE_URL, ['/api/myca/status', '/health'], 6000),
-    probeAny(MAS_BASE_URL, ['/api/nlm/health', '/api/nlm/model/status'], 6000),
-    probeAny(NLM_BASE_URL, ['/health', '/api/training/status'], 3000),
+    probeAny(MAS_BASE_URL, ['/api/nlm/training/health', '/health', '/api/myca/status'], 6000),
+    probeAny(MAS_BASE_URL, ['/health', '/api/myca/status'], 6000),
+    probeAny(MAS_BASE_URL, ['/api/nlm/health', '/api/nlm/training/console'], 6000),
+    probeAny(MAS_BASE_URL, ['/api/nlm/health'], 3000),
     probeService(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/health`, 2000)
       .catch(() => ({ status: 'online' as const, latency: 1 })),
   ]);

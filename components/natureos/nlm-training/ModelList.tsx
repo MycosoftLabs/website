@@ -33,6 +33,15 @@ const getStatusStyles = (status: string) => {
         icon: <Search className="w-4 h-4 animate-pulse" />,
         pulse: true
       };
+    case 'loaded':
+      return {
+        color: 'text-emerald-400',
+        bg: 'bg-emerald-500/10',
+        border: 'border-emerald-500/20',
+        dot: 'bg-emerald-400',
+        icon: <Database className="w-4 h-4" />,
+        pulse: false
+      };
     default:
       return {
         color: 'text-zinc-500',

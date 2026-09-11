@@ -21,9 +21,10 @@ import {
 const systems = [
   { name: 'Mindex', icon: Database, api: '/api/natureos/nlm-training/mindex' },
   { name: 'MycoBrain', icon: Brain, api: '/api/natureos/nlm-training/mycobrain' },
-  { name: 'Mycosoft', icon: ShieldCheck, api: '/api/natureos/nlm-training' },
-  { name: 'MAS', icon: Activity, api: '/api/natureos/nlm-training' },
-  { name: 'Network Middleware', icon: Network, api: '/api/natureos/nlm-training' },
+  { name: 'Mycosoft', icon: ShieldCheck, api: '/api/natureos/nlm-training/status' },
+  { name: 'MAS', icon: Activity, api: '/api/mas/health' },
+  { name: 'NLM Engine', icon: Brain, api: '/api/natureos/nlm-training' },
+  { name: 'Network Middleware', icon: Network, api: '/api/natureos/nlm-training/status' },
 ];
 
 export function SystemStatus() {
