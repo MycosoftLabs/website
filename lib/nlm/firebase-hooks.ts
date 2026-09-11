@@ -35,10 +35,9 @@ export function useModels(userId: string | undefined, isAdmin?: boolean) {
   const [models, setModels] = useState<any[]>([]);
   const [loadedUserId, setLoadedUserId] = useState<string | undefined>(undefined);
 
-  const loading = userId ? (userId !== loadedUserId) : false;
+  const loading = loadedUserId === undefined;
 
   useEffect(() => {
-    if (!userId) return;
     let cancelled = false;
     const load = async () => {
       try {
@@ -47,10 +46,10 @@ export function useModels(userId: string | undefined, isAdmin?: boolean) {
         const data = await res.json();
         if (!cancelled) setModels(Array.isArray(data.models) ? data.models : []);
       } catch (error) {
-        console.error("Supabase NLM Models Error:", error);
+        console.error("Live NLM models error:", error);
         if (!cancelled) setModels([]);
       } finally {
-        if (!cancelled) setLoadedUserId(userId);
+        if (!cancelled) setLoadedUserId(userId || 'anonymous');
       }
     };
     load();

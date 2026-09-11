@@ -57,30 +57,41 @@ export function MycaMasPanel({ userId }: { userId?: string }) {
     setStatusLoading(true);
     try {
       // Try MAS health endpoint
-      const [masRes, mycaRes] = await Promise.allSettled([
+      const [masRes, nlmRes] = await Promise.allSettled([
         fetch('/api/mas/health', { cache: 'no-store' }),
-        fetch('/api/myca?action=context', { cache: 'no-store' }),
+        fetch('/api/natureos/nlm-training', { cache: 'no-store' }),
       ]);
 
       let combined: MasStatus = { status: 'offline' };
 
       if (masRes.status === 'fulfilled' && masRes.value.ok) {
         const data = await masRes.value.json();
+        const reachable = data.reachable !== false && masRes.value.ok;
+        const uiOnline =
+          data.ui_status === 'online' ||
+          data.status === 'online' ||
+          data.status === 'healthy' ||
+          data.status === 'ok' ||
+          reachable;
         combined = {
-          status: data.status === 'online' ? 'online' : data.fallback ? 'fallback' : 'degraded',
-          version: data.version,
-          fallback: data.fallback,
           ...data,
+          status: !reachable ? 'offline' : uiOnline ? 'online' : 'degraded',
+          version: data.version,
+          fallback: Boolean(data.fallback && !reachable),
         };
-      } else if (mycaRes.status === 'fulfilled' && mycaRes.value.ok) {
-        const data = await mycaRes.value.json();
-        combined = {
-          status: 'degraded', // MAS offline but MYCA responding
-          activeNodes: data.activeNodes,
-          systemHealth: data.systemHealth,
-          persona: 'MYCA',
-          fallback: true,
-        };
+      }
+
+      if (nlmRes.status === 'fulfilled' && nlmRes.value.ok) {
+        const nlm = await nlmRes.value.json();
+        if (nlm?.connections?.mas || nlm?.masStatus?.reachable) {
+          combined = {
+            ...combined,
+            status: 'online',
+            fallback: false,
+            persona: nlm?.nlmStatus?.display_name || 'NLM',
+            systemHealth: nlm?.nlmStatus?.model_loaded ? 100 : combined.systemHealth,
+          };
+        }
       }
 
       setMasStatus(combined);
@@ -146,7 +157,7 @@ export function MycaMasPanel({ userId }: { userId?: string }) {
         <div className={`w-2 h-2 rounded-full ${s.dot}`} />
         {s.label}
         {masStatus?.fallback && (
-          <span className="text-zinc-500">· MYCA MOCK MODE</span>
+          <span className="text-zinc-500">· MAS unreachable</span>
         )}
         {masStatus?.systemHealth !== undefined && (
           <span className="text-zinc-500">· {masStatus.systemHealth.toFixed(1)}% health</span>
@@ -222,8 +233,7 @@ export function MycaMasPanel({ userId }: { userId?: string }) {
         <div className="flex items-center gap-3 p-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
           <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
           <p className="text-xs text-amber-400">
-            MAS orchestrator is offline or in fallback mode. MYCA is responding with mock data.
-            Deploy the MAS backend or set <code className="text-white font-mono">MAS_API_URL</code> to connect to a live instance.
+            MAS orchestrator is unreachable. Live NLM and MINDEX catalogs cannot load until 192.168.0.188:8001 answers.
           </p>
         </div>
       )}

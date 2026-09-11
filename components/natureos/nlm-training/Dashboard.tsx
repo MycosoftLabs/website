@@ -22,6 +22,7 @@ import { MycobrainStatus } from './MycobrainStatus';
 import AgentControlCenter from './AgentControlCenter';
 
 import { SystemStatus } from './SystemStatus';
+import { LiveNlmBanner } from './LiveNlmBanner';
 
 type DashboardPreferences = {
   autoRefresh: boolean;
@@ -382,7 +383,7 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
 
       return (
         <div className="space-y-8">
-          {/* System Status Banner */}
+          <LiveNlmBanner />
           <SystemStatus />
 
           {/* Dashboard Header */}

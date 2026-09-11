@@ -35,7 +35,8 @@ function normalizeStatus(status: any, connected: boolean): SystemStatusEntry['st
 
   const value = String(status || '').toLowerCase();
   if (value === 'healthy' || value === 'online' || value === 'ok') return 'online';
-  if (value === 'degraded' || value === 'warning') return 'degraded';
+  if (value === 'unhealthy') return connected ? 'degraded' : 'offline';
+  if (value === 'degraded' || value === 'warning') return connected ? 'online' : 'offline';
   return connected ? 'online' : 'offline';
 }
 
@@ -75,6 +76,16 @@ function normalizeSystemStatusPayload(payload: any): SystemStatusEntry[] {
       system_name: 'MAS',
       status: normalizeStatus(payload?.masStatus?.status, masConnected),
       latency: payload?.masStatus?.latency ?? 0,
+      last_sync: timestamp,
+    },
+    {
+      id: 'nlm-engine',
+      system_name: 'NLM Engine',
+      status: normalizeStatus(
+        payload?.nlmStatus?.status || payload?.model?.health?.status,
+        Boolean(payload?.connections?.nlm || payload?.nlmStatus?.model_loaded),
+      ),
+      latency: payload?.nlmStatus?.latency ?? 0,
       last_sync: timestamp,
     },
     {

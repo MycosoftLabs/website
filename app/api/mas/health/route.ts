@@ -15,10 +15,17 @@ export async function GET() {
 
     if (response.ok) {
       const data = await response.json().catch(() => ({}))
+      const raw = typeof data?.status === "string" ? data.status : "online"
+      const skipStartup = JSON.stringify(data || {}).includes("MAS_SKIP_BACKGROUND_STARTUP")
       return NextResponse.json({
-        status: typeof data?.status === "string" ? data.status : "online",
+        status: raw,
+        ui_status: "online",
         service: "myca-orchestrator",
         reachable: true,
+        skip_startup: skipStartup,
+        note: skipStartup
+          ? "Orchestrator is up. Collectors skipped under MAS_SKIP_BACKGROUND_STARTUP — not a MAS outage."
+          : undefined,
         latency_ms: Date.now() - started,
         timestamp: new Date().toISOString(),
       })
