@@ -6,9 +6,9 @@ export const revalidate = 0;
 
 const MAS_BASE_URL = resolveMasServerBaseUrl();
 const NLM_BASE_URL = (
-  process.env.NLM_API_URL ||
-  process.env.NLM_API_BASE_URL ||
-  'http://192.168.0.188:8200'
+  process.env.MAS_API_URL ||
+  process.env.NEXT_PUBLIC_MAS_API_URL ||
+  'http://192.168.0.188:8001'
 ).replace(/\/$/, '');
 
 interface TrainingLatest {
@@ -54,9 +54,9 @@ export async function GET() {
 
   const [trainingResult, healthResult] = await Promise.all([
     fetchJson<{ latest?: TrainingLatest; history?: TrainingLatest[] }>(
-      `${NLM_BASE_URL}/api/training/status`,
+      `${NLM_BASE_URL}/api/nlm/training/status`,
     ),
-    fetchJson<{ status?: string }>(`${NLM_BASE_URL}/health`, 2500),
+    fetchJson<{ status?: string; model_loaded?: boolean }>(`${NLM_BASE_URL}/api/nlm/health`, 2500),
   ]);
 
   const latest = trainingResult.data?.latest;
@@ -86,10 +86,10 @@ export async function GET() {
       engine_online: engineOnline,
       provenance: {
         nlm_engine_url: NLM_BASE_URL,
-        training_metrics_endpoint: `${NLM_BASE_URL}/api/training/status`,
+        training_metrics_endpoint: `${NLM_BASE_URL}/api/nlm/training/status`,
         training_metrics_reachable: trainingResult.ok,
         mas_orchestrator_url: MAS_BASE_URL,
-        note: 'Public stats come from the NLM sensory engine (MAS/NLM). The legacy MAS text-LM at /api/nlm/* is not the Nature Learning Model.',
+        note: 'NLM is the MAS service at :8001/api/nlm. Not Ollama. Not obsolete :8200.',
       },
       errors: {
         training_metrics: trainingResult.ok ? undefined : trainingResult.error,

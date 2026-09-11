@@ -7,7 +7,7 @@ const MAS_BASE_URL = resolveMasServerBaseUrl();
 const NLM_BASE_URL = (
   process.env.NLM_API_URL ||
   process.env.NLM_API_BASE_URL ||
-  'http://192.168.0.188:8200'
+  'http://192.168.0.188:8001'
 ).replace(/\/$/, '');
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || '';
 

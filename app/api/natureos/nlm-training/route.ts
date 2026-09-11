@@ -179,6 +179,9 @@ export async function GET() {
     devices: [],
     deviceCount: 0,
     checkpoints: consolePayload?.checkpoints || [],
+    weights: consolePayload?.weights || [],
+    weight_count: consolePayload?.weight_count || (consolePayload?.weights || []).length,
+    weight_home: consolePayload?.weight_home || null,
     dataStats: {
       mindexSpecies: taxaCount,
       mindexObservations: consolePayload?.mindex?.observation_count ?? 0,
