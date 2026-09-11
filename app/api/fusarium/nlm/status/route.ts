@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server"
 import { requireOwner } from "@/lib/auth/api-auth"
 import { FUSARIUM_NLM_STATUS_SCHEMA, normalizeNlmTrainingState, normalizeProviderTimestamp, type NlmTrainingLatest } from "@/lib/fusarium/nlm/status"
+import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-const NLM_BASE_URL = (
-  process.env.MAS_API_URL ||
-  process.env.NEXT_PUBLIC_MAS_API_URL ||
-  process.env.NLM_API_URL ||
-  "http://192.168.0.188:8001"
-).replace(/\/$/, "")
+const NLM_BASE_URL = resolveMasServerBaseUrl()
 
 async function readJson(path: string, timeoutMs = 10000): Promise<{ ok: boolean; status: number | null; data: any; error: string | null; latencyMs: number }> {
   const started = Date.now()
@@ -52,7 +48,8 @@ export async function GET() {
   const latest = (training.data?.latest ?? training.data ?? null) as NlmTrainingLatest | null
   const forecastQualified = Boolean(health.data?.forecast_qualified)
   const masReachable = health.ok || ready.ok || weights.ok
-  const engineState = masReachable ? "available" : "unavailable"
+  const modelLoaded = Boolean(health.data?.model_loaded || ready.data?.model_loaded)
+  const engineState = !masReachable ? "unavailable" : modelLoaded ? "available" : "unloaded"
   const weightsSha =
     (typeof health.data?.weights_sha256 === "string" && health.data.weights_sha256) ||
     (typeof ready.data?.weights_sha256 === "string" && ready.data.weights_sha256) ||

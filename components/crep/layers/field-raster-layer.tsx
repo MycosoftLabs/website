@@ -204,7 +204,7 @@ export default function FieldRasterLayer({
         try { showSlot(0); } catch { /* first frame stays if already painted */ }
       };
       const startAnimation = () => {
-        stopTimer();
+        if (timerRef.current) return;
         if (playing === false || scrubIndex != null || frames.length < 2) return;
         if (isAnimatedPaused(PFX) || !inView()) {
           pauseAnimation();

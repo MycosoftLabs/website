@@ -5,11 +5,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const MAS_BASE_URL = resolveMasServerBaseUrl();
-const NLM_BASE_URL = (
-  process.env.MAS_API_URL ||
-  process.env.NEXT_PUBLIC_MAS_API_URL ||
-  'http://192.168.0.188:8001'
-).replace(/\/$/, '');
+const NLM_BASE_URL = MAS_BASE_URL;
 
 interface TrainingLatest {
   epoch?: number;
@@ -60,7 +56,7 @@ export async function GET() {
   ]);
 
   const latest = trainingResult.data?.latest;
-  const engineOnline = healthResult.ok && healthResult.data?.status === 'healthy';
+  const engineOnline = Boolean(healthResult.ok);
 
   const hasMetrics =
     trainingResult.ok &&

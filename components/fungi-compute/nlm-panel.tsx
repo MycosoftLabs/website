@@ -75,6 +75,7 @@ export function NLMPanel({ deviceId = null, patterns = [], className }: NLMPanel
   const [nlmStatus, setNlmStatus] = useState<"loading" | "degraded" | "live">("loading")
   const [weightCount, setWeightCount] = useState(0)
   const [weightsSha, setWeightsSha] = useState<string | null>(null)
+  const [modelLoaded, setModelLoaded] = useState(false)
 
   // Same MAS NLM service the training app uses. Same-origin BFF — no :8200, no Ollama.
   useEffect(() => {
@@ -82,11 +83,13 @@ export function NLMPanel({ deviceId = null, patterns = [], className }: NLMPanel
     fetch("/api/natureos/nlm-training", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : Promise.reject(res)))
       .then((data) => {
-        const reachable = Boolean(data?.connections?.mas || data?.nlmStatus?.model_loaded || data?.connections?.nlm)
-        setNlmStatus(reachable ? "live" : "degraded")
         const listed = Array.isArray(data?.weights) ? data.weights : []
-        setWeightCount(Number(data?.weight_count || listed.length || 0))
+        const count = Number(data?.weight_count || listed.length || 0)
+        const loaded = Boolean(data?.nlmStatus?.model_loaded)
+        setWeightCount(count)
+        setModelLoaded(loaded)
         setWeightsSha(typeof data?.nlmStatus?.weights_sha256 === "string" ? data.nlmStatus.weights_sha256 : null)
+        setNlmStatus(loaded || count > 0 ? "live" : "degraded")
       })
       .catch(() => setNlmStatus("degraded"))
   }, [])
@@ -295,13 +298,13 @@ export function NLMPanel({ deviceId = null, patterns = [], className }: NLMPanel
       )}
       {nlmStatus === "degraded" && (
         <div className="flex-none p-1 mt-1 rounded bg-black/40 border border-amber-500/20 text-[8px] text-amber-400/90">
-          NLM offline. Connect NLM API for live analysis.
+          MAS NLM reachable or offline, but no loaded checkpoint. Forecast unqualified.
         </div>
       )}
       {nlmStatus === "live" && (
         <>
           <div className="flex-none p-1 mt-1 rounded bg-black/40 border border-purple-500/20 text-[8px] text-gray-400">
-            MAS NLM {weightCount ? `${weightCount} on-disk weights` : "loaded"}
+            MAS NLM {weightCount ? `${weightCount} on-disk weights` : modelLoaded ? "loaded" : "reachable"}
             {weightsSha ? ` · ${weightsSha.slice(0, 12)}…` : ""} · forecast unqualified · p null
           </div>
           <div className="flex-none flex items-center justify-between p-1 mt-1 rounded bg-black/40 border border-cyan-500/20 text-[8px] text-gray-400">
