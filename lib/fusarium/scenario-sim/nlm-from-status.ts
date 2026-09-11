@@ -68,16 +68,6 @@ export function nlmVarFromStatus(data: RawNlmStatus | null, reachable: boolean):
       ? data.weights.checkpoints
       : []
   const weights = listed.map((row) => asWeight(row, sha)).filter((row): row is ScenarioNlmWeight => Boolean(row))
-  if (weights.length === 0 && sha) {
-    weights.push({
-      id: "runtime-sha",
-      path: runtime.model_dir || nlm.model_dir || null,
-      bytes: null,
-      sha256: sha,
-      source: "MAS /api/nlm/runtime weights_sha256",
-      modifiedAt: null,
-    })
-  }
   return {
     live: false,
     bound_to_ollama: false,

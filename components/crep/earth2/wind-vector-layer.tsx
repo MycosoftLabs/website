@@ -246,6 +246,35 @@ export function WindVectorLayer({
   }, [map, opacity]);
 
   useEffect(() => {
+    if (!map) return;
+    const pause = () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+      try {
+        if (map.getLayer(STREAM_LAYER_ID)) {
+          map.setLayoutProperty(STREAM_LAYER_ID, "visibility", "none");
+        }
+      } catch {}
+    };
+    const resume = () => {
+      try {
+        if (map.getLayer(STREAM_LAYER_ID) && visible && animated) {
+          map.setLayoutProperty(STREAM_LAYER_ID, "visibility", "visible");
+        }
+      } catch {}
+      if (visible) updateData();
+    };
+    const unreg = registerAnimatedLayer("earth2-wind", "wind", pause, resume, {
+      inView: () => Boolean(visible),
+    });
+    return () => {
+      unreg();
+    };
+  }, [map, visible, animated, updateData]);
+
+  useEffect(() => {
     const animationId = animationRef.current;
     return () => {
       if (animationId) {
