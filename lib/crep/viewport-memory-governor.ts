@@ -26,6 +26,9 @@ export interface AnimatedLayerHandle {
   pause: () => void
   resume: () => void
   registeredAt: number
+  inView?: () => boolean
+  /** User-toggled Live Data — keep first frame; do not evict for ITDX scenario. */
+  userPinned?: boolean
 }
 
 export interface GovernorSnapshot {
@@ -39,6 +42,8 @@ export interface GovernorSnapshot {
   heapLimitMb: number | null
   pressure: "ok" | "warn" | "critical"
   event: string
+  scenarioActive: boolean
+  pauseReason: "ok" | "paused-for-memory"
 }
 
 const VIEWPORT_PAD = 0.12
@@ -47,10 +52,27 @@ const HEAP_WARN_RATIO = 0.78
 const HEAP_CRITICAL_RATIO = 0.86
 const HEAP_CRITICAL_MB = 1600
 
+/** CONUS + ITDX scenario: two animated weather layers stay interactive. */
+export const CONUS_ITDX_MAX_ANIMATED = 2
+export const CONUS_ITDX_SPECIES_IN_VIEW = 220
+export const CONUS_ITDX_SPECIES_CITY = 480
+export const CONUS_ITDX_SPECIES_STORE = 4000
+
 const handles = new Map<string, AnimatedLayerHandle>()
 const paused = new Set<string>()
 const listeners = new Set<(snap: GovernorSnapshot) => void>()
 let lastViewport: LngLatBounds | null = null
+let scenarioActive = false
+
+export function setEarthSimScenarioActive(active: boolean): void {
+  if (scenarioActive === active) return
+  scenarioActive = active
+  enforceAnimatedBudget(active ? "scenario-on" : "scenario-off")
+}
+
+export function isEarthSimScenarioActive(): boolean {
+  return scenarioActive
+}
 
 function clampLat(n: number): number {
   return Math.max(-85, Math.min(85, n))
@@ -222,19 +244,95 @@ export function moverBboxQuery(b: LngLatBounds | null | undefined): string | nul
   return `lamin=${b.south.toFixed(3)}&lamax=${b.north.toFixed(3)}&lomin=${b.west.toFixed(3)}&lomax=${b.east.toFixed(3)}`
 }
 
+function layerInView(h: AnimatedLayerHandle): boolean {
+  try {
+    if (typeof h.inView === "function") return h.inView()
+  } catch {
+    /* treat as in-view so we do not blank the globe */
+  }
+  return true
+}
+
+function kindKeepScore(kind: AnimatedLayerKind): number {
+  if (kind === "radar") return 30
+  if (kind === "wind") return 22
+  if (kind === "lightning") return 16
+  return 10
+}
+
+function keepScore(h: AnimatedLayerHandle): number {
+  return (h.userPinned ? 1000 : 0) + (layerInView(h) ? 100 : 0) + kindKeepScore(h.kind)
+}
+
+function maxAnimatedNow(pressure: GovernorSnapshot["pressure"]): number {
+  if (hiddenTab() || webglLost()) return 0
+  if (pressure === "critical") return 1
+  if (scenarioActive && pressure === "warn") return 1
+  if (scenarioActive) return CONUS_ITDX_MAX_ANIMATED
+  if (pressure === "warn") return MAX_ANIMATED_DEFAULT
+  return MAX_ANIMATED_DEFAULT
+}
+
+export function speciesStoreCap(pressure: GovernorSnapshot["pressure"] = "ok"): number {
+  if (scenarioActive || pressure !== "ok") return CONUS_ITDX_SPECIES_STORE
+  return 8000
+}
+
+export function speciesInViewCap(zoom: number, enabledKingdoms = 1): number {
+  const kingdomScale = Math.min(1, Math.max(0.45, enabledKingdoms / 7))
+  const tight = scenarioActive
+  const base =
+    zoom >= 11 ? (tight ? CONUS_ITDX_SPECIES_CITY : 720) :
+    zoom >= 9 ? (tight ? 420 : 640) :
+    zoom >= 7 ? (tight ? 360 : 520) :
+    zoom >= 5 ? (tight ? 300 : 400) :
+    zoom >= 3 ? (tight ? CONUS_ITDX_SPECIES_IN_VIEW : 280) :
+    (tight ? 140 : 200)
+  return Math.max(80, Math.floor(base * (tight ? Math.max(0.7, kingdomScale) : kingdomScale)))
+}
+
+export function speciesFetchLimit(zoom: number): number {
+  if (scenarioActive) {
+    if (zoom >= 9) return 900
+    if (zoom >= 5) return 700
+    return 500
+  }
+  if (zoom >= 9) return 1600
+  if (zoom >= 5) return 1200
+  return 800
+}
+
+/** Prefer camera frustum. Planet-wide getBounds() on tilt must not fetch the globe. */
+export function resolveSpeciesFetchBounds(
+  logical: LngLatBounds | null | undefined,
+  raw: LngLatBounds | null | undefined,
+  fallback: LngLatBounds,
+): LngLatBounds {
+  if (logical && Number.isFinite(logical.west) && logical.south < logical.north) return logical
+  if (raw && Number.isFinite(raw.west) && raw.south < raw.north) {
+    const lat = Math.abs(raw.north - raw.south)
+    const lng = raw.west <= raw.east ? Math.abs(raw.east - raw.west) : 360 - Math.abs(raw.west - raw.east)
+    if (lat <= 70 && lng <= 140) return raw
+  }
+  return fallback
+}
+
 export function publishGovernor(event: string): GovernorSnapshot {
   const heap = readHeap()
+  const pressure = pressureOf(heap.usedMb, heap.limitMb)
   const snap: GovernorSnapshot = {
     viewport: lastViewport,
     animatedIds: [...handles.keys()],
     pausedIds: [...paused],
-    maxAnimated: MAX_ANIMATED_DEFAULT,
+    maxAnimated: maxAnimatedNow(pressure),
     hiddenTab: hiddenTab(),
     webglLost: webglLost(),
     heapUsedMb: heap.usedMb,
     heapLimitMb: heap.limitMb,
-    pressure: pressureOf(heap.usedMb, heap.limitMb),
+    pressure,
     event,
+    scenarioActive,
+    pauseReason: paused.size > 0 || hiddenTab() || webglLost() ? "paused-for-memory" : "ok",
   }
   if (typeof window !== "undefined") {
     ;(window as unknown as { __crep_memory_governor: GovernorSnapshot }).__crep_memory_governor = snap
@@ -267,20 +365,24 @@ export function enforceAnimatedBudget(reason: string): GovernorSnapshot {
   }
   const heap = readHeap()
   const pressure = pressureOf(heap.usedMb, heap.limitMb)
-  const running = [...handles.values()]
-    .filter((h) => !paused.has(h.id))
-    .sort((a, b) => a.registeredAt - b.registeredAt)
-  const cap = pressure === "critical" ? 1 : MAX_ANIMATED_DEFAULT
-  while (running.length > cap) {
-    const oldest = running.shift()
-    if (!oldest) break
-    pauseHandle(oldest.id)
+  const cap = maxAnimatedNow(pressure)
+  const ranked = [...handles.values()].sort((a, b) => {
+    const diff = keepScore(a) - keepScore(b)
+    if (diff !== 0) return diff
+    return a.registeredAt - b.registeredAt
+  })
+  const running = () => ranked.filter((h) => !paused.has(h.id))
+  while (running().length > cap) {
+    const offView = running().find((h) => !layerInView(h))
+    const victim = offView ?? running()[0]
+    if (!victim) break
+    pauseHandle(victim.id)
   }
   if (pressure === "ok") {
     const pausedList = [...handles.values()]
       .filter((h) => paused.has(h.id))
-      .sort((a, b) => a.registeredAt - b.registeredAt)
-    while ([...handles.values()].filter((h) => !paused.has(h.id)).length < MAX_ANIMATED_DEFAULT) {
+      .sort((a, b) => keepScore(b) - keepScore(a) || a.registeredAt - b.registeredAt)
+    while (running().length < cap) {
       const next = pausedList.shift()
       if (!next) break
       resumeHandle(next.id)
@@ -294,14 +396,30 @@ export function registerAnimatedLayer(
   kind: AnimatedLayerKind,
   pause: () => void,
   resume: () => void,
+  opts?: { inView?: () => boolean; userPinned?: boolean },
 ): () => void {
-  handles.set(id, { id, kind, pause, resume, registeredAt: Date.now() })
+  handles.set(id, {
+    id,
+    kind,
+    pause,
+    resume,
+    registeredAt: Date.now(),
+    inView: opts?.inView,
+    userPinned: Boolean(opts?.userPinned),
+  })
   enforceAnimatedBudget(`register:${id}`)
   return () => {
     handles.delete(id)
     paused.delete(id)
     publishGovernor(`unregister:${id}`)
   }
+}
+
+export function resetGovernorForTests(): void {
+  handles.clear()
+  paused.clear()
+  lastViewport = null
+  scenarioActive = false
 }
 
 export function isAnimatedPaused(id: string): boolean {

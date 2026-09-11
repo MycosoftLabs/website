@@ -10,6 +10,11 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import { getEarth2Client, type GeoBounds } from "@/lib/earth2/client";
+import {
+  getLogicalViewportBounds,
+  isAnimatedPaused,
+  registerAnimatedLayer,
+} from "@/lib/crep/viewport-memory-governor";
 
 interface WindVectorLayerProps {
   map: any; // MapLibre Map instance
@@ -84,13 +89,22 @@ export function WindVectorLayer({
     fetchingRef.current = true;
 
     try {
+      if (isAnimatedPaused("earth2-wind")) return;
+      const logical = getLogicalViewportBounds(map);
       const mapBounds = map.getBounds();
-      const bounds: GeoBounds = {
-        north: Math.min(85, mapBounds.getNorth()),
-        south: Math.max(-85, mapBounds.getSouth()),
-        east: mapBounds.getEast(),
-        west: mapBounds.getWest(),
-      };
+      const bounds: GeoBounds = logical
+        ? {
+            north: Math.min(85, logical.north),
+            south: Math.max(-85, logical.south),
+            east: logical.east,
+            west: logical.west,
+          }
+        : {
+            north: Math.min(85, mapBounds.getNorth()),
+            south: Math.max(-85, mapBounds.getSouth()),
+            east: mapBounds.getEast(),
+            west: mapBounds.getWest(),
+          };
 
       const windData = await clientRef.current.getWindVectors({
         forecastHours: debouncedHours,

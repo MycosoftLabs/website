@@ -25,7 +25,15 @@ import {
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-const TOKEN = process.env.ARRAYLAKE_FIELD_TOKEN || ""
+const TOKEN = process.env.ARRAYLAKE_FIELD_TOKEN || process.env.ARRAYLAKE_TOKEN || ""
+
+function missingFieldEnv(): string[] {
+  const missing: string[] = []
+  if (!process.env.ARRAYLAKE_FIELD_TOKEN && !process.env.ARRAYLAKE_TOKEN) {
+    missing.push("ARRAYLAKE_FIELD_TOKEN|ARRAYLAKE_TOKEN")
+  }
+  return missing
+}
 
 function findVar(ds: FieldDataset, key: string): FieldVariable | undefined {
   return ds.variables.find((v) => v.key === key)
@@ -130,13 +138,16 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ path: strin
 
   if (seg.length === 1 && seg[0] === "_catalog") {
     const store = fieldStoreBound()
+    const unbound = !store.bound
     return NextResponse.json(
       {
         datasets: FIELD_REGISTRY,
-        base_configured: true,
+        base_configured: store.bound,
         local_base_configured: Boolean(store.localDir),
         configured_base_present: store.bound,
         store: store.localDir ? "local" : store.httpBase ? "http" : "none",
+        honesty: unbound ? "UNBOUND" : "BOUND",
+        unbound_vars: unbound ? missingFieldEnv() : [],
       },
       { headers: catalogHeaders() },
     )
@@ -245,11 +256,20 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ path: strin
     }
   }
 
+  if (!localDir && !httpBase) {
+    const missing = missingFieldEnv()
+    return emptyManifest(
+      ds,
+      v,
+      `UNBOUND missing ${missing.length ? missing.join(", ") : "ARRAYLAKE_FIELD_OUT or ARRAYLAKE_FIELD_BASE"}.`,
+    )
+  }
+
   return emptyManifest(
     ds,
     v,
     localDir
       ? "Local Arraylake bake is bound but this variable has no renderable frames. No data in view."
-      : "No baked Arraylake frames in the local, NAS, or public store. The field BFF is bound; this is no data in view, not a missing route.",
+      : "ARRAYLAKE_FIELD_BASE is set but this variable has no renderable frames. No data in view.",
   )
 }

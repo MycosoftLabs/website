@@ -1,4 +1,4 @@
-import { existsSync } from "fs"
+import { existsSync, readdirSync } from "fs"
 import path from "path"
 
 /** Same-origin bake the view plane already knows how to request. */
@@ -14,11 +14,11 @@ export function configuredOutDir(): string {
   return (process.env.ARRAYLAKE_FIELD_OUT || "").replace(/[\\/]+$/, "")
 }
 
-/** Candidate bake directories. First existing dir wins. No secrets. */
+/** Candidate bake directories. First dir with actual cubes wins. No secrets. */
 export function candidateFieldDirs(cwd = process.cwd()): string[] {
   const out = configuredOutDir()
   const dirs = [
-    out,
+    out ? path.resolve(cwd, out) : "",
     path.join(cwd, "public", "assets", "fields"),
     path.join(cwd, "public", "data", "fields"),
     path.resolve(cwd, "..", "website", "public", "assets", "fields"),
@@ -28,9 +28,20 @@ export function candidateFieldDirs(cwd = process.cwd()): string[] {
   return [...new Set(dirs.filter((dir) => Boolean(dir)))]
 }
 
+function dirHasFieldCubes(dir: string): boolean {
+  try {
+    return readdirSync(dir).some((name) => {
+      if (name.startsWith(".")) return false
+      return existsSync(path.join(dir, name))
+    })
+  } catch {
+    return false
+  }
+}
+
 export function findLocalFieldStore(cwd = process.cwd()): string | null {
   for (const dir of candidateFieldDirs(cwd)) {
-    if (existsSync(dir)) return dir
+    if (existsSync(dir) && dirHasFieldCubes(dir)) return dir
   }
   return null
 }

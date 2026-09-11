@@ -31,7 +31,6 @@ export function ItdxEarthLeftPanel() {
       /* default compact */
     }
     replay.enable(true)
-    if (replay.getState().focusRequest === 0) replay.focus()
     try {
       window.sessionStorage.setItem("itdx-run-id", "itdx-bulldog-demo")
       selectITDXContext({ runId: "itdx-bulldog-demo", datasetId: LOCAL_DATASET_ID, dataOrigin: "SYNTHETIC_EXERCISE" })

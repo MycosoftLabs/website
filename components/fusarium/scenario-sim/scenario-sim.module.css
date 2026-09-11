@@ -1,0 +1,102 @@
+.banner {
+  margin: 0 0 0.75rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid color-mix(in srgb, #d4a017 55%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, #d4a017 14%, #111);
+  color: #f3e6c0;
+  font: 700 0.68rem/1.35 ui-monospace, "IBM Plex Mono", monospace;
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+.panel {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0 1.25rem;
+  padding: 0.85rem;
+  border: 1px solid color-mix(in srgb, #8aa 25%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, #0b1210 88%, transparent);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid color-mix(in srgb, #7dcfb6 45%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, #7dcfb6 16%, #111);
+  color: #e8fff6;
+  font: 700 0.78rem/1.2 ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.button[aria-pressed="true"] {
+  background: color-mix(in srgb, #7dcfb6 32%, #111);
+}
+
+.chip,
+.surface {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #9ab 30%, transparent);
+  color: #d7e4dc;
+  font: 600 0.68rem/1.2 ui-monospace, "IBM Plex Mono", monospace;
+}
+
+.chip[data-live="false"]::after {
+  content: " live=false";
+  opacity: 0.7;
+}
+
+.surface[data-bind="LIT"] {
+  border-color: #7dcfb6;
+  color: #bff5e4;
+}
+
+.surface[data-bind="NOT_SUPPLIED"] {
+  border-color: #b8874a;
+  color: #f0d2a0;
+}
+
+.muted {
+  margin: 0;
+  color: #9aa8a1;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.45rem;
+}
+
+.chrome {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.chrome button {
+  min-height: 44px;
+  padding: 0 0.7rem;
+  border: 1px solid color-mix(in srgb, #7dcfb6 40%, transparent);
+  border-radius: 0.4rem;
+  background: transparent;
+  color: inherit;
+  font: 700 0.62rem/1 ui-monospace, "IBM Plex Mono", monospace;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}

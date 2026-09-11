@@ -6,6 +6,9 @@ import type { OverviewContext, OverviewSnapshot } from "@/lib/fusarium/overview/
 import { buildOverviewLink, parseOverviewContext } from "@/lib/fusarium/overview/deep-links"
 import { createOverviewProvider } from "@/lib/fusarium/overview/provider"
 import { createLoadingSnapshot } from "@/lib/fusarium/overview/scenario"
+import { applyScenarioSimToOverview } from "@/lib/fusarium/scenario-sim/overview-bind"
+import { useScenarioSim } from "@/lib/fusarium/scenario-sim/store"
+import { ScenarioSimPanel } from "@/components/fusarium/scenario-sim/scenario-sim-panel"
 import { MissionContextBar } from "./mission-context-bar"
 import { OperationalLayout, type OverviewWidgetDefinition } from "./operational-layout"
 import {
@@ -35,6 +38,8 @@ export function OverviewDashboard() {
   const [refreshVersion, setRefreshVersion] = useState(0)
   const [unexpectedError, setUnexpectedError] = useState<string | null>(null)
   const [isNavigating, startTransition] = useTransition()
+  const scenario = useScenarioSim()
+  const displaySnapshot = applyScenarioSimToOverview(snapshot, scenario)
 
   useEffect(() => {
     setNowMs(Date.now())
@@ -85,42 +90,42 @@ export function OverviewDashboard() {
     {
       id: "operational-posture",
       label: "Operational posture",
-      content: <OperationalPosture snapshot={snapshot} context={context} nowMs={nowMs} />,
+      content: <OperationalPosture snapshot={displaySnapshot} context={context} nowMs={nowMs} />,
     },
     {
       id: "mission-brief",
       label: "Mission brief and continuity",
-      content: <MissionBriefAndContinuity snapshot={snapshot} context={context} nowMs={nowMs} />,
+      content: <MissionBriefAndContinuity snapshot={displaySnapshot} context={context} nowMs={nowMs} />,
     },
     {
       id: "environmental-picture",
       label: "Environmental operating picture",
-      content: <EnvironmentalPicture snapshot={snapshot} context={context} nowMs={nowMs} />,
+      content: <EnvironmentalPicture snapshot={displaySnapshot} context={context} nowMs={nowMs} />,
     },
     {
       id: "conditions-causality",
       label: "Conditions, causality, and outlook",
-      content: <ConditionsCausalityAndOutlook snapshot={snapshot} context={context} nowMs={nowMs} />,
+      content: <ConditionsCausalityAndOutlook snapshot={displaySnapshot} context={context} nowMs={nowMs} />,
     },
     {
       id: "observations-evidence",
       label: "Observations, review, and evidence",
-      content: <ObservationsReviewsAndEvidence snapshot={snapshot} context={context} nowMs={nowMs} />,
+      content: <ObservationsReviewsAndEvidence snapshot={displaySnapshot} context={context} nowMs={nowMs} />,
     },
     {
       id: "coverage-products",
       label: "Coverage and products",
-      content: <CoverageAndProducts snapshot={snapshot} context={context} nowMs={nowMs} />,
+      content: <CoverageAndProducts snapshot={displaySnapshot} context={context} nowMs={nowMs} />,
     },
     {
       id: "platform-health",
       label: "Platform and connector readiness",
-      content: <PlatformHealth snapshot={snapshot} context={context} nowMs={nowMs} />,
+      content: <PlatformHealth snapshot={displaySnapshot} context={context} nowMs={nowMs} />,
     },
     {
       id: "activity-timeline",
       label: "Recent change and decisions",
-      content: <ActivityTimeline snapshot={snapshot} context={context} nowMs={nowMs} />,
+      content: <ActivityTimeline snapshot={displaySnapshot} context={context} nowMs={nowMs} />,
     },
   ]
 
@@ -164,6 +169,7 @@ export function OverviewDashboard() {
 
       {isNavigating ? <p className={styles.navigationStatus} role="status">Updating mission context…</p> : null}
 
+      <ScenarioSimPanel />
       <NativeAppSwitchboard context={context} />
       <OperationalLayout widgets={operationalWidgets} />
     </div>

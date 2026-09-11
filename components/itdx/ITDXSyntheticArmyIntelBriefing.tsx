@@ -19,6 +19,7 @@ import {
   biologyAnswer,
   channelById,
   defaultOpenSections,
+  honestyLabel,
   isSupplied,
   movementLines,
   osintPlaceHits,
@@ -389,17 +390,17 @@ export function ITDXSyntheticArmyIntelBriefing({
         onToggle={toggleSection}
       >
         <p className={styles.line} data-testid="itdx-briefing-traffic">
-          Traffic {traffic?.status || "NOT_SUPPLIED"}
+          Traffic {honestyLabel(traffic?.status)}
           {traffic?.reason ? ` · ${traffic.reason}` : ""}
           {traffic?.note ? ` · ${traffic.note}` : ""}
         </p>
         <p className={styles.line}>
-          Pathways {pathways?.status || "NOT_SUPPLIED"}
+          Pathways {honestyLabel(pathways?.status)}
           {pathways?.rows ? ` · ${pathways.rows} OSM ways` : ""}
           {pathways?.note ? ` · ${pathways.note}` : ""}
         </p>
         <p className={styles.line}>
-          Navigation {navigation?.status || "NOT_SUPPLIED"}
+          Navigation {honestyLabel(navigation?.status)}
           {navigation?.note ? ` · ${navigation.note}` : ""}
         </p>
         {placeHits.length > 0 ? (

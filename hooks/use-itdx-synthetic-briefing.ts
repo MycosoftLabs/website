@@ -67,8 +67,14 @@ export function useItdxSyntheticBriefing({ isActive, isPlaying, replayIndex }: U
         readJson<ItdxTask8Briefing>("/api/fusarium/itdx/task8"),
       ])
       if (cancelled) return
-      if (situation.data?.pathways) {
-        window.dispatchEvent(new CustomEvent("fusarium:itdx-pathways", { detail: situation.data.pathways }))
+      const raw = situation.data?.pathways?.geojson
+      const features = Array.isArray(raw?.features) ? raw.features.slice(0, 48) : []
+      if (features.length) {
+        window.dispatchEvent(
+          new CustomEvent("fusarium:itdx-pathways", {
+            detail: { geojson: { type: "FeatureCollection", features } },
+          }),
+        )
       }
       setBundle({
         situation: situation.data,

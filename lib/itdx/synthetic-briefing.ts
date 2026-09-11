@@ -187,26 +187,34 @@ export function isSupplied(status?: string) {
   return status === "SUPPLIED" || status === "BOUND"
 }
 
+export function honestyLabel(status?: string, fallback = "pending") {
+  if (status === "NO_DATA") return "no data from source"
+  if (status === "NOT_SUPPLIED") return "no source configured"
+  if (status === "UNQUALIFIED") return "source configured, request failed"
+  if (status === "BOUND" || status === "SUPPLIED") return status
+  return status || fallback
+}
+
 export function shortSha(value?: string | null) {
   if (!value) return "NOT_SUPPLIED"
   return value.length > 16 ? `${value.slice(0, 16)}…` : value
 }
 
 export function weatherAnswer(channel: ItdxChannelRow | null) {
-  if (!channel) return "Weather channel NOT_SUPPLIED from MAS situation-assessment."
-  if (!isSupplied(channel.status) || channel.facts?.temperature_c == null) {
-    return `${channel.status || "NOT_SUPPLIED"}${channel.reason ? ` · ${channel.reason}` : channel.note ? ` · ${channel.note}` : ""}`
+  if (!channel) return "Weather pending from website Open-Meteo bind."
+  if (isSupplied(channel.status) && channel.facts?.temperature_c != null) {
+    const cwa = channel.facts.nws_cwa ? ` ${channel.facts.nws_cwa}` : ""
+    return `${channel.facts.temperature_c}°C Open-Meteo · NWS 31.8697,-81.6072${cwa}. Cite only — not a live METOC COP.`
   }
-  const cwa = channel.facts.nws_cwa ? ` ${channel.facts.nws_cwa}` : ""
-  return `${channel.facts.temperature_c}°C Open-Meteo · NWS 31.8697,-81.6072${cwa}. Cite only — not a live METOC COP.`
+  return `${honestyLabel(channel.status)}${channel.reason ? ` · ${channel.reason}` : channel.note ? ` · ${channel.note}` : ""}`
 }
 
 export function biologyAnswer(channel: ItdxChannelRow | null) {
-  if (!channel) return "Biology channel NOT_SUPPLIED."
-  if (!isSupplied(channel.status)) {
-    return `${channel.status}${channel.reason ? ` · ${channel.reason}` : ""}`
+  if (!channel) return "Biology pending from GBIF / iNaturalist Fort Stewart bbox."
+  if (isSupplied(channel.status)) {
+    return `GBIF fungi ${channel.facts?.gbif_count ?? "—"} · iNaturalist ${channel.facts?.inaturalist_count ?? "—"}. Public occurrence counts, not a field collection.`
   }
-  return `GBIF fungi ${channel.facts?.gbif_count ?? "—"} · iNaturalist ${channel.facts?.inaturalist_count ?? "—"}. Public occurrence counts, not a field collection.`
+  return `${honestyLabel(channel.status)}${channel.reason ? ` · ${channel.reason}` : channel.note ? ` · ${channel.note}` : ""}`
 }
 
 function haystack(channel: ItdxChannelRow | null) {
