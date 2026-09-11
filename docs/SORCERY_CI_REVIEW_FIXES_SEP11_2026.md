@@ -50,12 +50,12 @@ Protected files not edited: `orchestrator.py`, `orchestrator_service.py`, guardi
 
 ## SHAs
 
-Recorded after push. See PR comments for the live SHAs.
+| Repo | Branch | SHA | PR |
+|---|---|---|---|
+| MycosoftLabs/mycosoft-mas | `fix/sorcery-ci-review-sep11` | `9ce897549` | #154 |
+| MycosoftLabs/website | `fix/sorcery-ci-review-sep11` | `d4c8e25f` + follow-up | #320 |
 
-| Repo | Branch | Base |
-|---|---|---|
-| MycosoftLabs/mycosoft-mas | `fix/sorcery-ci-review-sep11` | `5561e893` |
-| MycosoftLabs/website | `fix/sorcery-ci-review-sep11` | `2a46b851` |
+Arraylake skip warning no longer claims an artifact was uploaded (`if-no-files-found: ignore`). Instant Deploy on main (`34633873773`) was not raced; 187 primary left up. `situation-assessment` left unauthenticated (synthetic exercise, `live_cop: false`). Sourcery 0.85 reject kept. RJ is CFO.
 
 ## Verify
 

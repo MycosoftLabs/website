@@ -61,7 +61,7 @@ jobs:
       - name: Skip NAS publish unless tunnel SSH is opted in
         if: github.ref == 'refs/heads/main' && vars.ARRAYLAKE_PUBLISH_SSH != 'true'
         run: |
-          echo "::warning::Arraylake bake artifact uploaded; NAS publish skipped (ARRAYLAKE_PUBLISH_SSH!=true). Cloudflare Tunnel SSH is blocked — do not start a second 187 cutover."
+          echo "::warning::NAS publish skipped (ARRAYLAKE_PUBLISH_SSH!=true). Artifact upload uses ARRAYLAKE_FIELD_OUT and is ignore-if-empty. Cloudflare Tunnel SSH is blocked — do not start a second 187 cutover."
 
       - name: Setup SSH via Cloudflare Tunnel
         if: github.ref == 'refs/heads/main' && vars.ARRAYLAKE_PUBLISH_SSH == 'true'
