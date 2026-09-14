@@ -10,6 +10,7 @@ import {ITDXExplanationCards} from './ITDXExplanationCards'
 import {ITDXTask8Panel} from './ITDXTask8Panel'
 import {ITDXTruthPanel} from './ITDXTruthPanel'
 import {ITDXSituationPanel} from './ITDXSituationPanel'
+import {ITDXFlyBrainPanel} from './ITDXFlyBrainPanel'
 import {ITDXWekaWalkthrough} from './ITDXWekaWalkthrough'
 import {ITDXSyntheticArmyIntelBriefing} from './ITDXSyntheticArmyIntelBriefing'
 import {LOCAL_DATASET_ID} from '@/lib/itdx/run-narration.mjs'
@@ -83,7 +84,7 @@ export default function ITDXApplication(){
   <nav className={styles.row} aria-label="ITDX application views">{views.map(v=><button key={v[0]} aria-pressed={view===v[0]} onClick={()=>setView(v[0])}>{v[1]}</button>)}<button aria-pressed={view==='replay'} onClick={()=>setView('replay')}>Earth replay & portable reader</button><button aria-pressed={view==='apps'} onClick={()=>setView('apps')}>Fusarium applications</button><button aria-pressed={view==='personnel'} onClick={()=>setView('personnel')}>Personnel catalog</button><button aria-pressed={view==='survey'} onClick={()=>setView('survey')}>Survey</button><button aria-pressed={view==='outcomes'} onClick={()=>setView('outcomes')}>Outcomes / KO</button></nav>
   {(view==='lab'||view==='walkthrough'||view==='replay'||view==='tests')&&<ITDXSyntheticArmyIntelBriefing variant="workspace" isActive/>}
   {(view==='walkthrough'||view==='replay'||view==='tests'||view==='frames')&&<ITDXWekaWalkthrough compact={view==='replay'}/>}
-  {(view==='walkthrough'||view==='replay'||view==='tests')&&<><ITDXExplanationCards/><ITDXSituationPanel/><ITDXTruthPanel/><ITDXTask8Panel/></>}
+  {(view==='walkthrough'||view==='replay'||view==='tests')&&<><ITDXExplanationCards/><ITDXSituationPanel/><ITDXFlyBrainPanel/><ITDXTruthPanel/><ITDXTask8Panel/></>}
   {selected&&<iframe ref={frame} className={styles.applicationFrame} data-testid="itdx-application-frame" title={'ITDX '+selected[1]} src={GATEWAY_BASE+selected[2]} sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"/>}
   {view==='replay'&&<ITDXWorkspace/>}
   {view==='apps'&&<div className={styles.columns}>{FUSARIUM_SECTIONS.map(section=><article className={styles.card} key={section.id}><h2>{section.title}</h2><div className={styles.list}>{section.items.map(app=><Link key={app.id} href={app.href}>{app.title}</Link>)}</div><p className={styles.muted}>Navigation and shared context interface available. App-specific evidence consumption must be registered and tested; opening a route does not establish backend integration.</p></article>)}</div>}
