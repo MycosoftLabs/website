@@ -7,6 +7,11 @@ import { TRAIL_GLASS_PANEL, TrailGlassSection } from "@/components/fusarium/trai
 import { WekaCampaignPanel } from "@/components/fusarium/weka-campaign-panel"
 import { LocalWekaPanel } from "@/components/fusarium/local-weka-panel"
 import { nlmServiceChip } from "@/lib/fusarium/bluesight/formspace-nlm"
+import {
+  ITDX_FOUR_SHOWCASE,
+  ITDX_SIXTEEN_OBJECTIVES,
+  ITDX_SUPPORTING_STACK,
+} from "@/lib/fusarium/itdx/sixteen-objectives"
 
 interface Connectivity {
   mode?: "ONLINE" | "OFFLINE_LOCAL_WEKA"
@@ -50,6 +55,7 @@ export function ItdxV2DemoBoard() {
     wekaCampaign: true,
     localWeka: true,
     clock: false,
+    sixteen: true,
   })
 
   const refresh = useCallback(() => {
@@ -89,7 +95,7 @@ export function ItdxV2DemoBoard() {
   }
 
   return (
-    <div className="min-h-dvh bg-[#031018] text-zinc-100">
+    <div className="min-h-dvh bg-[#031018] text-zinc-100" data-testid="itdx-v21-page">
       <div className="border-b border-amber-400/50 bg-amber-500/15 px-4 py-2 text-xs sm:text-sm">
         <strong className="tracking-widest">LOCAL DEMO</strong>
         <span className="mx-2 text-zinc-500">·</span>
@@ -123,28 +129,84 @@ export function ItdxV2DemoBoard() {
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 p-4">
         <section className={TRAIL_GLASS_PANEL}>
-          <GlassChip>ITDX 2.0 demo board</GlassChip>
+          <GlassChip>ITDX 2.1 · Army tasks 12 / 13 / 8 / 14</GlassChip>
           <p className="mt-2 text-sm text-zinc-300">
-            Fusarium-integrated local demo. Online uses MAS 188 / MINDEX 189 / NLM / campaign BFFs. Offline still
-            scores Mycosoft ARFFs with local Java + weka.jar. Visibility pass in flight on 3010.
+            Showcase is Pattern Analysis, Link Analysis, Courses of Action, and Map Products on the synthetic Fort
+            Stewart AO. FormSpace, NLM, WEKA, and Trail AR are supporting components — not the four tasks. live:
+            false · SYNTHETIC EXERCISE · no FOUO ingest on this page.
           </p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-testid="itdx-v21-showcase">
+            {ITDX_FOUR_SHOWCASE.map((task) => (
+              <GlassChip key={task.id}>
+                {task.id} · {task.name}
+              </GlassChip>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-zinc-500">
+            Supporting stack (not the showcase): FormSpace · NLM BOUND / FORECAST_ABSTAIN · WEKA 149 compatibility ·
+            Trail AR two clocks + loop-refine. WEKA ≠ NLM. forecast_p null.
+          </p>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {ITDX_SUPPORTING_STACK.map((row) => (
+              <GlassChip key={row.id}>{row.title}</GlassChip>
+            ))}
+          </div>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <GlassButton href="/natureos/bluesight-trail">Open Trail AR (ungated)</GlassButton>
-            <GlassButton href="/fusarium/itdx">Open Fusarium ITDX lab</GlassButton>
+            <GlassButton href="/natureos/bluesight-trail">Trail AR support</GlassButton>
+            <GlassButton href="/natureos/earth-simulator">Earth Sim map (synthetic AO)</GlassButton>
+            <GlassButton href="/fusarium/itdx">Fusarium ITDX lab</GlassButton>
             <GlassButton onClick={refresh}>Re-probe backends</GlassButton>
           </div>
         </section>
 
         <TrailGlassSection
+          id="sixteen"
+          title="16 C&E intelligence tasks"
+          peek="Public IPB names only · showcase 12/13/8/14 · extras honest"
+          open={dock.sixteen}
+          onToggle={() => toggle("sixteen")}
+        >
+          <p>
+            Task names from the C&E slide only. No Army INTSUM body. Earth Sim uses the existing synthetic Fort Stewart
+            AO as labels, not FOUO facts.
+          </p>
+          <div className="mt-3 overflow-x-auto" data-testid="itdx-v21-sixteen-map">
+            <table className="min-w-[640px] w-full text-left text-xs sm:text-sm">
+              <thead>
+                <tr className="text-zinc-400">
+                  <th className="py-2 pr-3">#</th>
+                  <th className="py-2 pr-3">Task</th>
+                  <th className="py-2 pr-3">Status</th>
+                  <th className="py-2">Honesty</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ITDX_SIXTEEN_OBJECTIVES.map((row) => (
+                  <tr key={row.id} className="border-t border-white/10 align-top">
+                    <td className="py-2 pr-3 font-mono">{row.id}</td>
+                    <td className="py-2 pr-3">
+                      {row.name}
+                      {row.showcase ? <span className="ml-2 text-cyan-300">SHOWCASE</span> : null}
+                    </td>
+                    <td className="py-2 pr-3 font-mono">{row.status}</td>
+                    <td className="py-2 text-zinc-400">{row.honesty}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </TrailGlassSection>
+
+        <TrailGlassSection
           id="trail"
-          title="Trail AR"
+          title="Trail AR (map / pattern support)"
           peek="SIMULATION · live: false · two clocks (source fps vs overlay)"
           open={dock.trail}
           onToggle={() => toggle("trail")}
         >
           <p>
-            In-page player (not a nested iframe). Glass rail, overhead map, footholds vs object perimeters. Overlay
-            clocks: source fps vs overlay Hz. live: false.
+            Supporting component for task 14 (map) and task 12 (pattern cues). In-page player. Footholds vs object
+            perimeters. Overlay clocks: source fps vs overlay Hz. live: false.
           </p>
           <div
             data-testid="itdx-v2-trail-player"
@@ -156,7 +218,7 @@ export function ItdxV2DemoBoard() {
 
         <TrailGlassSection
           id="nlm"
-          title="FormSpace / NLM honesty"
+          title="FormSpace / NLM (support)"
           peek={`${isOnline ? "ONLINE" : "OFFLINE"} · ${nlmChip} · p null`}
           open={dock.nlm}
           onToggle={() => toggle("nlm")}
@@ -170,8 +232,9 @@ export function ItdxV2DemoBoard() {
             loaded sha {weightsSha ?? "sha not yet reported"}
           </p>
           <p className="text-zinc-500">
-            Null p is abstain, not a missing NLM. WAN_DOWN / force=offline still binds LAN MAS 188{" "}
-            <span className="font-mono">/api/nlm</span>. Only MAS_NLM_DOWN means NLM is not running. WEKA ≠ NLM.
+            NLM supports task 12 (environmental pattern) and task 8 (AVANI). Null p is abstain, not a missing NLM.
+            WAN_DOWN / force=offline still binds LAN MAS 188 <span className="font-mono">/api/nlm</span>. Only
+            MAS_NLM_DOWN means NLM is not running. WEKA ≠ NLM.
           </p>
         </TrailGlassSection>
 
@@ -187,7 +250,8 @@ export function ItdxV2DemoBoard() {
         >
           <p>
             Scenario-sim BFF is not in this working tree. The demo clock is the Trail AR replay (source fps vs overlay
-            Hz). Civil / non-US Part B stays later. Fort Stewart AO is SYNTHETIC EXERCISE if mentioned.
+            Hz). If Earth Sim is opened, use the existing synthetic Fort Stewart AO and the 16 task names as labels
+            only. No FOUO facts.
           </p>
         </TrailGlassSection>
       </div>

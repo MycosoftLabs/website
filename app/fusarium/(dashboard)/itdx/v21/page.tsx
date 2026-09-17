@@ -5,6 +5,6 @@ export const metadata = {
   robots: { index: false, follow: false },
 }
 
-export default function FusariumItdxV2Page() {
+export default function FusariumItdxV21Page() {
   return <ItdxV2DemoBoard />
 }
