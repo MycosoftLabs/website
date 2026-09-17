@@ -1,22 +1,44 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { BlueSightTrailLab } from "@/components/fusarium/bluesight-trail-lab"
 import { GlassButton, GlassChip } from "@/components/ui/glass-button"
 import { TRAIL_GLASS_PANEL, TrailGlassSection } from "@/components/fusarium/trail-glass-dock"
 import { WekaCampaignPanel } from "@/components/fusarium/weka-campaign-panel"
 import { LocalWekaPanel } from "@/components/fusarium/local-weka-panel"
+import { nlmServiceChip } from "@/lib/fusarium/bluesight/formspace-nlm"
 
 interface Connectivity {
   mode?: "ONLINE" | "OFFLINE_LOCAL_WEKA"
   banner?: string
+  wan_status?: "WAN_DOWN" | "WAN_UNPROBED"
+  forecast_status?: "FORECAST_ABSTAIN"
+  nlm?: {
+    ok?: boolean
+    bind?: string
+    nlm_status?: string
+    model_loaded?: boolean
+    weights_sha256?: string | null
+    weight_count?: number | null
+    parameter_count?: number | null
+  }
   mas?: { ok?: boolean; status?: number | null; ms?: number; error?: string | null }
   mindex?: { ok?: boolean; status?: number | null; ms?: number; error?: string | null }
 }
 
 interface NlmHonesty {
   bind?: string
+  nlm_status?: string
   forecast_p?: null
-  belief?: { model_loaded?: boolean; abstained?: boolean; weights_sha256?: string | null; parameter_count?: number | null }
+  forecast_status?: "FORECAST_ABSTAIN"
+  weight_count?: number | null
+  weights_sha256?: string | null
+  belief?: {
+    model_loaded?: boolean
+    abstained?: boolean
+    weights_sha256?: string | null
+    parameter_count?: number | null
+  }
 }
 
 export function ItdxV2DemoBoard() {
@@ -31,18 +53,17 @@ export function ItdxV2DemoBoard() {
   })
 
   const refresh = useCallback(() => {
-    void fetch("/api/fusarium/itdx/connectivity")
+    const forceOffline =
+      typeof window !== "undefined" && new URLSearchParams(window.location.search).get("force") === "offline"
+    void fetch(`/api/fusarium/itdx/connectivity${forceOffline ? "?force=offline" : ""}`)
       .then((r) => r.json())
       .then((json) => {
         setConnectivity(json)
-        if (json.mode === "ONLINE") {
-          void fetch("/api/fusarium/bluesight-trail/nlm")
-            .then((n) => n.json())
-            .then(setNlm)
-            .catch(() => setNlm({ bind: "UNBOUND", forecast_p: null }))
-        } else {
-          setNlm({ bind: "UNBOUND", forecast_p: null })
-        }
+        // LAN NLM is independent of WAN / force=offline WEKA mode.
+        void fetch("/api/fusarium/bluesight-trail/nlm")
+          .then((n) => n.json())
+          .then(setNlm)
+          .catch(() => setNlm({ bind: "MAS_NLM_DOWN", nlm_status: "MAS_NLM_DOWN", forecast_p: null }))
       })
       .catch(() => setConnectivity({ mode: "OFFLINE_LOCAL_WEKA", banner: "OFFLINE LOCAL WEKA" }))
   }, [])
@@ -55,6 +76,14 @@ export function ItdxV2DemoBoard() {
 
   const mode = connectivity?.mode ?? "OFFLINE_LOCAL_WEKA"
   const isOnline = mode === "ONLINE"
+  const nlmChip = nlmServiceChip({
+    nlm_status: nlm?.nlm_status ?? connectivity?.nlm?.nlm_status,
+    bind: nlm?.bind ?? connectivity?.nlm?.bind,
+    model_loaded: nlm?.belief?.model_loaded ?? connectivity?.nlm?.model_loaded,
+  })
+  const nlmDown = nlmChip.includes("MAS_NLM_DOWN")
+  const weightsSha = nlm?.belief?.weights_sha256 ?? nlm?.weights_sha256 ?? connectivity?.nlm?.weights_sha256 ?? null
+  const weightCount = nlm?.weight_count ?? connectivity?.nlm?.weight_count ?? null
 
   function toggle(id: keyof typeof dock) {
     setDock((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -78,7 +107,19 @@ export function ItdxV2DemoBoard() {
         <span className="mx-2 text-zinc-500">·</span>
         <span className="font-mono">MINDEX {connectivity?.mindex?.ok ? "bound" : "unbound"}</span>
         <span className="mx-2 text-zinc-500">·</span>
-        <span>WEKA ≠ NLM · probe ≤ 1.5s</span>
+        <span className="font-mono" data-testid="itdx-v2-wan-chip">
+          {connectivity?.wan_status ?? "WAN_UNPROBED"}
+        </span>
+        <span className="mx-2 text-zinc-500">·</span>
+        <span className={`font-mono ${nlmDown ? "text-red-300" : "text-cyan-200"}`} data-testid="itdx-v2-nlm-chip">
+          {nlmChip}
+        </span>
+        <span className="mx-2 text-zinc-500">·</span>
+        <span className="font-mono" data-testid="itdx-v2-forecast-chip">
+          {connectivity?.forecast_status ?? nlm?.forecast_status ?? "FORECAST_ABSTAIN"}
+        </span>
+        <span className="mx-2 text-zinc-500">·</span>
+        <span>WEKA ≠ NLM · probe ≤ 3.5s</span>
       </div>
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 p-4">
@@ -103,34 +144,36 @@ export function ItdxV2DemoBoard() {
           onToggle={() => toggle("trail")}
         >
           <p>
-            Glass rail, overhead map, FormSpace cells, Brain-style footholds vs object perimeters. Overlay contrast is a
-            sibling pass — do not treat this iframe as a finished screenshot.
+            In-page player (not a nested iframe). Glass rail, overhead map, footholds vs object perimeters. Overlay
+            clocks: source fps vs overlay Hz. live: false.
           </p>
-          <div className="overflow-hidden rounded-xl border border-white/10">
-            <iframe
-              title="BlueSight Trail AR"
-              src="/natureos/bluesight-trail"
-              className="h-[70vh] min-h-[420px] w-full bg-black"
-            />
+          <div
+            data-testid="itdx-v2-trail-player"
+            className="min-h-[420px] overflow-visible rounded-xl border border-white/10 bg-black"
+          >
+            {dock.trail ? <BlueSightTrailLab surface="natureos" embed /> : null}
           </div>
         </TrailGlassSection>
 
         <TrailGlassSection
           id="nlm"
           title="FormSpace / NLM honesty"
-          peek={`${isOnline ? "ONLINE" : "OFFLINE"} · bind ${nlm?.bind ?? "UNBOUND"} · p null`}
+          peek={`${isOnline ? "ONLINE" : "OFFLINE"} · ${nlmChip} · p null`}
           open={dock.nlm}
           onToggle={() => toggle("nlm")}
         >
-          <p className="font-mono">
-            NLM {nlm?.bind ?? "UNBOUND"} · loaded {String(nlm?.belief?.model_loaded ?? false)} · abstain{" "}
-            {String(nlm?.belief?.abstained ?? true)} · params {nlm?.belief?.parameter_count ?? "—"}
+          <p className="font-mono" data-testid="itdx-v2-nlm-rail">
+            {nlmChip} · live: false · forecast_p: null ·{" "}
+            {nlm?.forecast_status ?? "FORECAST_ABSTAIN"} / AVANI PAUSE · loaded{" "}
+            {String(nlm?.belief?.model_loaded ?? false)} · weights {weightCount ?? "—"} · params{" "}
+            {nlm?.belief?.parameter_count ?? "—"}
           </p>
           <p className="break-all font-mono text-[10px] text-zinc-500">
-            weights {nlm?.belief?.weights_sha256 ?? "unbound offline or not yet fetched"}
+            loaded sha {weightsSha ?? "sha not yet reported"}
           </p>
           <p className="text-zinc-500">
-            Offline does not invent p. WEKA classify/cluster/filter is not NLM skill. forecast_p stays null.
+            Null p is abstain, not a missing NLM. WAN_DOWN / force=offline still binds LAN MAS 188{" "}
+            <span className="font-mono">/api/nlm</span>. Only MAS_NLM_DOWN means NLM is not running. WEKA ≠ NLM.
           </p>
         </TrailGlassSection>
 

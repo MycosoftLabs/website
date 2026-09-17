@@ -4,6 +4,8 @@
 **Status:** Scaffolded on localhost:3010. **Not deployed.**  
 **CFO:** RJ Ricasata.
 
+**ChatGPT software-builder contract:** `MAS/mycosoft-mas/docs/ITDX_V2_CHATGPT_BUILDER_HANDOFF_SEP17_2026.md` (mirror `CODE/docs/ITDX_V2_CHATGPT_BUILDER_HANDOFF_SEP17_2026.md`). Slides stay in `ITDX_V2_CHATGPT_SLIDE_HANDOFF_SEP17_2026.md`.
+
 ## URLs
 
 - Demo board: `http://localhost:3010/fusarium/itdx/v2`
@@ -12,10 +14,11 @@
 
 ## Mode choice
 
-`lib/fusarium/itdx/connectivity.ts` probes MAS `/health` and MINDEX `/health` with a 3500 ms abort (never 45s).
+`lib/fusarium/itdx/connectivity.ts` probes MAS `/health`, MINDEX `/health`, and MAS `/api/nlm/health` with a 3500 ms abort (never 45s).
 
-- MAS HTTP 200 → **ONLINE (backends bound)**
-- Else or `?force=offline` / `ITDX_FORCE_OFFLINE=1` → **OFFLINE LOCAL WEKA**
+- MAS HTTP 200 and not forced → **ONLINE (backends bound)**
+- Else or `?force=offline` / `ITDX_FORCE_OFFLINE=1` → **OFFLINE LOCAL WEKA** (`wan_status: WAN_DOWN` when forced)
+- NLM is **LAN-independent**: if 188 `/api/nlm/health` answers, chip is **NLM ONLINE / weights loaded**. `forecast_p` null = **FORECAST_ABSTAIN**, not UNBOUND. Only a failed NLM health call is **MAS_NLM_DOWN**.
 
 ## Local WEKA writes
 

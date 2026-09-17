@@ -29,7 +29,14 @@ import { extractHorizon, type HorizonLine } from "@/lib/fusarium/bluesight/horiz
 import { extractCorridor, smoothCorridor, type PathCorridor } from "@/lib/fusarium/bluesight/path-corridor"
 import { paintTrailHud, videoContentRect } from "@/lib/fusarium/bluesight/trail-ar-hud"
 import { emptyContactMemory, STEP_PLACE_MS, updateContactHud, type ContactHud, type ContactMemory } from "@/lib/fusarium/bluesight/trail-contact"
-import { contourMaskIou, forgetStaleContours, refineInstanceContour, resetContourMemory } from "@/lib/fusarium/bluesight/trail-contours"
+import { forgetStaleContours, refineInstanceContour } from "@/lib/fusarium/bluesight/trail-contours"
+import {
+  applyLoopDecision,
+  emptyLoopTotals,
+  type LastGoodContour,
+  type LoopLearnRow,
+  type LoopRefineTotals,
+} from "@/lib/fusarium/bluesight/loop-refine"
 import { detectAndTrack, emptyLock, INSTANCE_CAP, type LockState } from "@/lib/fusarium/bluesight/trail-lock"
 import { OVERHEAD_HOOKS, type FovBox } from "@/lib/fusarium/bluesight/trail-fov"
 import { FUNGUS_LABEL_FALLBACK, fungusInFrame, fungusLitmusBox } from "@/lib/fusarium/bluesight/trail-litmus"
@@ -40,6 +47,7 @@ import {
   PAPER_FORMULA_MAP,
   decideTerrain,
   nlmBeliefFromRuntime,
+  nlmServiceChip,
   terrainState,
   type DecisionLoop,
   type NlmBelief,
@@ -47,7 +55,14 @@ import {
 
 const VIDEO_CANDIDATES = [TRAIL_AR_VIDEO_PUBLIC, "/api/fusarium/bluesight-trail/video"]
 
-export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium" }) {
+export function BlueSightTrailLab({
+  surface,
+  embed = false,
+}: {
+  surface: "natureos" | "fusarium"
+  /** Player-only chrome for the ITDX v2 board (no nested full-page iframe). */
+  embed?: boolean
+}) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const boxRef = useRef<HTMLDivElement | null>(null)
@@ -80,7 +95,9 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
   const [predArffPath, setPredArffPath] = useState<string>("")
   const [wekaMsg, setWekaMsg] = useState("not_yet_scored")
   const [error, setError] = useState("")
-  const [nlmBind, setNlmBind] = useState("UNBOUND")
+  const [nlmBind, setNlmBind] = useState("probing")
+  const [nlmStatus, setNlmStatus] = useState<string>("probing")
+  const [nlmWeightCount, setNlmWeightCount] = useState<number | null>(null)
   const [nlmBelief, setNlmBelief] = useState<NlmBelief>(() =>
     nlmBeliefFromRuntime({ model_loaded: false }, { simChannels: true }),
   )
@@ -98,7 +115,7 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
     path: false,
     contour: false,
     ade: false,
-    loop: false,
+    loop: true,
   })
   const [contactHud, setContactHud] = useState<ContactHud | null>(null)
   const [pathSnap, setPathSnap] = useState({
@@ -118,6 +135,11 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
     plant_cap: 12,
     step_sway: 1,
     contour_iou: null as number | null,
+    accepts: 0,
+    rejects: 0,
+    seeds: 0,
+    last_iou_delta: null as number | null,
+    logged: 0,
   })
   const fovRef = useRef<FovBox[]>([])
   const lockRef = useRef<LockState>(emptyLock())
@@ -129,6 +151,17 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
   const contactMemRef = useRef<ContactMemory>(emptyContactMemory())
   const contactHudRef = useRef<ContactHud | null>(null)
   const prevContoursRef = useRef<[number, number][][]>([])
+  const lastVisionRef = useRef(0)
+  const contoursRef = useRef<{ id: string; kind: string; pts: [number, number][] }[]>([])
+  const pendingIouRef = useRef<number | null>(null)
+  const lastGoodRef = useRef<Map<string, LastGoodContour>>(new Map())
+  const loopTotalsRef = useRef<LoopRefineTotals>(emptyLoopTotals(0))
+  const pendingLearnRef = useRef<LoopLearnRow[]>([])
+  const nearEndRef = useRef(false)
+  const lastLearnFlushRef = useRef(0)
+  const embedMode =
+    embed ||
+    (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("embed") === "1")
 
   const nativeFrame = nativeFrameIndex(timeS)
   const ade = useMemo(() => ade20kAtTime(timeS), [timeS])
@@ -168,13 +201,15 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
     void fetch("/api/fusarium/bluesight-trail/nlm")
       .then((r) => r.json())
       .then((j) => {
-        setNlmBind(j.bind ?? "UNBOUND")
+        setNlmBind(j.bind ?? "MAS_NLM_DOWN")
+        setNlmStatus(j.nlm_status ?? (j.bind === "BOUND" ? "NLM_ONLINE" : "MAS_NLM_DOWN"))
+        setNlmWeightCount(typeof j.weight_count === "number" ? j.weight_count : null)
         const runtime = j.belief ?? j.runtime ?? {}
         setNlmBelief(
           nlmBeliefFromRuntime(
             {
               model_loaded: Boolean(j.belief?.model_loaded ?? runtime.model_loaded ?? j.bind === "BOUND"),
-              weights_sha256: j.belief?.weights_sha256 ?? runtime.weights_sha256 ?? null,
+              weights_sha256: j.belief?.weights_sha256 ?? j.weights_sha256 ?? runtime.weights_sha256 ?? null,
               parameter_count: j.belief?.parameter_count ?? runtime.parameter_count ?? null,
               architecture_family: j.belief?.architecture_family ?? runtime.architecture_family ?? null,
             },
@@ -182,7 +217,10 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
           ),
         )
       })
-      .catch(() => setNlmBind("UNBOUND"))
+      .catch(() => {
+        setNlmBind("MAS_NLM_DOWN")
+        setNlmStatus("MAS_NLM_DOWN")
+      })
     for (const q of ["tree", "plant", "rock", "earth"]) {
       void fetch(`/api/fusarium/bluesight-trail/taxonomy?q=${q}&kind=${q === "rock" ? "rock" : "plant"}`)
         .then((r) => r.json())
@@ -225,6 +263,33 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
       ),
     )
   }, [mode])
+
+  const flushLearn = useCallback(async () => {
+    const rows = pendingLearnRef.current.splice(0, pendingLearnRef.current.length)
+    if (!rows.length) return
+    await fetch("/api/fusarium/bluesight-trail/loop-refine", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows }),
+    }).catch(() => undefined)
+  }, [])
+
+  const bumpLoop = useCallback(() => {
+    loopRef.current += 1
+    nearEndRef.current = false
+    lockRef.current = emptyLock()
+    corridorRef.current = null
+    contactMemRef.current = emptyContactMemory()
+    setLoopCount(loopRef.current)
+    setLoopRefine((prev) => ({
+      ...prev,
+      loop: loopRef.current,
+      box_scale: Math.max(0.7, 1 - loopRef.current * 0.08),
+      plant_cap: Math.max(6, 12 - loopRef.current * 2),
+      step_sway: Math.max(0.55, 1 - loopRef.current * 0.12),
+    }))
+    void flushLearn()
+  }, [flushLearn])
 
   const flushLogs = useCallback(async () => {
     const rows = pendingRowsRef.current.splice(0, pendingRowsRef.current.length)
@@ -328,10 +393,10 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
       if (video && canvas && box) {
         const cssW = box.clientWidth || video.clientWidth || 360
         const cssH = box.clientHeight || video.clientHeight || 640
-        const dpr = window.devicePixelRatio || 1
+        const dpr = Math.min(2, window.devicePixelRatio || 1)
         const fitted = videoContentRect(video, cssW, cssH)
-        const bw = Math.max(2, Math.round(fitted.w * dpr))
-        const bh = Math.max(2, Math.round(fitted.h * dpr))
+        const bw = Math.max(2, Math.round(Math.min(720, fitted.w) * dpr))
+        const bh = Math.max(2, Math.round(Math.min(1280, fitted.h) * dpr))
         canvas.style.left = `${fitted.x}px`
         canvas.style.top = `${fitted.y}px`
         canvas.style.width = `${fitted.w}px`
@@ -349,23 +414,14 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
           }
           tickCountRef.current += 1
           const t = video.currentTime || 0
-          if (t + 0.35 < lastTimeRef.current) {
-            loopRef.current += 1
-            resetContourMemory()
-            lockRef.current = emptyLock()
-            corridorRef.current = null
-            contactMemRef.current = emptyContactMemory()
-            setLoopCount(loopRef.current)
-            setLoopRefine((prev) => ({
-              ...prev,
-              loop: loopRef.current,
-              box_scale: Math.max(0.7, 1 - loopRef.current * 0.08),
-              plant_cap: Math.max(6, 12 - loopRef.current * 2),
-              step_sway: Math.max(0.55, 1 - loopRef.current * 0.12),
-            }))
+          const duration = video.duration && Number.isFinite(video.duration) ? video.duration : PXL_DURATION_S
+          if (t >= Math.max(0.8, duration - 0.45)) nearEndRef.current = true
+          if (nearEndRef.current && t < 0.35 && lastTimeRef.current > 1) {
+            bumpLoop()
+          } else if (t + 0.35 < lastTimeRef.current && lastTimeRef.current > 1) {
+            bumpLoop()
           }
           lastTimeRef.current = t
-          if (video.duration && Number.isFinite(video.duration)) setDurationS(video.duration)
 
           const vw = video.videoWidth || 1080
           const vh = video.videoHeight || 1920
@@ -381,13 +437,13 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
 
           if (!sampleRef.current) sampleRef.current = document.createElement("canvas")
           const sample = sampleRef.current
-          const sw = 240
-          const sh = 426
+          const sw = 160
+          const sh = 284
           if (sample.width !== sw) sample.width = sw
           if (sample.height !== sh) sample.height = sh
           const sctx = sample.getContext("2d", { willReadFrequently: true })
-          let contours: { id: string; kind: string; pts: [number, number][] }[] = []
-          if (sctx && video.videoWidth > 0 && video.readyState >= 1) {
+          if (!document.hidden && sctx && video.videoWidth > 0 && video.readyState >= 2) {
+            lastVisionRef.current = now
             sctx.drawImage(video, 0, 0, sw, sh)
             const pixels = sctx.getImageData(0, 0, sw, sh)
             lockRef.current = detectAndTrack(pixels.data, sw, sh, t, lockRef.current)
@@ -408,21 +464,35 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
             )
             contactMemRef.current = contactTick.memory
             contactHudRef.current = contactTick.hud
-            contours = fovRef.current.slice(0, INSTANCE_CAP).map((box) => ({
-              id: box.id,
-              kind: box.kind,
-              pts: refineInstanceContour(pixels.data, sw, sh, box.id, box, loopRef.current).pts,
-            }))
+            const contours = fovRef.current.slice(0, INSTANCE_CAP).map((box) => {
+              const raw = refineInstanceContour(pixels.data, sw, sh, box.id, box, loopRef.current)
+              const judged = applyLoopDecision(lastGoodRef.current, loopTotalsRef.current, {
+                id: box.id,
+                kind: box.kind,
+                box,
+                candidate: raw.pts,
+                loop: loopRef.current,
+                t,
+                sourceFps: PXL_SOURCE_FPS,
+                overlayHz: hzWindowRef.current.hz,
+              })
+              pendingLearnRef.current.push(judged.row)
+              return { id: box.id, kind: box.kind, pts: judged.pts }
+            })
             forgetStaleContours(new Set(fovRef.current.map((box) => box.id)))
             const ious = contours
-              .map((c, i) => contourMaskIou(c.pts, prevContoursRef.current[i] ?? []))
+              .map((c) => lastGoodRef.current.get(`${c.kind}`) ? null : loopTotalsRef.current.last_iou)
               .filter((v): v is number => v != null)
-            if (ious.length) {
-              const mean = ious.reduce((a, b) => a + b, 0) / ious.length
-              setLoopRefine((prev) => ({ ...prev, contour_iou: mean }))
-            }
+            pendingIouRef.current = loopTotalsRef.current.last_iou
             prevContoursRef.current = contours.map((c) => c.pts)
+            contoursRef.current = contours
+            void ious
+            if (pendingLearnRef.current.length >= 12 || now - lastLearnFlushRef.current > 400) {
+              lastLearnFlushRef.current = now
+              void flushLearn()
+            }
           }
+          const contours = contoursRef.current
 
           if (isSim && sim) {
             try {
@@ -490,9 +560,21 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
             lastUiRef.current = now
             setTimeS(t)
             setOverlayHz(hzWindowRef.current.hz)
+            if (video.duration && Number.isFinite(video.duration)) setDurationS(video.duration)
             if (sim) setSimFrame(sim)
             if (nextDecision) setDecision(nextDecision)
             setContactHud(contactHudRef.current)
+            const totals = loopTotalsRef.current
+            setLoopRefine((prev) => ({
+              ...prev,
+              contour_iou: totals.last_iou,
+              accepts: totals.accepts,
+              rejects: totals.rejects,
+              seeds: totals.seeds,
+              last_iou_delta: totals.last_iou_delta,
+              logged: totals.logged,
+              loop: loopRef.current,
+            }))
             setPathSnap({
               bearing: pathPx.bearing_deg,
               length: pathPx.length_px,
@@ -516,8 +598,9 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
     return () => {
       alive = false
       window.cancelAnimationFrame(raf)
+      void flushLearn()
     }
-  }, [logNativeFrame])
+  }, [logNativeFrame, bumpLoop, flushLearn])
 
   async function exportWeka() {
     await flushLogs()
@@ -583,7 +666,14 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
         </a>
       </div>
 
-      <div className="grid gap-0 lg:grid-cols-[minmax(280px,1fr)_minmax(320px,1fr)]">
+      <div
+        className={
+          embedMode
+            ? "grid gap-0"
+            : "grid gap-0 lg:grid-cols-[minmax(280px,1fr)_minmax(320px,1fr)]"
+        }
+        data-testid={embedMode ? "bluesight-trail-embed" : "bluesight-trail-lab"}
+      >
         <section className="relative bg-black">
           <div ref={boxRef} className="relative mx-auto aspect-[9/16] w-full max-w-[520px] overflow-hidden bg-black">
             <video
@@ -596,6 +686,15 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
               muted
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
+              onEnded={() => {
+                nearEndRef.current = true
+                bumpLoop()
+                const video = videoRef.current
+                if (video && loopOn) {
+                  video.currentTime = 0
+                  void video.play()
+                }
+              }}
               onError={() => {
                 const next = VIDEO_CANDIDATES.find((src) => src !== videoSrc)
                 if (next) setVideoSrc(next)
@@ -659,7 +758,8 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
               <span className="absolute left-2 top-1 font-mono text-[9px] text-white/75">ABOVE</span>
             </div>
             <div className="pointer-events-none absolute bottom-3 left-3 z-30 font-mono text-[10px] text-cyan-100">
-              loop {loopCount} · {timeS.toFixed(2)} / {durationS.toFixed(2)}s
+              loop {loopRefine.loop} · {timeS.toFixed(2)} / {durationS.toFixed(2)}s · accept {loopRefine.accepts} · reject{" "}
+              {loopRefine.rejects}
               <br />
               source_fps {PXL_SOURCE_FPS} · overlay {overlayHz.toFixed(0)}/{OVERLAY_HZ_TARGET} Hz · frame {nativeFrame}/
               {PXL_NATIVE_FRAMES}
@@ -679,6 +779,7 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
           {error ? <p className="px-3 pb-2 text-sm text-red-400">{error}</p> : null}
         </section>
 
+        {embedMode ? null : (
         <aside className="max-h-[100dvh] overflow-y-auto border-t border-white/10 bg-black/25 p-4 backdrop-blur-xl lg:border-l lg:border-t-0">
           <div className={`${TRAIL_GLASS_PANEL} mb-3`}>
             <GlassChip>ITDX MATH CONSOLE</GlassChip>
@@ -737,14 +838,18 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
           <TrailGlassSection
             id="nlm"
             title="NLM"
-            peek={`${mode} · live: false · ${nlmBind} · ${nlmBelief.abstained ? "ABSTAIN" : "channels · p null"}`}
+            peek={`${mode} · live: false · ${nlmServiceChip({ nlm_status: nlmStatus, bind: nlmBind, model_loaded: nlmBelief.model_loaded })} · ${nlmBelief.abstained ? "FORECAST_ABSTAIN" : "channels · p null"}`}
             open={dock.nlm}
             onToggle={() => toggleDock("nlm")}
           >
-            <p className="font-mono">
-              NLM {nlmBind} · loaded {String(nlmBelief.model_loaded)} · ollama {String(nlmBelief.bound_to_ollama)}
+            <p className="font-mono" data-testid="trail-nlm-rail">
+              {nlmServiceChip({ nlm_status: nlmStatus, bind: nlmBind, model_loaded: nlmBelief.model_loaded })} · live:
+              false · forecast_p: null · FORECAST_ABSTAIN / AVANI PAUSE · loaded {String(nlmBelief.model_loaded)} ·
+              weights {nlmWeightCount ?? "—"} · ollama {String(nlmBelief.bound_to_ollama)}
             </p>
-            <p className="break-all font-mono text-[10px] text-zinc-500">weights {nlmBelief.weights_sha256 ?? "unbound"}</p>
+            <p className="break-all font-mono text-[10px] text-zinc-500">
+              loaded sha {nlmBelief.weights_sha256 ?? "sha not yet reported"}
+            </p>
             <p className="font-mono">
               b_t {nlmBelief.abstained ? "ABSTAIN (no pattern p)" : "channels present · p null"} · params{" "}
               {nlmBelief.parameter_count ?? "—"}
@@ -925,17 +1030,29 @@ export function BlueSightTrailLab({ surface }: { surface: "natureos" | "fusarium
           <TrailGlassSection
             id="loop"
             title="Loop refine"
-            peek={`${mode} · live: false · loop ${loopCount} · plant_cap ${loopRefine.plant_cap}`}
+            peek={`${mode} · live: false · loop ${loopRefine.loop} · accept ${loopRefine.accepts} · reject ${loopRefine.rejects}`}
             open={dock.loop}
             onToggle={() => toggleDock("loop")}
           >
-            <p className="font-mono">
-              loop {loopCount} · box_scale {loopRefine.box_scale.toFixed(2)} · plant_cap {loopRefine.plant_cap} · step_sway{" "}
-              {loopRefine.step_sway.toFixed(2)}
+            <p className="font-mono" data-testid="loop-refine-live">
+              loop {loopRefine.loop} · accept {loopRefine.accepts} · reject {loopRefine.rejects} · seed {loopRefine.seeds} ·
+              logged {loopRefine.logged}
             </p>
-            <p className="text-zinc-500">Replay loop counters. {mode} · live: false.</p>
+            <p className="font-mono">
+              last IoU {loopRefine.contour_iou?.toFixed(3) ?? "not yet scored"} · Δ{" "}
+              {loopRefine.last_iou_delta == null ? "—" : loopRefine.last_iou_delta.toFixed(3)}
+            </p>
+            <p className="font-mono text-[10px] text-zinc-500">
+              box_scale {loopRefine.box_scale.toFixed(2)} · plant_cap {loopRefine.plant_cap} · step_sway{" "}
+              {loopRefine.step_sway.toFixed(2)} · jsonl .data/trail-ar/loop-refine.jsonl
+            </p>
+            <p className="text-zinc-500">
+              Loop N+1 keeps last-good perimeters. New contour self-approves only if IoU improves or stays ≥ 0.72.
+              forecast_p: null. {mode} · live: false.
+            </p>
           </TrailGlassSection>
         </aside>
+        )}
       </div>
     </div>
   )

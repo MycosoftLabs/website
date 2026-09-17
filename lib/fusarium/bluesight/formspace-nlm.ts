@@ -10,6 +10,20 @@ export const NLM_DAY_S = 86400
 export const WEKA_SEED = "itdx-pxl-20260913-v16"
 
 export type AvaniDisposition = "DENY" | "PAUSE" | "PASS" | "REVIEW"
+export type NlmLaneBind = "BOUND" | "MAS_NLM_DOWN"
+export type NlmServiceStatus = "NLM_ONLINE" | "MAS_NLM_DOWN"
+
+export function nlmServiceChip(input: {
+  nlm_status?: string | null
+  bind?: string | null
+  model_loaded?: boolean
+}): string {
+  const down = input.nlm_status === "MAS_NLM_DOWN" || input.bind === "MAS_NLM_DOWN"
+  if (down) return "NLM MAS_NLM_DOWN"
+  if (input.model_loaded) return "NLM ONLINE / weights loaded"
+  if (input.nlm_status === "NLM_ONLINE" || input.bind === "BOUND") return "NLM ONLINE / weights not loaded"
+  return "NLM probing"
+}
 
 export interface FormSpaceRecord {
   s: string
