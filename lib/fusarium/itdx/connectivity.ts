@@ -80,18 +80,26 @@ function emptyNlmLane(partial: Partial<NlmLaneProbe> & Pick<NlmLaneProbe, "url" 
 
 async function probeNlm(): Promise<NlmLaneProbe> {
   const url = `${masBase()}/api/nlm/health`
-  const result = await getLanJson(url, CONNECTIVITY_TIMEOUT_MS)
-  const body = result.body
+  const runtimeUrl = `${masBase()}/api/nlm/runtime`
+  const [result, runtime] = await Promise.all([
+    getLanJson(url, CONNECTIVITY_TIMEOUT_MS),
+    getLanJson(runtimeUrl, CONNECTIVITY_TIMEOUT_MS),
+  ])
+  const body = result.body ?? {}
+  const rt = runtime.body ?? {}
   return emptyNlmLane({
     url,
-    ok: result.ok,
-    status: result.status,
-    ms: result.ms,
-    error: result.error,
-    model_loaded: Boolean(body?.model_loaded),
-    weights_sha256: typeof body?.weights_sha256 === "string" ? body.weights_sha256 : null,
-    weight_count: typeof body?.weight_count === "number" ? body.weight_count : null,
-    parameter_count: typeof body?.parameter_count === "number" ? body.parameter_count : null,
+    ok: result.ok || runtime.ok,
+    status: result.status ?? runtime.status,
+    ms: Math.max(result.ms, runtime.ms),
+    error: result.ok || runtime.ok ? null : result.error,
+    model_loaded: Boolean(body.model_loaded ?? rt.model_loaded),
+    weights_sha256:
+      (typeof body.weights_sha256 === "string" && body.weights_sha256) ||
+      (typeof rt.weights_sha256 === "string" && rt.weights_sha256) ||
+      null,
+    weight_count: typeof rt.weight_count === "number" ? rt.weight_count : null,
+    parameter_count: typeof rt.parameter_count === "number" ? rt.parameter_count : null,
   })
 }
 

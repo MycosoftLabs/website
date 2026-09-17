@@ -163,9 +163,8 @@ export function ItdxV2DemoBoard() {
         >
           <p className="font-mono" data-testid="itdx-v2-nlm-rail">
             {nlmChip} · live: false · forecast_p: null ·{" "}
-            {nlm?.forecast_status ?? "FORECAST_ABSTAIN"} / AVANI PAUSE · loaded{" "}
-            {String(nlm?.belief?.model_loaded ?? false)} · weights {weightCount ?? "—"} · params{" "}
-            {nlm?.belief?.parameter_count ?? "—"}
+            {nlm?.forecast_status ?? "FORECAST_ABSTAIN"} / AVANI PAUSE · loaded {String(modelLoaded)} · weights{" "}
+            {weightCount ?? "—"} · params {parameterCount ?? "—"}
           </p>
           <p className="break-all font-mono text-[10px] text-zinc-500">
             loaded sha {weightsSha ?? "sha not yet reported"}

@@ -19,10 +19,9 @@ export function nlmServiceChip(input: {
   model_loaded?: boolean
 }): string {
   const down = input.nlm_status === "MAS_NLM_DOWN" || input.bind === "MAS_NLM_DOWN"
-  if (down) return "NLM runtime unreachable"
-  if (input.model_loaded || input.nlm_status === "NLM_ONLINE" || input.bind === "BOUND") {
-    return "NLM BOUND · forecast_p null · not NLM=WEKA"
-  }
+  if (down) return "NLM MAS_NLM_DOWN"
+  if (input.model_loaded) return "NLM ONLINE / weights loaded"
+  if (input.nlm_status === "NLM_ONLINE" || input.bind === "BOUND") return "NLM ONLINE / weights not loaded"
   return "NLM probing"
 }
 
