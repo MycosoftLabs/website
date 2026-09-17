@@ -16,13 +16,24 @@ const ALLOWED = new Set([
   "worker_stdout.log",
   "coverage.json",
 ])
+const TRAIL_ARFF = new Set(["trail-ar-session.arff", "trail-ar-predictions.arff"])
+
+function resolveArtifact(name: string): string | null {
+  if (TRAIL_ARFF.has(name)) {
+    return path.join(process.cwd(), ".data", "trail-ar", "weka", name)
+  }
+  if (ALLOWED.has(name)) {
+    return path.join(process.cwd(), ".data", "weka-campaign", "SEP14_2026", name)
+  }
+  return null
+}
 
 export async function GET(request: NextRequest) {
   const name = request.nextUrl.searchParams.get("name") || ""
-  if (!ALLOWED.has(name)) {
+  const file = resolveArtifact(name)
+  if (!file) {
     return NextResponse.json({ error: "not an allowed campaign artifact", forecast_p: null }, { status: 400 })
   }
-  const file = path.join(process.cwd(), ".data", "weka-campaign", "SEP14_2026", name)
   if (!existsSync(file)) {
     return NextResponse.json({ error: "artifact not yet written", forecast_p: null, name }, { status: 404 })
   }

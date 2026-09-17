@@ -51,10 +51,36 @@ function clamp01(v: number) {
   return Math.min(1, Math.max(0, v))
 }
 
-export function instanceKey(kind: string, box: ContourBox): string {
-  const cx = Math.round((box.x + box.w * 0.5) * 8)
-  const cy = Math.round((box.y + box.h * 0.5) * 8)
-  return `${kind}@${cx},${cy}`
+export function instanceKey(kind: string, box: ContourBox, frame = 0): string {
+  const cx = Math.round((box.x + box.w * 0.5) * 4)
+  const cy = Math.round((box.y + box.h * 0.5) * 4)
+  return `${kind}:f${frame}@${cx},${cy}`
+}
+
+export function lookupLastGood(
+  lastGood: Map<string, LastGoodContour>,
+  kind: string,
+  box: ContourBox,
+  frame: number,
+): LastGoodContour | undefined {
+  const exact = lastGood.get(instanceKey(kind, box, frame))
+  if (exact) return exact
+  const prefix = `${kind}:f${frame}@`
+  const cx = box.x + box.w * 0.5
+  const cy = box.y + box.h * 0.5
+  let best: LastGoodContour | undefined
+  let bestD = 0.045
+  for (const [key, row] of lastGood) {
+    if (!key.startsWith(prefix)) continue
+    const dx = row.box.x + row.box.w * 0.5 - cx
+    const dy = row.box.y + row.box.h * 0.5 - cy
+    const d = dx * dx + dy * dy
+    if (d < bestD) {
+      bestD = d
+      best = row
+    }
+  }
+  return best
 }
 
 export function emptyLoopTotals(loop = 0): LoopRefineTotals {
@@ -125,13 +151,25 @@ export function applyLoopDecision(
     candidate: [number, number][]
     loop: number
     t: number
+    frame?: number
     sourceFps: number
     overlayHz: number
   },
 ): { pts: [number, number][]; row: LoopLearnRow } {
-  const key = instanceKey(input.kind, input.box)
-  const last = lastGood.get(key)
-  const judged = decideVsLastGood(input.candidate, last, input.loop)
+  const frame = input.frame ?? Math.round(input.t * input.sourceFps)
+  const key = instanceKey(input.kind, input.box, frame)
+  const last = lookupLastGood(lastGood, input.kind, input.box, frame)
+  let candidate = input.candidate
+  if (candidate.length < 3) {
+    const b = input.box
+    candidate = [
+      [b.x, b.y],
+      [b.x + b.w, b.y],
+      [b.x + b.w, b.y + b.h],
+      [b.x, b.y + b.h],
+    ]
+  }
+  const judged = decideVsLastGood(candidate, last, input.loop)
   if (judged.decision === "accept" || judged.decision === "seed") {
     lastGood.set(key, {
       key,

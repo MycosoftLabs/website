@@ -80,10 +80,17 @@ export async function GET(request: NextRequest) {
   })
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const action = request.nextUrl.searchParams.get("action") || "run"
   const current = readStatus()
   if (current.state === "RUNNING") {
-    return NextResponse.json({ ...current, forecast_p: null, accepted: false, reason: "already running" })
+    return NextResponse.json({
+      ...current,
+      forecast_p: null,
+      accepted: false,
+      action,
+      reason: "already running",
+    })
   }
   const script = runnerPath()
   if (!script) {

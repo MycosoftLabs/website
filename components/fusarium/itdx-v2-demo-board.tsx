@@ -57,15 +57,12 @@ export function ItdxV2DemoBoard() {
       typeof window !== "undefined" && new URLSearchParams(window.location.search).get("force") === "offline"
     void fetch(`/api/fusarium/itdx/connectivity${forceOffline ? "?force=offline" : ""}`)
       .then((r) => r.json())
-      .then((json) => {
-        setConnectivity(json)
-        // LAN NLM is independent of WAN / force=offline WEKA mode.
-        void fetch("/api/fusarium/bluesight-trail/nlm")
-          .then((n) => n.json())
-          .then(setNlm)
-          .catch(() => setNlm({ bind: "MAS_NLM_DOWN", nlm_status: "MAS_NLM_DOWN", forecast_p: null }))
-      })
-      .catch(() => setConnectivity({ mode: "OFFLINE_LOCAL_WEKA", banner: "OFFLINE LOCAL WEKA" }))
+      .then(setConnectivity)
+      .catch(() => setConnectivity({ mode: "OFFLINE_LOCAL_WEKA", banner: "OFFLINE LOCAL WEKA", wan_status: "WAN_DOWN" }))
+    void fetch("/api/fusarium/bluesight-trail/nlm")
+      .then((n) => n.json())
+      .then(setNlm)
+      .catch(() => setNlm({ bind: "MAS_NLM_DOWN", nlm_status: "MAS_NLM_DOWN", forecast_p: null }))
   }, [])
 
   useEffect(() => {
@@ -76,14 +73,16 @@ export function ItdxV2DemoBoard() {
 
   const mode = connectivity?.mode ?? "OFFLINE_LOCAL_WEKA"
   const isOnline = mode === "ONLINE"
+  const modelLoaded = Boolean(nlm?.belief?.model_loaded ?? connectivity?.nlm?.model_loaded)
   const nlmChip = nlmServiceChip({
     nlm_status: nlm?.nlm_status ?? connectivity?.nlm?.nlm_status,
     bind: nlm?.bind ?? connectivity?.nlm?.bind,
-    model_loaded: nlm?.belief?.model_loaded ?? connectivity?.nlm?.model_loaded,
+    model_loaded: modelLoaded,
   })
   const nlmDown = nlmChip.includes("MAS_NLM_DOWN")
   const weightsSha = nlm?.belief?.weights_sha256 ?? nlm?.weights_sha256 ?? connectivity?.nlm?.weights_sha256 ?? null
   const weightCount = nlm?.weight_count ?? connectivity?.nlm?.weight_count ?? null
+  const parameterCount = nlm?.belief?.parameter_count ?? connectivity?.nlm?.parameter_count ?? null
 
   function toggle(id: keyof typeof dock) {
     setDock((prev) => ({ ...prev, [id]: !prev[id] }))

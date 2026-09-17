@@ -29,7 +29,7 @@ import { extractHorizon, type HorizonLine } from "@/lib/fusarium/bluesight/horiz
 import { extractCorridor, smoothCorridor, type PathCorridor } from "@/lib/fusarium/bluesight/path-corridor"
 import { paintTrailHud, videoContentRect } from "@/lib/fusarium/bluesight/trail-ar-hud"
 import { emptyContactMemory, STEP_PLACE_MS, updateContactHud, type ContactHud, type ContactMemory } from "@/lib/fusarium/bluesight/trail-contact"
-import { forgetStaleContours, refineInstanceContour } from "@/lib/fusarium/bluesight/trail-contours"
+import { forgetStaleContours, recordLoopClose, refineInstanceContour } from "@/lib/fusarium/bluesight/trail-contours"
 import {
   applyLoopDecision,
   emptyLoopTotals,
@@ -159,6 +159,7 @@ export function BlueSightTrailLab({
   const pendingLearnRef = useRef<LoopLearnRow[]>([])
   const nearEndRef = useRef(false)
   const lastLearnFlushRef = useRef(0)
+  const lastBumpRef = useRef(0)
   const embedMode =
     embed ||
     (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("embed") === "1")
@@ -176,10 +177,6 @@ export function BlueSightTrailLab({
   useEffect(() => {
     nlmRef.current = nlmBelief
   }, [nlmBelief])
-  useEffect(() => {
-    loopRef.current = loopCount
-  }, [loopCount])
-
   useEffect(() => {
     void fetch("/api/fusarium/bluesight-trail/sensors")
       .then((r) => r.json())
@@ -265,28 +262,48 @@ export function BlueSightTrailLab({
   }, [mode])
 
   const flushLearn = useCallback(async () => {
+    if (!pendingLearnRef.current.length) return
     const rows = pendingLearnRef.current.splice(0, pendingLearnRef.current.length)
-    if (!rows.length) return
-    await fetch("/api/fusarium/bluesight-trail/loop-refine", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows }),
-    }).catch(() => undefined)
+    try {
+      const res = await fetch("/api/fusarium/bluesight-trail/loop-refine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows }),
+        keepalive: true,
+      })
+      const win = window as Window & { __trailFlushStatus?: { ok: boolean; status: number; n: number } }
+      win.__trailFlushStatus = { ok: res.ok, status: res.status, n: rows.length }
+      if (!res.ok) pendingLearnRef.current.unshift(...rows)
+    } catch {
+      const win = window as Window & { __trailFlushStatus?: { ok: boolean; status: number; n: number } }
+      win.__trailFlushStatus = { ok: false, status: 0, n: rows.length }
+      pendingLearnRef.current.unshift(...rows)
+    }
   }, [])
 
   const bumpLoop = useCallback(() => {
+    const now = performance.now()
+    if (now - lastBumpRef.current < 900) return
+    lastBumpRef.current = now
+    recordLoopClose(loopRef.current)
     loopRef.current += 1
     nearEndRef.current = false
     lockRef.current = emptyLock()
     corridorRef.current = null
     contactMemRef.current = emptyContactMemory()
     setLoopCount(loopRef.current)
+    const totals = loopTotalsRef.current
+    totals.loop = loopRef.current
     setLoopRefine((prev) => ({
       ...prev,
       loop: loopRef.current,
       box_scale: Math.max(0.7, 1 - loopRef.current * 0.08),
       plant_cap: Math.max(6, 12 - loopRef.current * 2),
       step_sway: Math.max(0.55, 1 - loopRef.current * 0.12),
+      accepts: totals.accepts,
+      rejects: totals.rejects,
+      seeds: totals.seeds,
+      logged: totals.logged,
     }))
     void flushLearn()
   }, [flushLearn])
@@ -473,6 +490,7 @@ export function BlueSightTrailLab({
                 candidate: raw.pts,
                 loop: loopRef.current,
                 t,
+                frame: nativeFrameIndex(t),
                 sourceFps: PXL_SOURCE_FPS,
                 overlayHz: hzWindowRef.current.hz,
               })
@@ -554,7 +572,21 @@ export function BlueSightTrailLab({
               xCode: p.xCode,
             })),
           }
-          ;(window as Window & { __trailOverlay?: typeof overlayDbg }).__trailOverlay = overlayDbg
+          const win = window as Window & {
+            __trailOverlay?: typeof overlayDbg
+            __trailLoop?: { loop: number; accepts: number; rejects: number; seeds: number; logged: number; last_iou: number | null }
+            __trailFlushLearn?: () => Promise<void>
+          }
+          win.__trailOverlay = overlayDbg
+          win.__trailLoop = {
+            loop: loopRef.current,
+            accepts: loopTotalsRef.current.accepts,
+            rejects: loopTotalsRef.current.rejects,
+            seeds: loopTotalsRef.current.seeds,
+            logged: loopTotalsRef.current.logged,
+            last_iou: loopTotalsRef.current.last_iou,
+          }
+          win.__trailFlushLearn = flushLearn
 
           if (now - lastUiRef.current > 100) {
             lastUiRef.current = now
@@ -595,9 +627,14 @@ export function BlueSightTrailLab({
       }
     }
     raf = window.requestAnimationFrame(tick)
+    const onHide = () => {
+      if (document.hidden) void flushLearn()
+    }
+    document.addEventListener("visibilitychange", onHide)
     return () => {
       alive = false
       window.cancelAnimationFrame(raf)
+      document.removeEventListener("visibilitychange", onHide)
       void flushLearn()
     }
   }, [logNativeFrame, bumpLoop, flushLearn])
@@ -686,6 +723,19 @@ export function BlueSightTrailLab({
               muted
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
+              onTimeUpdate={() => {
+                const video = videoRef.current
+                if (!video) return
+                const t = video.currentTime || 0
+                const duration = video.duration && Number.isFinite(video.duration) ? video.duration : PXL_DURATION_S
+                if (t >= Math.max(0.8, duration - 0.45)) nearEndRef.current = true
+                if (nearEndRef.current && t < 0.35 && lastTimeRef.current > 1) bumpLoop()
+              }}
+              onSeeked={() => {
+                const video = videoRef.current
+                if (!video) return
+                if (nearEndRef.current && (video.currentTime || 0) < 0.35 && lastTimeRef.current > 1) bumpLoop()
+              }}
               onEnded={() => {
                 nearEndRef.current = true
                 bumpLoop()
@@ -774,6 +824,14 @@ export function BlueSightTrailLab({
               Actor: {actor}
             </GlassButton>
             <GlassButton onClick={() => setLoopOn((v) => !v)}>Loop {loopOn ? "on" : "off"}</GlassButton>
+            <GlassButton
+              onClick={() => {
+                nearEndRef.current = true
+                bumpLoop()
+              }}
+            >
+              Close loop
+            </GlassButton>
             <GlassButton onClick={() => void persistSession()}>Persist session</GlassButton>
           </div>
           {error ? <p className="px-3 pb-2 text-sm text-red-400">{error}</p> : null}

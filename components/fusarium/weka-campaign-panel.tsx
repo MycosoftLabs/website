@@ -47,8 +47,8 @@ export function WekaCampaignPanel({ open, onToggle }: { open: boolean; onToggle:
     return () => window.clearInterval(id)
   }, [refresh])
 
-  async function startRun() {
-    await fetch("/api/fusarium/bluesight-trail/weka-campaign", { method: "POST" })
+  async function startRun(action: "run" | "resume") {
+    await fetch(`/api/fusarium/bluesight-trail/weka-campaign?action=${action}`, { method: "POST" })
     refresh()
   }
 
@@ -87,8 +87,9 @@ export function WekaCampaignPanel({ open, onToggle }: { open: boolean; onToggle:
       ) : null}
       <p className="break-all font-mono text-[10px] text-zinc-500">{status?.result_dir}</p>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        <GlassButton onClick={() => void startRun()}>Run / resume campaign</GlassButton>
-        <GlassButton onClick={refresh}>Refresh status</GlassButton>
+        <GlassButton onClick={() => void startRun("run")}>Run campaign</GlassButton>
+        <GlassButton onClick={() => void startRun("resume")}>Resume campaign</GlassButton>
+        <GlassButton onClick={refresh}>Refresh</GlassButton>
         <GlassButton href="/api/fusarium/bluesight-trail/weka-campaign/file?name=results.jsonl" external>
           Download results.jsonl
         </GlassButton>
@@ -96,7 +97,16 @@ export function WekaCampaignPanel({ open, onToggle }: { open: boolean; onToggle:
           Download CSV
         </GlassButton>
         <GlassButton href="/api/fusarium/bluesight-trail/weka-campaign/file?name=correlation.json" external>
-          Download correlation
+          Correlations
+        </GlassButton>
+        <GlassButton href="/api/fusarium/bluesight-trail/weka-campaign/file?name=trail-ar-session.arff" external>
+          Export session ARFF
+        </GlassButton>
+        <GlassButton href="/api/fusarium/bluesight-trail/weka-campaign/file?name=trail-ar-predictions.arff" external>
+          Export prediction ARFF
+        </GlassButton>
+        <GlassButton href="/api/fusarium/bluesight-trail/weka-campaign/file?name=arff_inventory.json" external>
+          ARFF inventory
         </GlassButton>
       </div>
       {error ? <p className="text-red-400">{error}</p> : null}

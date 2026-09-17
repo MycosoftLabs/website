@@ -1,46 +1,36 @@
 import { NextResponse } from "next/server"
 import { NLM_WEIGHTS_SHA256_PAPER, nlmBeliefFromRuntime } from "@/lib/fusarium/bluesight/formspace-nlm"
+import { getLanJson } from "@/lib/fusarium/itdx/lan-json"
+import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 
 export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 
-const MAS = (process.env.MAS_API_URL || "http://192.168.0.188:8001").replace(/\/$/, "")
+const MAS = resolveMasServerBaseUrl()
+const NLM_PROBE_MS = 4000
 
-async function getJson(
-  path: string,
-  ms = 2500,
-  init?: RequestInit,
-): Promise<{ ok: boolean; body: Record<string, unknown> | null }> {
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), ms)
-  try {
-    const res = await fetch(`${MAS}${path}`, { ...init, signal: ctrl.signal, cache: "no-store" })
-    const body = (await res.json().catch(() => null)) as Record<string, unknown> | null
-    return { ok: res.ok, body }
-  } catch {
-    return { ok: false, body: null }
-  } finally {
-    clearTimeout(timer)
-  }
+async function getJson(path: string, ms = NLM_PROBE_MS): Promise<{ ok: boolean; body: Record<string, unknown> | null }> {
+  const result = await getLanJson(`${MAS}${path}`, ms)
+  return { ok: result.ok, body: result.body }
 }
 
 export async function GET() {
-  const [health, runtime] = await Promise.all([
-    getJson("/api/nlm/health", 1800),
-    getJson("/api/nlm/runtime", 1800),
+  // Health first: bind must not wait on WEKA extras or decision-path.
+  const health = await getJson("/api/nlm/health")
+  const [runtime, weights] = await Promise.all([
+    getJson("/api/nlm/runtime"),
+    getJson("/api/nlm/weights"),
   ])
-  const weights = { ok: false, body: null as Record<string, unknown> | null }
-  const weka = { ok: false, body: null as Record<string, unknown> | null }
-  const decision = { ok: false, body: null as Record<string, unknown> | null }
 
   const rt = runtime.body ?? {}
   const weightsBody = weights.body ?? {}
-  const modelLoaded = Boolean(health.body?.model_loaded ?? rt.model_loaded)
+  const modelLoaded = Boolean(health.body?.model_loaded ?? rt.model_loaded ?? weightsBody.model_loaded)
   const weightsSha =
     (typeof health.body?.weights_sha256 === "string" && health.body.weights_sha256) ||
     (typeof rt.weights_sha256 === "string" && rt.weights_sha256) ||
     (typeof weightsBody.loaded_sha256 === "string" && weightsBody.loaded_sha256) ||
     null
-  const serviceUp = health.ok || runtime.ok || Boolean(rt.model_loaded) || Boolean(weightsSha)
+  const serviceUp = health.ok || runtime.ok || weights.ok || modelLoaded
   const weightCount =
     (typeof weightsBody.count === "number" && weightsBody.count) ||
     (typeof rt.weight_count === "number" && rt.weight_count) ||
@@ -69,15 +59,12 @@ export async function GET() {
     weight_count: weightCount,
     weights_sha256: weightsSha,
     paper_weights_sha256: NLM_WEIGHTS_SHA256_PAPER,
-    weights_match_paper:
-      weightsSha === NLM_WEIGHTS_SHA256_PAPER ||
-      rt.weights_sha256 === NLM_WEIGHTS_SHA256_PAPER ||
-      health.body?.weights_sha256 === NLM_WEIGHTS_SHA256_PAPER,
+    weights_match_paper: weightsSha === NLM_WEIGHTS_SHA256_PAPER,
     health: health.body,
     runtime: rt,
     weights: weightsBody,
-    weka_features: weka.body,
-    decision_path: decision.body,
+    weka_features: null,
+    decision_path: null,
     belief,
   })
 }
