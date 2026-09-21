@@ -31,8 +31,8 @@ import { motion } from "framer-motion"
 
 // Navigation dropdown items configuration
 const defenseItems = [
-  { title: "Fusarium", href: "/defense/fusarium", icon: Bug, description: "Operational Environment Platform" },
-  { title: "Launchpad", href: "/fusarium/launchpad", icon: Rocket, description: "Contractor Readiness & Opportunity OS" },
+  { title: "FUSARIUM", href: "/defense/fusarium", icon: Bug, description: "Environmental Intelligence for Defense" },
+  { title: "Launchpad", href: "/fusarium/launchpad", icon: Rocket, description: "FUSARIUM contractor readiness workspace" },
   { title: "OEI Capabilities", href: "/defense/oei", icon: Target, description: "Doctrine Capabilities" },
   { title: "Technical Documentation", href: "/defense/technical-docs", icon: FileText, description: "Defense systems documentation" },
 ]

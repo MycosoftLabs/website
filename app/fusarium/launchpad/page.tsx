@@ -57,12 +57,11 @@ const launchpadHeroSources = deviceHeroVideoSources(LAUNCHPAD_HERO_MP4, {
  * then it stays out of the DOM — a Demo button that opens an empty player is
  * worse than no Demo button.
  */
-const LAUNCHPAD_DEMO_MP4 =
-  process.env.NEXT_PUBLIC_LAUNCHPAD_DEMO_MP4?.trim() || "/assets/launchpad/launchpad-demo.mp4"
-const LAUNCHPAD_DEMO_POSTER =
-  process.env.NEXT_PUBLIC_LAUNCHPAD_DEMO_POSTER?.trim() || "/assets/launchpad/launchpad-demo-poster.jpg"
-const LAUNCHPAD_DEMO_ENABLED = process.env.NEXT_PUBLIC_LAUNCHPAD_DEMO_ENABLED === "1"
-const launchpadDemoSources = deviceHeroVideoSources(LAUNCHPAD_DEMO_MP4)
+const LAUNCHPAD_DEMO_MP4 = process.env.NEXT_PUBLIC_LAUNCHPAD_DEMO_MP4?.trim() || ""
+const LAUNCHPAD_DEMO_POSTER = process.env.NEXT_PUBLIC_LAUNCHPAD_DEMO_POSTER?.trim() || ""
+const LAUNCHPAD_DEMO_ENABLED =
+  process.env.NEXT_PUBLIC_LAUNCHPAD_DEMO_ENABLED === "1" && Boolean(LAUNCHPAD_DEMO_MP4)
+const launchpadDemoSources = LAUNCHPAD_DEMO_MP4 ? deviceHeroVideoSources(LAUNCHPAD_DEMO_MP4) : []
 
 // The ten Launchpad modules (master plan §4.1).
 const modules = [

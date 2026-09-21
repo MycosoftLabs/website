@@ -258,6 +258,11 @@ const nextConfig = {
       { source: "/ancestry", destination: "/natureos/ancestry", permanent: true },
       { source: "/ancestry/:path*", destination: "/natureos/ancestry/:path*", permanent: true },
       { source: "/natureos/lab-tools", destination: "/natureos/tools", permanent: true },
+      { source: "/launchpad", destination: "/fusarium/launchpad", permanent: true },
+      { source: "/defense/launchpad", destination: "/fusarium/launchpad", permanent: true },
+      { source: "/cmmc", destination: "/compliance", permanent: true },
+      { source: "/fusarium/launchpad/advanced", destination: "/fusarium/launchpad", permanent: true },
+      { source: "/fusarium/launchpad/cmmc", destination: "/compliance", permanent: true },
     ]
   },
 }

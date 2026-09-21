@@ -86,7 +86,7 @@ export function Footer() {
               </li>
               <li>
                 <a href="/defense/fusarium" className="hover:text-foreground transition-colors" suppressHydrationWarning>
-                  Fusarium
+                  FUSARIUM
                 </a>
               </li>
               <li>
@@ -261,29 +261,29 @@ export function Footer() {
               <p className="font-semibold text-foreground" suppressHydrationWarning>
                 US-Based Business · Building Earth Intelligence Since 2021
               </p>
-              <p suppressHydrationWarning>
-                Mycosoft, Inc. — Delaware C-Corporation (parent)
+              <p className="text-foreground font-medium" suppressHydrationWarning>
+                Federal contracting vehicle: Mycosoft, LLC (California operating subsidiary)
               </p>
               <p suppressHydrationWarning>
-                Mycosoft, LLC — California operating subsidiary, federal contracting entity
+                Parent company: Mycosoft, Inc. — Delaware C-Corporation (not the federal contracting vehicle)
               </p>
               <div className="pt-2 grid grid-cols-1 gap-y-1">
                 <p suppressHydrationWarning>
-                  <span className="font-semibold text-foreground">UEI:</span> GZRBSL3MTVZ6
+                  <span className="font-semibold text-foreground">Federal contracting vehicle — Mycosoft, LLC</span>
                   <span className="mx-2 text-muted-foreground/60">·</span>
-                  <span className="font-semibold text-foreground">CAGE Code:</span> Pending
-                  <span className="mx-2 text-muted-foreground/60">·</span>
-                  <span className="text-muted-foreground">(Mycosoft, Inc)</span>
-                </p>
-                <p suppressHydrationWarning>
                   <span className="font-semibold text-foreground">UEI:</span> YK3ARVKJ77S9
                   <span className="mx-2 text-muted-foreground/60">·</span>
                   <span className="font-semibold text-foreground">CAGE Code:</span> 9KR60
+                </p>
+                <p suppressHydrationWarning>
+                  <span className="font-semibold text-foreground">Parent — Mycosoft, Inc.</span>
                   <span className="mx-2 text-muted-foreground/60">·</span>
-                  <span className="text-muted-foreground">(Mycosoft, LLC)</span>
+                  <span className="font-semibold text-foreground">UEI:</span> GZRBSL3MTVZ6
+                  <span className="mx-2 text-muted-foreground/60">·</span>
+                  <span className="font-semibold text-foreground">CAGE Code:</span> Pending
                 </p>
                 <p className="text-xs" suppressHydrationWarning>
-                  Mycosoft, LLC is an active SAM.gov-registered supplier eligible for U.S. federal contracting.
+                  Use Mycosoft, LLC (UEI YK3ARVKJ77S9, CAGE 9KR60) for SAM.gov and U.S. federal awards. Mycosoft, Inc. is the parent and is not the contracting vehicle.
                 </p>
                 <p className="pt-1 text-xs" suppressHydrationWarning>
                   <a
