@@ -19,12 +19,15 @@ export default function CompliancePage() {
 
         <div className="prose dark:prose-invert max-w-none">
           {/* Federal entity / registration */}
-          <h2 className="text-2xl font-bold mt-12 mb-4">Federal Contracting Entity</h2>
-          <p>
-            Mycosoft, LLC — a California operating subsidiary of Mycosoft, Inc. (a Delaware C-Corporation) — is the
-            federal contracting entity and an active, SAM.gov-registered supplier eligible for U.S. federal contracting.
+          <h2 className="text-2xl font-bold mt-12 mb-4">Federal Contracting Vehicle</h2>
+          <p className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+            <strong>Mycosoft, LLC</strong> is the federal contracting vehicle — the SAM.gov-registered supplier for
+            U.S. federal awards. Do not use the parent company identifiers below for federal contracting.
           </p>
           <ul>
+            <li>
+              <strong>Legal name:</strong> Mycosoft, LLC (California operating subsidiary of Mycosoft, Inc.)
+            </li>
             <li>
               <strong>UEI:</strong> YK3ARVKJ77S9
             </li>
@@ -33,6 +36,21 @@ export default function CompliancePage() {
             </li>
             <li>
               <strong>Registration:</strong> Active in SAM.gov (System for Award Management)
+            </li>
+          </ul>
+          <h3 className="text-xl font-semibold mt-8 mb-3">Parent company (not the contracting vehicle)</h3>
+          <p>
+            Mycosoft, Inc. is the Delaware C-Corporation parent. It is not the federal contracting vehicle.
+          </p>
+          <ul>
+            <li>
+              <strong>Legal name:</strong> Mycosoft, Inc.
+            </li>
+            <li>
+              <strong>UEI:</strong> GZRBSL3MTVZ6
+            </li>
+            <li>
+              <strong>CAGE Code:</strong> Pending
             </li>
           </ul>
 

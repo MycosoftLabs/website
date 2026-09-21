@@ -21,11 +21,13 @@ The central dashboard for environmental intelligence, integrating 38+ applicatio
 ### MINDEX — Mycological Database
 The Mycosoft Data Integrity Index — a cryptographically-secured, tamper-evident mycological database with chain-of-custody tracking for global fungal species intelligence.
 
-### AVANI — Live Earth Substrate
-Continuous environmental and infrastructure context layer. AVANI works alongside MYCA to provide real-time situational awareness across biological and environmental domains.
+### AVANI — Governance
+AVANI is the governance, policy, and auditability layer for FUSARIUM — not a live Earth data substrate. It records decisions, evidence, and accountability so environmental intelligence stays reviewable.
 
-### Defense — OEI & FUSARIUM
-Operational Environmental Intelligence (OEI) and FUSARIUM provide integrated defense and biosecurity capabilities, including threat assessment and global situational awareness through the CREP Dashboard.
+### Defense — OEI, FUSARIUM & Launchpad
+Operational Environmental Intelligence (OEI) and **FUSARIUM** provide integrated defense and biosecurity capabilities, including threat assessment and global situational awareness through the CREP Dashboard.
+
+**FUSARIUM Launchpad** (`/fusarium/launchpad`) is the public contractor-readiness product: registrations, CMMC self-assessment readiness, evidence, opportunity discovery, and proposal operations. It does not certify CMMC or authorize FedRAMP.
 
 ### Earth Simulator (NatureOS)
 Live environmental intelligence globe at **`/natureos/earth-simulator`**. Layers include aircraft (zoom ≥ 3.5), vessels, satellites, fungal/nature observations, infrastructure PMTiles, weather overlays, and MYCA LIVE chat (MAS LLM + fast local map commands). Key BFF routes: `/api/crep/unified` (capped bundle), `/api/stream/entities` (SSE), `/api/earth2/health`. See [Earth Simulator capabilities](https://github.com/MycosoftLabs/website/blob/main/docs/EARTH_SIMULATOR_REFERENCE.md) and MAS doc `EARTH_SIMULATOR_PUBLIC_CAPABILITIES_JUN20_2026.md`.
@@ -75,6 +77,8 @@ The dev server runs on port **3010** by default.
 ---
 
 ## Documentation
+
+Public product page for FUSARIUM Launchpad: [https://mycosoft.com/fusarium/launchpad](https://mycosoft.com/fusarium/launchpad).
 
 Comprehensive documentation is available in the [`/docs`](./docs) directory, covering architecture, integration guides, security, API routes, deployment, and more.
 

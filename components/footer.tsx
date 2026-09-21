@@ -86,7 +86,7 @@ export function Footer() {
               </li>
               <li>
                 <a href="/defense/fusarium" className="hover:text-foreground transition-colors" suppressHydrationWarning>
-                  Fusarium
+                  FUSARIUM
                 </a>
               </li>
               <li>

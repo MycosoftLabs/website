@@ -20,7 +20,7 @@ import { AccessGate } from "@/lib/access/types"
 
 // Navigation items configuration (same as header.tsx)
 const defenseItems = [
-  { title: "Fusarium", href: "/defense/fusarium", icon: Bug },
+  { title: "FUSARIUM", href: "/defense/fusarium", icon: Bug },
   { title: "Launchpad", href: "/fusarium/launchpad", icon: Rocket },
   { title: "OEI Capabilities", href: "/defense/oei", icon: Target },
   { title: "Technical Documentation", href: "/defense/technical-docs", icon: FileText },

@@ -552,6 +552,9 @@ export function DefensePortal() {
                   <div className="inline-block bg-primary/10 text-primary px-4 py-2 rounded-lg font-semibold">
                     {selectedMission.impact}
                   </div>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Hypothetical / illustrative scenario — not a customer result.
+                  </p>
                 </div>
 
                 {/* Solutions */}
@@ -720,15 +723,15 @@ export function DefensePortal() {
           >
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
-              <span>DoD Ready</span>
+              <span>Built for DoD missions</span>
             </div>
             <div className="flex items-center gap-2">
               <Lock className="h-5 w-5" />
-              <span>NIST Compliant</span>
+              <span>Aligns with NIST SP 800-171</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5" />
-              <span>FedRAMP Aligned</span>
+              <span>Pursuing CMMC Level 2</span>
             </div>
           </motion.div>
         </div>
@@ -1198,7 +1201,10 @@ export function DefensePortal() {
               Mission-Critical Applications
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Real-world scenarios where OEI provides decisive advantage. Click to explore solutions.
+              Illustrative hypotheticals used to explain how OEI could be applied. Click to explore solutions.
+            </p>
+            <p className="mt-3 text-sm text-muted-foreground max-w-3xl mx-auto">
+              Figures such as hours earlier or dollars avoided are hypothetical and illustrative — not a customer result or proven outcome.
             </p>
           </div>
 
@@ -1232,12 +1238,17 @@ export function DefensePortal() {
                       <div className="text-sm font-medium text-muted-foreground mb-1">OUTCOME</div>
                       <p className="text-sm">{useCase.outcome}</p>
                     </div>
-                    <div className="pt-4 border-t flex items-center justify-between">
-                      <div className="text-sm font-semibold text-primary">{useCase.impact}</div>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground group-hover:text-primary transition-colors">
-                        <span>View Solutions</span>
-                        <ArrowRight className="h-4 w-4" />
+                    <div className="pt-4 border-t space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-semibold text-primary">{useCase.impact}</div>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground group-hover:text-primary transition-colors shrink-0 min-h-[44px]">
+                          <span>View Solutions</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </div>
                       </div>
+                      <p className="text-xs text-muted-foreground">
+                        Hypothetical / illustrative — not a customer result.
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
