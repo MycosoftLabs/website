@@ -39,12 +39,26 @@ export async function GET() {
   const docs = Array.from(new Set((rows ?? []).map((r) => r.doc_key as string)));
   const accepted = requiredDocs.every((doc) => docs.includes(doc));
 
+  // Memberships the session can see — powers the workspace switcher.
+  const { data: membershipRows } = await ctx.supabase
+    .from('launchpad_memberships')
+    .select('tenant_id, role, launchpad_tenants ( id, name, status )')
+    .eq('user_id', ctx.user.id)
+    .eq('status', 'active');
+  const memberships = (membershipRows ?? [])
+    .filter((m) => m.launchpad_tenants)
+    .map((m) => {
+      const t = m.launchpad_tenants as { id: string; name: string; status: string };
+      return { id: t.id, name: t.name, status: t.status, role: m.role as string };
+    });
+
   return NextResponse.json({
     state: 'ok',
     tenant: { id: ctx.tenantId, name: ctx.tenantName, status: ctx.tenantStatus },
     role: ctx.role,
     user: { email: ctx.user.email },
     isOperator: isLaunchpadOperatorEmail(ctx.user.email),
+    memberships,
     acceptance: {
       termsVersion: TERMS_VERSION,
       accepted,

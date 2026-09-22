@@ -31,12 +31,20 @@ import { LiquidFilters } from '@/components/launchpad/liquid';
 import { EntitlementsProvider, PlanBadge, CreditMeter } from '@/components/launchpad/entitlements';
 import { TourBar } from '@/components/launchpad/tour-bar';
 
+interface TenantMembership {
+  id: string;
+  name: string;
+  status?: string;
+  role?: string;
+}
+
 interface TenantInfo {
   state: 'ok' | 'needs_onboarding';
   tenant?: { id: string; name: string; status: string };
   role?: string;
   user?: { email: string };
   isOperator?: boolean;
+  memberships?: TenantMembership[];
 }
 
 /** One-shot brake so a 401 cannot become a document-reload loop. */
@@ -187,11 +195,36 @@ function initials(name: string) {
 export default function TenantGate({ children }: { children: React.ReactNode }) {
   const [info, setInfo] = useState<TenantInfo | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [pickMemberships, setPickMemberships] = useState<TenantMembership[] | null>(null);
+  const [choosing, setChoosing] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const isOnboarding = pathname?.startsWith('/app/launchpad/onboarding');
   const isAdminPath = pathname?.startsWith('/app/launchpad/admin');
+
+  const chooseWorkspace = useCallback(async (tenantId: string) => {
+    setChoosing(tenantId);
+    try {
+      const r = await fetch('/api/fusarium/launchpad/tenant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => null);
+        setErr((d && d.error) || 'Could not switch workspace');
+        setChoosing(null);
+        return;
+      }
+      setPickMemberships(null);
+      setErr(null);
+      window.location.assign(pathname || '/app/launchpad/dashboard');
+    } catch {
+      setErr('Could not switch workspace');
+      setChoosing(null);
+    }
+  }, [pathname]);
 
   const load = useCallback(async () => {
     try {
@@ -223,22 +256,25 @@ export default function TenantGate({ children }: { children: React.ReactNode }) 
 
       const d = await r.json().catch(() => null);
 
+      if (r.status === 409 || (d && d.code === 'tenant_selection_required')) {
+        const list = Array.isArray(d?.memberships)
+          ? (d.memberships as TenantMembership[]).filter((m) => m && typeof m.id === 'string')
+          : [];
+        setPickMemberships(list);
+        setInfo(null);
+        setErr(null);
+        return;
+      }
+
       if (!r.ok || !d) {
-        // Anything else that is not a tenant payload. 409 is the real one:
-        // requireTenant returns { error, code: 'tenant_selection_required',
-        // memberships } for a user in two workspaces, and that body carries no
-        // `tenant` — rendering it crashed the shell on tenant.name.
-        setErr(
-          d && d.code === 'tenant_selection_required'
-            ? 'You belong to more than one workspace. Choose which one to open.'
-            : (d && d.error) || 'Could not load your workspace.',
-        );
+        setErr((d && d.error) || 'Could not load your workspace.');
         return;
       }
 
       // Got this far on a real session, so a later 401 is allowed to bounce again.
       try { window.sessionStorage.removeItem(AUTH_BOUNCE_KEY); } catch {}
 
+      setPickMemberships(null);
       setInfo(d);
       if (
         d.state === 'needs_onboarding' &&
@@ -254,6 +290,40 @@ export default function TenantGate({ children }: { children: React.ReactNode }) 
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setMobileOpen(false); }, [pathname]);
+
+  if (pickMemberships) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center p-6">
+        <div className="myco-glass-surface max-w-md w-full rounded-2xl border border-border/70 p-6">
+          <h1 className="text-lg font-semibold mb-1">Choose a workspace</h1>
+          <p className="text-sm text-muted-foreground mb-4">
+            You belong to more than one workspace. Pick which one to open — SAM ingest, credits, and
+            company data all follow this selection.
+          </p>
+          {pickMemberships.length > 0 ? (
+            <ul className="space-y-2">
+              {pickMemberships.map((m) => (
+                <li key={m.id}>
+                  <button
+                    type="button"
+                    disabled={choosing !== null}
+                    onClick={() => void chooseWorkspace(m.id)}
+                    className="myco-glass-button myco-glass-button--block min-h-[44px] w-full rounded-lg border border-border/60 px-3 py-2.5 text-left text-sm font-medium hover:border-emerald-500/50"
+                  >
+                    {choosing === m.id ? 'Opening…' : m.name || m.id}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No workspace names were returned. Email support@mycosoft.org and we will set your default.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (err) {
     return (
@@ -316,6 +386,26 @@ export default function TenantGate({ children }: { children: React.ReactNode }) 
             <PlanBadge />
           </div>
         </div>
+        {Array.isArray(info.memberships) && info.memberships.length > 1 ? (
+          <label className="mt-2 block">
+            <span className="sr-only">Switch workspace</span>
+            <select
+              className="mt-1 w-full min-h-[44px] rounded-lg border border-border/60 bg-background px-2 text-sm"
+              value={tenant.id}
+              onChange={(e) => {
+                const next = e.target.value;
+                if (next && next !== tenant.id) void chooseWorkspace(next);
+              }}
+              disabled={choosing !== null}
+            >
+              {info.memberships.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name || m.id}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </div>
 
       <div className="flex-1 overflow-y-auto py-3 px-3 space-y-4">

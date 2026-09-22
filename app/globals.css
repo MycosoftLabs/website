@@ -7495,6 +7495,13 @@ html.dark { color-scheme: dark; }
   border-radius: 0.75rem;
   transition: box-shadow 300ms ease;
 }
+.lp-tour-section-highlight {
+  position: relative;
+  z-index: 86;
+  outline: 2px solid rgba(16, 185, 129, 0.85);
+  outline-offset: 4px;
+  border-radius: 0.75rem;
+}
 @media (prefers-reduced-motion: reduce) {
   .lp-tour-highlight { animation: none; }
 }
