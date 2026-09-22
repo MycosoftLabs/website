@@ -69,13 +69,18 @@ export interface DeviceNotificationData {
 // NOTE: nodemailer must be installed: npm install nodemailer @types/nodemailer
 // Configuration comes from environment variables, never hardcoded
 
+/** Accept SMTP_PASS or legacy SMTP_PASSWORD (credentials files use either). */
+function smtpPassFromEnv(): string {
+  return process.env.SMTP_PASS || process.env.SMTP_PASSWORD || '';
+}
+
 const defaultConfig: EmailConfig = {
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: parseInt(process.env.SMTP_PORT || '587'),
   secure: process.env.SMTP_SECURE === 'true',
   auth: {
     user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
+    pass: smtpPassFromEnv(),
   },
 };
 
@@ -83,12 +88,12 @@ export async function verifyEmailConfig(): Promise<VerifyEmailConfigResult> {
   const host = process.env.SMTP_HOST || defaultConfig.host
   const port = process.env.SMTP_PORT || String(defaultConfig.port)
   const user = process.env.SMTP_USER || ""
-  const pass = process.env.SMTP_PASS || ""
+  const pass = smtpPassFromEnv()
 
   if (!host) return { valid: false, error: "SMTP_HOST is not set" }
   if (!port || Number.isNaN(Number(port))) return { valid: false, error: "SMTP_PORT is invalid" }
   if (!user) return { valid: false, error: "SMTP_USER is not set" }
-  if (!pass) return { valid: false, error: "SMTP_PASS is not set" }
+  if (!pass) return { valid: false, error: "SMTP_PASS (or SMTP_PASSWORD) is not set" }
 
   return { valid: true }
 }
@@ -96,10 +101,18 @@ export async function verifyEmailConfig(): Promise<VerifyEmailConfigResult> {
 export async function sendEmail(message: EmailMessage, config?: Partial<EmailConfig>): Promise<EmailResult> {
   try {
     const nodemailer = await import('nodemailer');
-    const mergedConfig = { ...defaultConfig, ...config };
+    const mergedConfig: EmailConfig = {
+      host: config?.host ?? process.env.SMTP_HOST ?? defaultConfig.host,
+      port: config?.port ?? parseInt(process.env.SMTP_PORT || String(defaultConfig.port)),
+      secure: config?.secure ?? process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: config?.auth?.user ?? process.env.SMTP_USER ?? '',
+        pass: config?.auth?.pass ?? smtpPassFromEnv(),
+      },
+    };
     
     if (!mergedConfig.auth.user || !mergedConfig.auth.pass) {
-      return { success: false, error: 'SMTP credentials not configured. Set SMTP_USER and SMTP_PASS env vars.' };
+      return { success: false, error: 'SMTP credentials not configured. Set SMTP_USER and SMTP_PASS (or SMTP_PASSWORD).' };
     }
     
     const transporter = nodemailer.createTransport(mergedConfig);

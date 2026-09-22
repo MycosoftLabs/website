@@ -12,6 +12,7 @@ import {
   normalizeCheckoutEmail,
 } from '@/lib/launchpad/billing/public-checkout';
 import { provisionPaidPublicPurchase } from '@/lib/launchpad/billing/provision';
+import { notifyOwnerLaunchpadPayment } from '@/lib/launchpad/notify-owner';
 
 /**
  * Launchpad's OWN Stripe webhook — deliberately separate from the legacy
@@ -279,6 +280,41 @@ export async function POST(request: NextRequest) {
     .from('launchpad_stripe_events')
     .update({ outcome })
     .eq('stripe_event_id', event.id);
+
+  // Owner ops alert on successful entitlement/credit handling — never fail the webhook.
+  if (outcome.handled === true) {
+    try {
+      const sessionObj =
+        event.type === 'checkout.session.completed'
+          ? (event.data.object as Stripe.Checkout.Session)
+          : null;
+      const mail = await notifyOwnerLaunchpadPayment({
+        eventType: event.type,
+        eventId: event.id,
+        tenantId:
+          (typeof outcome.tenantId === 'string' ? outcome.tenantId : null) ||
+          sessionObj?.metadata?.lp_tenant_id ||
+          null,
+        email:
+          sessionObj?.customer_details?.email ||
+          sessionObj?.customer_email ||
+          null,
+        planKey:
+          (typeof outcome.planKey === 'string' ? outcome.planKey : null) ||
+          sessionObj?.metadata?.lp_plan_key ||
+          null,
+        lookupKey: sessionObj?.metadata?.lp_lookup_key || null,
+        credits: typeof outcome.credits === 'number' ? outcome.credits : null,
+        note: typeof outcome.note === 'string' ? outcome.note : null,
+      });
+      if (!mail.sent) {
+        console.error('[launchpad/stripe/webhook] owner notify failed:', mail.error);
+      }
+      outcome = { ...outcome, ownerNotify: { sent: mail.sent, to: mail.to, error: mail.error } };
+    } catch (mailErr) {
+      console.error('[launchpad/stripe/webhook] owner notify threw:', (mailErr as Error).message);
+    }
+  }
 
   return NextResponse.json({ ok: true, outcome });
 }

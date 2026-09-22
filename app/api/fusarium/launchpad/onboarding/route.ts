@@ -6,6 +6,7 @@ import { TERMS_VERSION } from '@/lib/launchpad/constants';
 import { createLaunchpadServiceClient } from '@/lib/launchpad/service-client';
 import { claimPaidPurchasesForVerifiedEmail } from '@/lib/launchpad/billing/grants';
 import { verifiedAuthEmail } from '@/lib/launchpad/billing/public-checkout';
+import { notifyOwnerLaunchpadSignup } from '@/lib/launchpad/notify-owner';
 
 /**
  * POST — create the caller's Launchpad workspace.
@@ -109,5 +110,27 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, tenantId, claimedPurchases: claimed });
+  // Owner ops alert — never block workspace creation if mail fails.
+  let ownerNotify: { sent: boolean; to: string; error?: string } | undefined;
+  try {
+    const mail = await notifyOwnerLaunchpadSignup({
+      tenantId: tenantId as string,
+      companyName,
+      userId: ctx.user.id,
+      userEmail: verifiedEmail,
+    });
+    ownerNotify = { sent: mail.sent, to: mail.to, error: mail.error };
+    if (!mail.sent) {
+      console.error('[launchpad/onboarding] owner notify failed:', mail.error);
+    }
+  } catch (mailErr) {
+    console.error('[launchpad/onboarding] owner notify threw:', (mailErr as Error).message);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    tenantId,
+    claimedPurchases: claimed,
+    ownerNotify,
+  });
 }
