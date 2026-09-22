@@ -6173,10 +6173,12 @@ html body .home-command-page-light .home-hero-glass-field :is(a[href], button) {
    ============================================================================= */
 
 .launchpad-glass-page {
+  /* Light: mold/phthalo green-gray in the corner, fading to light (mirrors
+     dark’s green-gray corner → black). Visible wash, not a faint tint. */
   background:
-    radial-gradient(1100px 520px at 12% -12%, rgba(16, 185, 129, 0.07), transparent 60%),
-    radial-gradient(900px 480px at 100% 0%, rgba(100, 116, 139, 0.08), transparent 55%),
-    linear-gradient(180deg, #f7f8f9 0%, #eef0f2 100%);
+    radial-gradient(1200px 640px at 0% 0%, rgba(47, 79, 62, 0.34), transparent 58%),
+    radial-gradient(980px 520px at 100% 0%, rgba(10, 77, 74, 0.18), transparent 52%),
+    linear-gradient(180deg, #dfe8e2 0%, #eef3ef 42%, #f7faf8 100%);
 }
 .dark .launchpad-glass-page {
   background:
@@ -6191,15 +6193,22 @@ html body .home-command-page-light .home-hero-glass-field :is(a[href], button) {
 .launchpad-glass-page [class*="rounded-2xl"][class*="border"],
 .launchpad-glass-page [class*="rounded-3xl"][class*="border"] {
   position: relative;
-  border-color: rgba(15, 23, 42, 0.10) !important;
+  /* Light: phthalo/mold glass with depth — not white slabs */
+  border-color: rgba(61, 107, 90, 0.42) !important;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.60) 44%, rgba(255, 255, 255, 0.46)) !important;
+    linear-gradient(
+      145deg,
+      rgba(167, 196, 160, 0.55),
+      rgba(47, 79, 62, 0.16) 42%,
+      rgba(232, 240, 236, 0.82)
+    ) !important;
   box-shadow:
-    0 18px 44px rgba(15, 23, 42, 0.10),
-    0 2px 6px rgba(15, 23, 42, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
-  backdrop-filter: blur(18px) saturate(1.2);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    0 18px 44px rgba(15, 40, 28, 0.16),
+    0 2px 8px rgba(47, 79, 62, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -1px 0 rgba(47, 79, 62, 0.08) !important;
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
 }
 .dark .launchpad-glass-page [class*="rounded-lg"][class*="border"],
 .dark .launchpad-glass-page [class*="rounded-xl"][class*="border"],
@@ -6231,12 +6240,12 @@ html body .home-command-page-light .home-hero-glass-field :is(a[href], button) {
 /* --- Glass buttons --- */
 .launchpad-glass-page button:not([class*="bg-emerald"]):not([data-flat]),
 .launchpad-glass-page a[role="button"]:not([class*="bg-emerald"]) {
-  border-color: rgba(15, 23, 42, 0.12) !important;
+  border-color: rgba(61, 107, 90, 0.38) !important;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.62) 46%, rgba(255, 255, 255, 0.48)) !important;
+    linear-gradient(135deg, rgba(167, 196, 160, 0.48), rgba(232, 240, 236, 0.78) 46%, rgba(241, 245, 242, 0.9)) !important;
   box-shadow:
-    0 10px 24px rgba(15, 23, 42, 0.10),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+    0 10px 24px rgba(15, 40, 28, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85) !important;
   backdrop-filter: blur(14px) saturate(1.2);
   -webkit-backdrop-filter: blur(14px) saturate(1.2);
 }
@@ -6258,7 +6267,7 @@ html body .home-command-page-light .home-hero-glass-field :is(a[href], button) {
    therefore still win where white type belongs (over artwork). */
 html:not(.dark) .launchpad-glass-page button[class*="text-white"],
 html:not(.dark) .launchpad-glass-page a[role="button"][class*="text-white"] {
-  color: #0f172a !important;
+  color: #0A4D4A !important;
 }
 
 /* =============================================================================
@@ -6353,12 +6362,13 @@ html:not(.dark) .launchpad-glass-page [data-over-video] .neu-btn {
 .lp-band {
   position: relative;
   background:
-    radial-gradient(900px 400px at 20% 0%, rgba(16, 185, 129, 0.10), transparent 60%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(248, 250, 252, 0.68)) !important;
-  border-top: 1px solid rgba(15, 23, 42, 0.07);
-  border-bottom: 1px solid rgba(15, 23, 42, 0.07);
-  backdrop-filter: blur(16px) saturate(1.15);
-  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+    radial-gradient(900px 420px at 8% 0%, rgba(47, 79, 62, 0.28), transparent 58%),
+    radial-gradient(700px 360px at 100% 100%, rgba(10, 77, 74, 0.14), transparent 55%),
+    linear-gradient(180deg, rgba(210, 224, 214, 0.92), rgba(232, 240, 236, 0.78)) !important;
+  border-top: 1px solid rgba(61, 107, 90, 0.28);
+  border-bottom: 1px solid rgba(61, 107, 90, 0.22);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
 }
 .dark .lp-band {
   background:
@@ -6366,6 +6376,27 @@ html:not(.dark) .launchpad-glass-page [data-over-video] .neu-btn {
     linear-gradient(180deg, #0a0b0d, #06070a) !important;
   border-top-color: rgba(255, 255, 255, 0.08);
   border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Alternating content bands on Launchpad (light): every other section gets a
+   deeper mold wash so panels are not identical white slabs. Dark keeps quiet. */
+.launchpad-glass-page > section.lp-surface {
+  position: relative;
+  background: transparent;
+}
+.launchpad-glass-page > section.lp-surface--alt {
+  background:
+    radial-gradient(860px 380px at 100% 0%, rgba(10, 77, 74, 0.16), transparent 55%),
+    linear-gradient(180deg, rgba(199, 216, 206, 0.55), rgba(232, 240, 236, 0.25));
+  border-top: 1px solid rgba(61, 107, 90, 0.18);
+  border-bottom: 1px solid rgba(61, 107, 90, 0.12);
+}
+.dark .launchpad-glass-page > section.lp-surface--alt {
+  background:
+    radial-gradient(860px 380px at 100% 0%, rgba(16, 185, 129, 0.06), transparent 55%),
+    linear-gradient(180deg, rgba(8, 12, 10, 0.55), rgba(5, 6, 7, 0.2));
+  border-top-color: rgba(255, 255, 255, 0.06);
+  border-bottom-color: rgba(255, 255, 255, 0.04);
 }
 
 /* Light mode: remap the band's white-on-black type to ink-on-glass. */
@@ -6426,6 +6457,97 @@ html:not(.dark) body .lp-band [class*="!text-white"] {
 }
 
 /* =============================================================================
+   .lp-photo-band — Launchpad section photo backgrounds (Honest Scoring / How It Works)
+   -----------------------------------------------------------------------------
+   Full-bleed still behind content. Light mode uses a light scrim + ink type so
+   copy stays readable; dark mode uses a darker scrim + white type. Scrims stay
+   thin enough that the photo remains visible. Do not use on the hero (video
+   stack) or Why / journey / security bands.
+   ============================================================================= */
+.lp-photo-band {
+  position: relative;
+  isolation: isolate;
+  background: transparent !important;
+  border-top: none;
+  border-bottom: none;
+}
+.lp-photo-band > .lp-photo-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+}
+.lp-photo-band > .lp-photo-bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(1.05);
+}
+.lp-photo-band > .lp-photo-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* Light mode: light veil — photo still reads through. */
+  background:
+    linear-gradient(
+      180deg,
+      rgba(248, 250, 252, 0.52),
+      rgba(232, 240, 236, 0.48) 45%,
+      rgba(248, 250, 252, 0.62)
+    );
+}
+.dark .lp-photo-band > .lp-photo-scrim {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(3, 6, 12, 0.55),
+      rgba(3, 6, 12, 0.40) 45%,
+      rgba(3, 6, 12, 0.62)
+    );
+}
+
+/* Light mode: remap white-on-photo type to ink (same idea as .lp-band). */
+html:not(.dark) .lp-photo-band,
+html:not(.dark) .lp-photo-band h1,
+html:not(.dark) .lp-photo-band h2,
+html:not(.dark) .lp-photo-band h3,
+html:not(.dark) .lp-photo-band h4,
+html:not(.dark) .lp-photo-band p,
+html:not(.dark) .lp-photo-band span,
+html:not(.dark) .lp-photo-band div,
+html:not(.dark) .lp-photo-band li {
+  color: #0f172a;
+}
+html:not(.dark) .lp-photo-band [class*="text-white/6"],
+html:not(.dark) .lp-photo-band [class*="text-white/7"],
+html:not(.dark) .lp-photo-band [class*="text-white/8"],
+html:not(.dark) .lp-photo-band [class*="text-white/4"],
+html:not(.dark) .lp-photo-band [class*="text-white/5"] {
+  color: #334155 !important;
+}
+html:not(.dark) .lp-photo-band .text-white,
+html:not(.dark) .lp-photo-band [class*="text-white"]:not([class*="text-white/"]) {
+  color: #0f172a !important;
+}
+html:not(.dark) .lp-photo-band [class*="bg-white/5"],
+html:not(.dark) .lp-photo-band [class*="bg-white/10"] {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+html:not(.dark) .lp-photo-band .text-emerald-400,
+html:not(.dark) .lp-photo-band [class*="text-emerald-4"] {
+  color: #059669 !important;
+}
+/* Dark mode keeps authored white / muted white over the darker scrim. */
+.dark .lp-photo-band .text-foreground {
+  color: #f8fafc;
+}
+.dark .lp-photo-band .text-muted-foreground {
+  color: rgba(248, 250, 252, 0.72);
+}
+
+/* =============================================================================
    .lp-media-band — section with a full-bleed graphic behind TRUE see-through glass
    -----------------------------------------------------------------------------
    Unlike .lp-band (which swaps a solid ground per theme), this band keeps its
@@ -6476,6 +6598,9 @@ html:not(.dark) body .lp-band [class*="!text-white"] {
   background:
     linear-gradient(180deg, rgba(3, 6, 12, 0.72), rgba(3, 6, 12, 0.60) 45%, rgba(3, 6, 12, 0.78));
 }
+
+/* Hero media stacking matches live mycosoft.com (.lp-media-bg z-index:-2,
+   .lp-media-scrim z-index:-1). Do not override — local experiments hid footage. */
 
 /* --- Every surface in the band becomes the SAME see-through frosted glass:
        cards, badges, pills, and buttons all share one treatment. Higher
@@ -7052,6 +7177,27 @@ html.dark .lp-media-band .myco-glass-button :is(button, a, :where(.glass-chip)) 
   text-shadow: 0 0.06em 0.14em rgba(0, 0, 0, 0.45);
 }
 
+/* Launchpad LIGHT mode: white/light glass CTAs + pills need phthalo green
+   labels — the media-band rules above force white type (correct over dark
+   artwork in dark mode, unreadable on light glass). Hero h1/body stay white
+   via [data-over-video]; only .myco-glass-button ink changes. */
+html:not(.dark) .launchpad-glass-page .myco-glass-button :is(button, a, :where(.glass-chip)),
+html:not(.dark) .launchpad-glass-page .myco-glass-button :is(button, a, :where(.glass-chip)) > span,
+html:not(.dark) .launchpad-glass-page .myco-glass-button :is(button, a, :where(.glass-chip)) > span > svg,
+html:not(.dark) .launchpad-glass-page .lp-media-band .myco-glass-button :is(button, a, :where(.glass-chip)),
+html:not(.dark) .launchpad-glass-page .lp-media-band .myco-glass-button :is(button, a, :where(.glass-chip)) > span,
+html:not(.dark) .launchpad-glass-page .lp-media-band .myco-glass-button :is(button, a, :where(.glass-chip)) > span > svg,
+html:not(.dark) .launchpad-glass-page [data-over-video] .myco-glass-button :is(button, a, :where(.glass-chip)),
+html:not(.dark) .launchpad-glass-page [data-over-video] .myco-glass-button :is(button, a, :where(.glass-chip)) > span,
+html:not(.dark) .launchpad-glass-page [data-over-video] .myco-glass-button :is(button, a, :where(.glass-chip)) > span > svg,
+html:not(.dark) .launchpad-glass-page [data-over-video] .myco-glass-button span,
+html:not(.dark) .launchpad-glass-page [data-over-video] .myco-glass-button svg,
+html:not(.dark) .launchpad-glass-page .lp-media-band button,
+html:not(.dark) .launchpad-glass-page .lp-media-band a[role="button"] {
+  color: #0A4D4A !important;
+  text-shadow: none !important;
+}
+
 
 /* ---------------------------------------------------------------------------
    Static variant — the section eyebrows.
@@ -7494,13 +7640,6 @@ html.dark { color-scheme: dark; }
   box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.35);
   border-radius: 0.75rem;
   transition: box-shadow 300ms ease;
-}
-.lp-tour-section-highlight {
-  position: relative;
-  z-index: 86;
-  outline: 2px solid rgba(16, 185, 129, 0.85);
-  outline-offset: 4px;
-  border-radius: 0.75rem;
 }
 @media (prefers-reduced-motion: reduce) {
   .lp-tour-highlight { animation: none; }
