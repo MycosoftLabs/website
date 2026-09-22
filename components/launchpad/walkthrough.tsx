@@ -105,12 +105,41 @@ export function Walkthrough({ walkthrough }: { walkthrough: WalkthroughDef }) {
   const [done, setDone] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
-  // Resume from localStorage after mount (SSR-safe).
+  // Resume from localStorage + Supabase workbook progress after mount.
   useEffect(() => {
-    const p = readWalkthroughProgress(walkthrough.id);
-    setIndex(Math.min(p.step, steps.length - 1));
-    setDone(p.done);
-    setHydrated(true);
+    let cancelled = false;
+    const local = readWalkthroughProgress(walkthrough.id);
+    setIndex(Math.min(local.step, steps.length - 1));
+    setDone(local.done);
+
+    void (async () => {
+      try {
+        const r = await fetch('/api/fusarium/launchpad/workbook', { cache: 'no-store' });
+        if (!r.ok || cancelled) {
+          if (!cancelled) setHydrated(true);
+          return;
+        }
+        const d = await r.json();
+        const prefix = `walkthrough:${walkthrough.id}:`;
+        const serverDone = Array.isArray(d.walkthroughProgress)
+          ? (d.walkthroughProgress as string[])
+              .filter((id) => id.startsWith(prefix))
+              .map((id) => id.slice(prefix.length))
+          : [];
+        if (cancelled) return;
+        const merged = Array.from(new Set([...local.done, ...serverDone]));
+        setDone(merged);
+        writeWalkthroughProgress(walkthrough.id, { step: local.step, done: merged });
+      } catch {
+        /* offline — local progress still works */
+      } finally {
+        if (!cancelled) setHydrated(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [walkthrough.id, steps.length]);
 
   // Persist on every change — but never before the initial read, or a fresh
@@ -127,6 +156,14 @@ export function Walkthrough({ walkthrough }: { walkthrough: WalkthroughDef }) {
 
   const setStepDone = (checked: boolean) => {
     setDone((d) => (checked ? (d.includes(step.id) ? d : [...d, step.id]) : d.filter((x) => x !== step.id)));
+    const stepId = `walkthrough:${walkthrough.id}:${step.id}`;
+    void fetch('/api/fusarium/launchpad/workbook', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stepId, complete: checked }),
+    }).catch(() => {
+      /* local progress already updated */
+    });
   };
 
   return (
@@ -262,7 +299,7 @@ export function Walkthrough({ walkthrough }: { walkthrough: WalkthroughDef }) {
       </div>
 
       <p className="mt-3 text-[11px] text-muted-foreground">
-        Progress is saved in this browser only for now — server-side sync across devices is coming later.
+        Progress is saved to your workspace in Supabase (and mirrored in this browser) so it follows you across devices.
       </p>
     </Card>
   );

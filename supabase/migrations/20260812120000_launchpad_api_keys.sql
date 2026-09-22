@@ -164,7 +164,8 @@ begin
     raise exception 'invalid scope';
   end if;
 
-  v_raw := gen_random_bytes(32);
+  -- pgcrypto lives in the extensions schema on Supabase; search_path is public-only.
+  v_raw := extensions.gen_random_bytes(32);
   v_plain := 'lp_' || translate(encode(v_raw, 'base64'), '+/=', '-_');
   -- trim padding artifacts from translate
   v_plain := rtrim(v_plain, '-_');

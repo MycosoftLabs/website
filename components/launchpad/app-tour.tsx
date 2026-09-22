@@ -364,15 +364,22 @@ export function AppTour({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** The "Take the tour" GlassButton, owning its own open/close state. */
+/** The "Take the tour" GlassButton — starts a live guided visit on real pages. */
 export function AppTourButton({ className }: { className?: string }) {
-  const [open, setOpen] = useState(false);
   return (
-    <>
-      <GlassButton onClick={() => setOpen(true)} className={className} dataAnalytics="launchpad-tour-start">
-        <Compass className="h-4 w-4 text-current mr-2" /> Take the tour
-      </GlassButton>
-      {open && <AppTour onClose={() => setOpen(false)} />}
-    </>
+    <GlassButton
+      onClick={() => {
+        try {
+          sessionStorage.setItem(GUIDED_TOUR_KEY, '0');
+        } catch {
+          /* private mode */
+        }
+        window.location.assign(TOUR_SLIDES[0].href);
+      }}
+      className={className}
+      dataAnalytics="launchpad-tour-start"
+    >
+      <Compass className="h-4 w-4 text-current mr-2" /> Take the tour
+    </GlassButton>
   );
 }

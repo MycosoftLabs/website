@@ -27,10 +27,13 @@ export interface OfficialCollectResult {
 
 export async function collectOfficialRadarSources(opts?: {
   limit?: number;
+  /** Tenant-scoped SAM title keyword from company/capability prompt. */
+  keyword?: string | null;
 }): Promise<OfficialCollectResult> {
   const limit = opts?.limit ?? 25;
+  const keyword = opts?.keyword?.trim() || undefined;
   const [sam, sbir, grants] = await Promise.all([
-    collectSamOpportunitiesSafe({ apiKey: resolveSamApiKeyFromEnv(), limit }),
+    collectSamOpportunitiesSafe({ apiKey: resolveSamApiKeyFromEnv(), limit, keyword }),
     collectSbirOpportunitiesSafe({ limit }),
     collectGrantsGovOpportunitiesSafe({ limit }),
   ]);
