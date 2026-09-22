@@ -71,7 +71,10 @@ export interface DeviceNotificationData {
 
 /** Accept SMTP_PASS or legacy SMTP_PASSWORD (credentials files use either). */
 function smtpPassFromEnv(): string {
-  return process.env.SMTP_PASS || process.env.SMTP_PASSWORD || '';
+  // Gmail app passwords are often stored with dashes/spaces for readability;
+  // SMTP AUTH expects the 16-char form without separators.
+  const raw = process.env.SMTP_PASS || process.env.SMTP_PASSWORD || '';
+  return raw.replace(/[-\s]/g, '');
 }
 
 const defaultConfig: EmailConfig = {
