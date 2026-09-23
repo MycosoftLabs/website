@@ -4,12 +4,14 @@
  * Live Translation Demo - client-only rendering to avoid hydration mismatch.
  * Uses Date.now() and Math.random() which differ between server and client.
  * Renders placeholder until mounted, then shows live simulated signal stream.
- * Created: Mar 02, 2026
+ * Created: Mar 02, 2026 | Glass restyle: Sep 22, 2026
  */
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Zap } from "lucide-react"
+import { NLM_GLASS_CARD, NLM_GLASS_INSET } from "@/components/myca/nlm-glass"
+import { cn } from "@/lib/utils"
 
 export function LiveTranslationDemo() {
   const [mounted, setMounted] = useState(false)
@@ -17,7 +19,6 @@ export function LiveTranslationDemo() {
 
   useEffect(() => {
     setMounted(true)
-    // Initial batch of simulated lines (static after first render to avoid constant re-hydration)
     const now = new Date()
     const baseTime = now.getTime()
     const initial = Array.from({ length: 6 }).map((_, i) => {
@@ -31,7 +32,6 @@ export function LiveTranslationDemo() {
     })
     setLines(initial)
 
-    // Optional: refresh lines periodically (every 2s) for "live" feel
     const id = setInterval(() => {
       setLines((prev) => {
         const next = [...prev.slice(1)]
@@ -48,59 +48,30 @@ export function LiveTranslationDemo() {
     return () => clearInterval(id)
   }, [])
 
-  if (!mounted) {
-    return (
-      <section>
-        <Card className="bg-green-500/5 border-green-500/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5 text-green-600 dark:text-green-500" /> Live Translation Demo
-            </CardTitle>
-            <CardDescription>
-              Real-time Mycospeak translation from simulated mycelial signals (as shown in NLM Training Dashboard)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <h4 className="font-medium">Raw Signal Input</h4>
-                <div className="bg-background p-4 rounded-lg font-mono text-xs h-40 overflow-hidden">
-                  <div className="animate-pulse space-y-1">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <p key={i} className="text-green-600 dark:text-green-400 opacity-60">
-                        [--:--:--] VOC: 0.0000 | E: 0mV | pH: 0.00
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <h4 className="font-medium">Structured Translation Output</h4>
-                <div className="bg-background p-4 rounded-lg h-40 overflow-auto">
-                  <pre className="text-xs text-green-700 dark:text-green-300">{`{
-  "state": "nutrient_foraging_upshift",
-  "confidence": 0.82,
-  "evidence": ["token_17_burst", "soil_moisture_drop", "CO2_rise"],
-  "predicted_next": ["growth_direction_change", "resource_allocation_shift"],
-  "recommended_action": ["increase_sampling_rate"],
-  "nmf_version": "0.2",
-  "provenance": "fci_v2_lab_alpha"
-}`}</pre>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-    )
-  }
+  const signalBody = mounted ? (
+    <div className="animate-pulse space-y-1">
+      {lines.map((line, i) => (
+        <p key={`${line.time}-${i}`} className="text-zinc-800 dark:text-zinc-200">
+          [{line.time}] VOC: {line.voc} | E: {line.e}mV | pH: {line.ph}
+        </p>
+      ))}
+    </div>
+  ) : (
+    <div className="animate-pulse space-y-1">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <p key={i} className="text-zinc-600 dark:text-zinc-400 opacity-60">
+          [--:--:--] VOC: 0.0000 | E: 0mV | pH: 0.00
+        </p>
+      ))}
+    </div>
+  )
 
   return (
     <section>
-      <Card className="bg-green-500/5 border-green-500/20">
+      <Card className={NLM_GLASS_CARD}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-green-600 dark:text-green-500" /> Live Translation Demo
+            <Zap className="h-5 w-5 text-zinc-800 dark:text-zinc-200" /> Live Translation Demo
           </CardTitle>
           <CardDescription>
             Real-time Mycospeak translation from simulated mycelial signals (as shown in NLM Training Dashboard)
@@ -110,20 +81,14 @@ export function LiveTranslationDemo() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <h4 className="font-medium">Raw Signal Input</h4>
-              <div className="bg-background p-4 rounded-lg font-mono text-xs h-40 overflow-hidden">
-                <div className="animate-pulse space-y-1">
-                  {lines.map((line, i) => (
-                    <p key={`${line.time}-${i}`} className="text-green-600 dark:text-green-400">
-                      [{line.time}] VOC: {line.voc} | E: {line.e}mV | pH: {line.ph}
-                    </p>
-                  ))}
-                </div>
+              <div className={cn(NLM_GLASS_INSET, "p-4 font-mono text-xs h-40 overflow-hidden")}>
+                {signalBody}
               </div>
             </div>
             <div className="space-y-2">
               <h4 className="font-medium">Structured Translation Output</h4>
-              <div className="bg-background p-4 rounded-lg h-40 overflow-auto">
-                <pre className="text-xs text-green-700 dark:text-green-300">{`{
+              <div className={cn(NLM_GLASS_INSET, "p-4 h-40 overflow-auto")}>
+                <pre className="text-xs text-zinc-800 dark:text-zinc-200">{`{
   "state": "nutrient_foraging_upshift",
   "confidence": 0.82,
   "evidence": ["token_17_burst", "soil_moisture_drop", "CO2_rise"],

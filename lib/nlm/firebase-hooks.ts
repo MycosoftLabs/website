@@ -54,9 +54,12 @@ export function useModels(userId: string | undefined, isAdmin?: boolean) {
     };
     load();
     const interval = window.setInterval(load, 15000);
+    const onRefresh = () => { void load(); };
+    window.addEventListener('nlm-models-refresh', onRefresh);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
+      window.removeEventListener('nlm-models-refresh', onRefresh);
     };
   }, [userId, isAdmin]);
 
@@ -258,9 +261,12 @@ export function useVariants(userId?: string, isAdmin?: boolean) {
     };
     load();
     const interval = window.setInterval(load, 15000);
+    const onRefresh = () => { void load(); };
+    window.addEventListener('nlm-models-refresh', onRefresh);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
+      window.removeEventListener('nlm-models-refresh', onRefresh);
     };
   }, [userId, isAdmin]);
 

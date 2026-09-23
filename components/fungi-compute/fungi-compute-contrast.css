@@ -1,0 +1,94 @@
+/**
+ * Fungi Compute — max-contrast console skin
+ * Forces neon-readable lettering on black glass. Scope: .fungi-compute-console only.
+ */
+
+.fungi-compute-console {
+  color: #f8fafc;
+  background: #000 !important;
+}
+
+.fungi-compute-console,
+.fungi-compute-console * {
+  --muted-foreground: #f8fafc;
+}
+
+/* Kill inherited muted / slate / gray text utilities inside the console */
+.fungi-compute-console [class*="text-slate"],
+.fungi-compute-console [class*="text-gray"],
+.fungi-compute-console [class*="text-muted"],
+.fungi-compute-console .text-muted-foreground {
+  color: #f8fafc !important;
+}
+
+/* Mid cyan/teal that reads as dark blue on black glass → bright neon */
+.fungi-compute-console .text-cyan-400,
+.fungi-compute-console .text-cyan-500,
+.fungi-compute-console .text-cyan-300 {
+  color: #a5f3fc !important;
+  text-shadow: 0 0 8px rgba(165, 243, 252, 0.65);
+}
+
+.fungi-compute-console .text-emerald-400,
+.fungi-compute-console .text-emerald-500,
+.fungi-compute-console .text-emerald-300 {
+  color: #6ee7b7 !important;
+  text-shadow: 0 0 8px rgba(110, 231, 183, 0.65);
+}
+
+.fungi-compute-console .text-purple-400,
+.fungi-compute-console .text-purple-500 {
+  color: #e9d5ff !important;
+  text-shadow: 0 0 8px rgba(233, 213, 255, 0.55);
+}
+
+.fungi-compute-console .text-amber-400,
+.fungi-compute-console .text-amber-500 {
+  color: #fde68a !important;
+  text-shadow: 0 0 8px rgba(253, 230, 138, 0.55);
+}
+
+/* Opacity-truncated text utilities → force opaque white */
+.fungi-compute-console [class*="text-cyan-400/"],
+.fungi-compute-console [class*="text-cyan-500/"],
+.fungi-compute-console [class*="text-emerald-400/"],
+.fungi-compute-console [class*="text-white/"] {
+  color: #f8fafc !important;
+  opacity: 1 !important;
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.35);
+}
+
+/* Empty / banner states */
+.fungi-compute-console .fungi-empty-banner {
+  color: #ffffff !important;
+  border: 1px solid rgba(250, 204, 21, 0.55);
+  background: rgba(0, 0, 0, 0.72);
+  box-shadow: 0 0 18px rgba(250, 204, 21, 0.25);
+}
+
+.fungi-compute-console .fungi-empty-banner p {
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.45);
+}
+
+.fungi-compute-console .fungi-metric-value {
+  color: #ffffff !important;
+  font-weight: 700;
+  text-shadow: 0 0 10px rgba(52, 211, 153, 0.75);
+}
+
+.fungi-compute-console .fungi-axis-label,
+.fungi-compute-console .fungi-stat-label {
+  color: #ffffff !important;
+  font-weight: 600;
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+}
+
+.fungi-compute-console a {
+  color: #a5f3fc !important;
+  text-shadow: 0 0 6px rgba(165, 243, 252, 0.5);
+}
+
+.fungi-compute-console a:hover {
+  color: #ffffff !important;
+}

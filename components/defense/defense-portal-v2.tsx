@@ -710,10 +710,6 @@ export function DefensePortalV2() {
             transition={{ delay: 0.2 }}
             className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight mb-6 portal-hero-title"
           >
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground to-foreground/70">
-              OPERATIONAL
-            </span>
-            <br />
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-green-500 to-emerald-500">
               ENVIRONMENTAL
             </span>
@@ -870,7 +866,7 @@ export function DefensePortalV2() {
             <div>
               <NeuBadge variant="primary" className="mb-4">The Solution</NeuBadge>
               <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">
-                Operational Environmental Intelligence
+                Environmental Intelligence
               </h2>
               <p className="text-xl text-muted-foreground mb-8">
                 OEI is a continuous, instrumented, and analytically rich intelligence layer that measures, 
@@ -919,7 +915,7 @@ export function DefensePortalV2() {
               <div className="relative overflow-hidden rounded-2xl border border-cyan-400/25 bg-slate-950 shadow-2xl">
                 <Image
                   src="/assets/defense/oei-intelligence-layer.png"
-                  alt="Operational Environmental Intelligence missing layer diagram"
+                  alt="Environmental Intelligence missing layer diagram"
                   width={1024}
                   height={1024}
                   className="h-auto w-full object-cover"

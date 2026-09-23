@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { NLM_GLASS_CARD } from "@/components/myca/nlm-glass"
+import { cn } from "@/lib/utils"
 
 interface NLMMetricsResponse {
   source: "live" | "degraded" | "unavailable"
@@ -75,7 +77,7 @@ export function NLMStatsPanel() {
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i}>
+          <Card key={i} className={NLM_GLASS_CARD}>
             <CardHeader className="pb-2">
               <Skeleton className="h-4 w-24" />
             </CardHeader>
@@ -117,26 +119,26 @@ export function NLMStatsPanel() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-purple-500/10 border-purple-500/20">
+        <Card className={NLM_GLASS_CARD}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Brain className="h-4 w-4" /> Model Status
+              <Brain className="h-4 w-4 text-zinc-800 dark:text-zinc-200" /> Model Status
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+            <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
               {metrics?.model_status ?? "Unavailable"}
             </div>
             <p className="text-sm text-muted-foreground">{metrics?.phase ?? "NLM-Funga"}</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={NLM_GLASS_CARD}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Translation Accuracy</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600 dark:text-green-500">
+            <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
               {formatAccuracy(metrics?.translation_accuracy ?? null)}
             </div>
             {metrics?.translation_accuracy != null ? (
@@ -147,24 +149,24 @@ export function NLMStatsPanel() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={NLM_GLASS_CARD}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Training Data</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
               {formatSampleCount(metrics?.signal_samples ?? null)}
             </div>
             <p className="text-sm text-muted-foreground">Signal samples</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={NLM_GLASS_CARD}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Overall Progress</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
               {formatProgress(metrics?.overall_progress ?? null)}
             </div>
             {metrics?.overall_progress != null ? (
@@ -177,7 +179,7 @@ export function NLMStatsPanel() {
       </div>
 
       {error ? (
-        <p className="text-sm text-amber-700 dark:text-amber-300">
+        <p className={cn("text-sm text-zinc-700 dark:text-zinc-300")}>
           {error}. Showing empty states — not fabricated numbers.
         </p>
       ) : null}

@@ -1,4 +1,4 @@
-import { Metadata } from "next"
+﻿import { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
 import { CorporateLiveFeed } from "@/components/about/CorporateLiveFeed"
@@ -67,7 +67,7 @@ export default function CorporateTeamPage() {
     <NeuromorphicProvider>
       <div className="min-h-dvh">
         {/* Hero */}
-        <section className="relative py-16 md:py-24 overflow-hidden bg-gradient-to-b from-black via-slate-950/50 to-background">
+        <section className="relative py-16 md:py-24 overflow-hidden bg-gradient-to-b from-black via-black/80 to-background">
           <div className="absolute inset-0 bg-[linear-gradient(rgba(34,197,94,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(34,197,94,0.03)_1px,transparent_1px)] bg-[size:120px_120px]" />
           <div className="container max-w-6xl mx-auto px-4 md:px-6 relative z-10">
             <NeuBadge variant="default" className="mb-4 border border-white/20">
@@ -79,7 +79,7 @@ export default function CorporateTeamPage() {
             <p className="text-base sm:text-lg text-muted-foreground max-w-3xl">
               Morgan Rockwell serves as Founder, CEO, CTO, COO, and Chairman of the Board. RJ Ricasata
               serves as the second Board Director. Autonomous frontier SI services, coordinated by MYCA,
-              augment and assist all corporate functions — enabling 24/7 autonomous execution, planning, and governance.
+              augment and assist all corporate functions â€” enabling 24/7 autonomous execution, planning, and governance.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
@@ -164,7 +164,7 @@ export default function CorporateTeamPage() {
                   <p className="text-sm text-muted-foreground">
                     Morgan Rockwell holds all executive titles (CEO, CTO, COO, Chairman). MYCA and autonomous frontier
                     SI services augment every executive and director function. Each model contributes real-time reports, strategic plans, audits, and
-                    operational directives—kept synchronized through MYCA’s governance loop.
+                    operational directivesâ€”kept synchronized through MYCAâ€™s governance loop.
                   </p>
                   <p className="text-sm text-muted-foreground">
                     All corporate agents provide LLM and voice interfaces to MYCA, enabling fast

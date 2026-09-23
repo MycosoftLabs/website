@@ -120,7 +120,7 @@ export function ExperimentDesigner() {
       {/* Settings */}
       <div className="space-y-2">
         <div>
-          <Label className="text-[10px] text-cyan-400/70">Species</Label>
+          <Label className="text-[10px] text-cyan-100">Species</Label>
           <Select value={species} onValueChange={setSpecies}>
             <SelectTrigger className="h-8 text-xs bg-black/40 border-cyan-500/20 text-cyan-400">
               <SelectValue />
@@ -135,7 +135,7 @@ export function ExperimentDesigner() {
         </div>
         
         <div>
-          <Label className="text-[10px] text-cyan-400/70">Duration (days)</Label>
+          <Label className="text-[10px] text-cyan-100">Duration (days)</Label>
           <Input
             type="number"
             value={duration}
@@ -148,7 +148,7 @@ export function ExperimentDesigner() {
       {/* Electrode Placement */}
       <div className="flex-1 min-h-0">
         <div className="flex items-center justify-between mb-1">
-          <Label className="text-[10px] text-cyan-400/70">Electrodes ({electrodes.length})</Label>
+          <Label className="text-[10px] text-cyan-100">Electrodes ({electrodes.length})</Label>
           <Button
             variant="ghost"
             size="sm"
@@ -187,7 +187,7 @@ export function ExperimentDesigner() {
       {/* Stimulus Schedule */}
       <div>
         <div className="flex items-center justify-between mb-1">
-          <Label className="text-[10px] text-cyan-400/70">Stimuli ({stimuli.length})</Label>
+          <Label className="text-[10px] text-cyan-100">Stimuli ({stimuli.length})</Label>
           <Button
             variant="ghost"
             size="sm"
@@ -224,7 +224,7 @@ export function ExperimentDesigner() {
       </div>
       
       {/* Expected Outcomes */}
-      <div className="text-[9px] text-cyan-400/60 space-y-0.5">
+      <div className="text-[9px] text-cyan-100 space-y-0.5">
         <div>✓ STFT colonization signature at day 3-4</div>
         <div>✓ Transfer entropy from bait → other electrodes</div>
         <div>✓ Species-specific spike patterns</div>

@@ -170,7 +170,7 @@ export function EventMempool({ events = [], patterns = [], className }: EventMem
   }
   
   const getEventConfig = (type: string) => {
-    return EVENT_TYPES[type as keyof typeof EVENT_TYPES] || { icon: Activity, color: "#94a3b8", category: "unknown", priority: 5 }
+    return EVENT_TYPES[type as keyof typeof EVENT_TYPES] || { icon: Activity, color: "#e2e8f0", category: "unknown", priority: 5 }
   }
 
   return (
@@ -200,31 +200,31 @@ export function EventMempool({ events = [], patterns = [], className }: EventMem
       </div>
       
       {/* Stats Bar */}
-      <div className="flex-none grid grid-cols-4 gap-0.5 p-1 border-b border-cyan-500/10">
+      <div className="flex-none grid grid-cols-4 gap-0.5 p-1 border-b border-white/20">
         <div className="text-center">
-          <div className="text-[7px] text-gray-500">Total</div>
-          <div className="text-[9px] font-bold text-cyan-400">{stats.total}</div>
+          <div className="fungi-stat-label text-[8px] font-semibold text-white">Total</div>
+          <div className="fungi-metric-value text-[11px] font-bold text-white">{stats.total}</div>
         </div>
         <div className="text-center">
-          <div className="text-[7px] text-gray-500">Elec</div>
-          <div className="text-[9px] font-bold text-emerald-400">{stats.electrical}</div>
+          <div className="fungi-stat-label text-[8px] font-semibold text-white">Elec</div>
+          <div className="fungi-metric-value text-[11px] font-bold text-white">{stats.electrical}</div>
         </div>
         <div className="text-center">
-          <div className="text-[7px] text-gray-500">Corr</div>
-          <div className="text-[9px] font-bold text-purple-400">{stats.correlations}</div>
+          <div className="fungi-stat-label text-[8px] font-semibold text-white">Corr</div>
+          <div className="fungi-metric-value text-[11px] font-bold text-white">{stats.correlations}</div>
         </div>
         <div className="text-center">
-          <div className="text-[7px] text-gray-500">/min</div>
-          <div className="text-[9px] font-bold text-amber-400">{stats.eventsPerMinute}</div>
+          <div className="fungi-stat-label text-[8px] font-semibold text-white">/min</div>
+          <div className="fungi-metric-value text-[11px] font-bold text-white">{stats.eventsPerMinute}</div>
         </div>
       </div>
       
       {/* Filter Tabs */}
-      <div className="flex-none flex gap-0.5 p-1 border-b border-cyan-500/10 overflow-x-auto">
+      <div className="flex-none flex gap-0.5 p-1 border-b border-white/20 overflow-x-auto">
         <button 
           onClick={() => setFilter(null)}
-          className={cn("px-1.5 py-0.5 rounded text-[7px] font-medium whitespace-nowrap", 
-            filter === null ? "bg-cyan-500/30 text-cyan-400" : "text-gray-500 hover:text-gray-300")}
+          className={cn("px-2 py-1 rounded text-[9px] font-semibold whitespace-nowrap min-h-[28px]", 
+            filter === null ? "bg-cyan-400/40 text-white border border-white/40" : "text-white border border-white/20 hover:bg-white/10")}
         >
           All
         </button>
@@ -232,8 +232,8 @@ export function EventMempool({ events = [], patterns = [], className }: EventMem
           <button 
             key={cat}
             onClick={() => setFilter(filter === cat ? null : cat)}
-            className={cn("px-1.5 py-0.5 rounded text-[7px] font-medium whitespace-nowrap capitalize", 
-              filter === cat ? "bg-cyan-500/30 text-cyan-400" : "text-gray-500 hover:text-gray-300")}
+            className={cn("px-2 py-1 rounded text-[9px] font-semibold whitespace-nowrap capitalize min-h-[28px]", 
+              filter === cat ? "bg-cyan-400/40 text-white border border-white/40" : "text-white border border-white/20 hover:bg-white/10")}
           >
             {cat}
           </button>
@@ -244,7 +244,7 @@ export function EventMempool({ events = [], patterns = [], className }: EventMem
       <div ref={containerRef} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 space-y-0.5 p-0.5">
         {filteredEvents.length === 0 ? (
           <div className="h-full flex items-center justify-center">
-            <p className="text-[10px] text-cyan-400/40">No events</p>
+            <p className="text-[10px] text-cyan-200">No events</p>
           </div>
         ) : (
           filteredEvents.map((event, i) => {
@@ -281,7 +281,7 @@ export function EventMempool({ events = [], patterns = [], className }: EventMem
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
-                      <p className="text-[9px] font-medium text-white/90 truncate capitalize">
+                      <p className="text-[9px] font-medium text-white truncate capitalize">
                         {event.type.replace(/_/g, " ")}
                       </p>
                       <Badge 
@@ -295,21 +295,21 @@ export function EventMempool({ events = [], patterns = [], className }: EventMem
                     
                     {/* Details Row */}
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[7px] text-cyan-400/50 font-mono">
+                      <span className="text-[7px] text-cyan-200 font-mono">
                         {formatTime(event.timestamp)}
                       </span>
                       {event.amplitude !== undefined && (
-                        <span className="text-[7px] text-emerald-400/70 font-mono">
+                        <span className="text-[7px] text-emerald-200 font-mono">
                           {event.amplitude.toFixed(1)}µV
                         </span>
                       )}
                       {event.frequency !== undefined && (
-                        <span className="text-[7px] text-purple-400/70 font-mono">
+                        <span className="text-[7px] text-purple-200 font-mono">
                           {event.frequency.toFixed(2)}Hz
                         </span>
                       )}
                       {event.duration !== undefined && (
-                        <span className="text-[7px] text-amber-400/70 font-mono">
+                        <span className="text-[7px] text-amber-200 font-mono">
                           {(event.duration / 1000).toFixed(1)}s
                         </span>
                       )}
@@ -318,8 +318,8 @@ export function EventMempool({ events = [], patterns = [], className }: EventMem
                     {/* Correlation Link */}
                     {event.correlation && (
                       <div className="flex items-center gap-1 mt-0.5">
-                        <Link2 className="h-2 w-2 text-purple-400/60" />
-                        <span className="text-[7px] text-purple-400/60 font-mono truncate">
+                        <Link2 className="h-2 w-2 text-purple-200" />
+                        <span className="text-[7px] text-purple-200 font-mono truncate">
                           ← {event.correlation.slice(0, 15)}
                         </span>
                       </div>
@@ -333,7 +333,7 @@ export function EventMempool({ events = [], patterns = [], className }: EventMem
                   style={{ 
                     backgroundColor: config.priority === 1 ? "#ef4444" : 
                                      config.priority === 2 ? "#f59e0b" : 
-                                     config.priority === 3 ? "#22c55e" : "#64748b"
+                                     config.priority === 3 ? "#22c55e" : "#e2e8f0"
                   }}
                 />
               </div>
@@ -344,7 +344,7 @@ export function EventMempool({ events = [], patterns = [], className }: EventMem
       
       {/* Footer */}
       <div className="flex-none text-center py-0.5 border-t border-cyan-500/10">
-        <span className="text-[7px] text-cyan-400/40 font-mono">
+        <span className="text-[7px] text-cyan-200 font-mono">
           Blockchain-style event correlation tracking
         </span>
       </div>

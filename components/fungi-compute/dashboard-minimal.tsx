@@ -14,7 +14,7 @@ import { CausalityGraph } from "./causality-graph"
 export function FungiComputeDashboardMinimal() {
   return (
     <div className="relative w-full h-full overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a0e1a] via-[#0d1321] to-[#08090d]" />
+      <div className="absolute inset-0 bg-gradient-to-br from-black via-[#050505] to-black" />
       
       <div className="relative h-full flex flex-col p-2 gap-2 overflow-hidden">
         <header className="flex-none flex items-center justify-center px-4 py-2 rounded-2xl backdrop-blur-2xl bg-black/40 border border-cyan-500/20">

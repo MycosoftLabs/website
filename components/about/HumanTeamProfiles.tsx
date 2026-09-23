@@ -22,7 +22,7 @@ function MemberCard({
   return (
     <Link href={`/about/team/${member.slug}`}>
       <NeuCard className="group transition-all cursor-pointer overflow-hidden h-full">
-        <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+        <div className="relative aspect-[4/3] overflow-hidden bg-neutral-100 dark:bg-neutral-900">
           <Image
             src={member.image.startsWith("/") ? encodeAssetUrl(member.image) : member.image}
             alt={member.name}

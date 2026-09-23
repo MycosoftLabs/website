@@ -55,7 +55,7 @@ function CrunchbaseLogo({ className }: { className?: string }) {
 
 export function Footer() {
   return (
-    <footer className="relative z-[210] border-t bg-background pointer-events-auto" suppressHydrationWarning>
+    <footer className="site-chrome-footer relative z-[210] border-t pointer-events-auto" suppressHydrationWarning>
       <div className="container max-w-7xl mx-auto flex flex-col gap-8 py-8 px-4 sm:px-6">
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-4 px-4">
           {/* Company */}
@@ -76,12 +76,12 @@ export function Footer() {
               </li>
               <li>
                 <a href="/devices" className="hover:text-foreground transition-colors" suppressHydrationWarning>
-                  Devices
+                  Droids
                 </a>
               </li>
               <li>
-                <a href="/apps" className="hover:text-foreground transition-colors" suppressHydrationWarning>
-                  Applications
+                <a href="/natureos" className="hover:text-foreground transition-colors" suppressHydrationWarning>
+                  NatureOS
                 </a>
               </li>
               <li>
@@ -104,8 +104,8 @@ export function Footer() {
             </h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li>
-                <a href="/ai" className="hover:text-foreground transition-colors" suppressHydrationWarning>
-                  SI Overview
+                <a href="/si" className="hover:text-foreground transition-colors" suppressHydrationWarning>
+                  Super Intelligence
                 </a>
               </li>
               <li>

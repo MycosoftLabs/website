@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowUpRight, Database, Globe2, Layers3, Radar, Shield, Sparkles } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
+import { ArrowUpRight } from "lucide-react"
+import type { ComponentType } from "react"
 import { NlmFormspaceHero } from "@/components/home/nlm-formspace-hero"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { homeHeroVideoSources, primaryHomeHeroPosterPath } from "@/lib/asset-video-sources"
@@ -10,6 +10,7 @@ import { homeHeroYoutubeId } from "@/lib/hero-youtube"
 import { cn } from "@/lib/utils"
 import { useAllowRichHomeMedia } from "@/lib/client-motion"
 import Image from "next/image"
+import { productMarkIcon } from "@/components/brand/product-icon"
 
 const HOME_HERO_SOURCES = homeHeroVideoSources()
 const HOME_HERO_POSTER = primaryHomeHeroPosterPath()
@@ -23,11 +24,21 @@ type HomeTile = {
   video?: string
   sources?: string[]
   poster?: string
-  icon: LucideIcon
+  icon: ComponentType<{ className?: string }>
   span?: 1 | 2
 }
 
 const TILES: HomeTile[] = [
+  {
+    title: "MycoBrain",
+    eyebrow: "Device Compute",
+    href: "/devices/mycobrain",
+    description: "Shared ESP32-S3 sensing and edge compute fabric inside every Mycosoft droid.",
+    video: "/assets/homepage/tiles/mycobrain-tile-1080-2026.mp4",
+    sources: ["/assets/homepage/tiles/mycobrain-tile-1080-2026.mp4"],
+    poster: "/assets/devices/mycobrainjetson-black.jpg",
+    icon: productMarkIcon("mycobrain", 16, "white"),
+  },
   {
     title: "Mushroom 1",
     eyebrow: "Field Robotics",
@@ -36,7 +47,7 @@ const TILES: HomeTile[] = [
     video: "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
     sources: ["/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4"],
     poster: "/assets/mushroom1/Mushroom 1.jpg",
-    icon: Layers3,
+    icon: productMarkIcon("mushroom-1", 16, "white"),
   },
   {
     title: "SporeBase",
@@ -46,7 +57,7 @@ const TILES: HomeTile[] = [
     video: "/assets/homepage/tiles/sporebase-tile-1080-2026.mp4",
     sources: ["/assets/homepage/tiles/sporebase-tile-1080-2026.mp4"],
     poster: "/assets/sporebase/sporebase%20main.jpg",
-    icon: Sparkles,
+    icon: productMarkIcon("sporebase", 16, "white"),
   },
   {
     title: "Hyphae 1",
@@ -56,7 +67,7 @@ const TILES: HomeTile[] = [
     video: "/assets/homepage/tiles/hyphae1-tile-1080-2026.mp4",
     sources: ["/assets/homepage/tiles/hyphae1-tile-1080-2026.mp4"],
     poster: "/assets/hyphae1/hyphae1-lab-prototype.png",
-    icon: Layers3,
+    icon: productMarkIcon("hyphae-1", 16, "white"),
   },
   {
     title: "Psathyrella",
@@ -66,7 +77,7 @@ const TILES: HomeTile[] = [
     video: "/assets/homepage/tiles/psathyrella-tile-1080-2026.mp4",
     sources: ["/assets/homepage/tiles/psathyrella-tile-1080-2026.mp4"],
     poster: "/assets/psathyrella/hero.png",
-    icon: Radar,
+    icon: productMarkIcon("psathyrella", 16, "white"),
   },
   {
     title: "Agaric",
@@ -76,7 +87,7 @@ const TILES: HomeTile[] = [
     video: "/assets/homepage/tiles/agaric-tile-1080-2026.mp4",
     sources: ["/assets/homepage/tiles/agaric-tile-1080-2026.mp4"],
     poster: "/assets/agaric/hero2.jpg",
-    icon: Radar,
+    icon: productMarkIcon("agaric", 16, "white"),
   },
   {
     title: "MycoNode",
@@ -86,7 +97,15 @@ const TILES: HomeTile[] = [
     video: "/assets/homepage/tiles/myconode-tile-1080-2026.mp4",
     sources: ["/assets/homepage/tiles/myconode-tile-1080-2026.mp4"],
     poster: "/assets/myconode/myconode-main.png",
-    icon: Database,
+    icon: productMarkIcon("myconode", 16, "white"),
+  },
+  {
+    title: "ALARM",
+    eyebrow: "Biological Home Alarm",
+    href: "/devices/alarm",
+    description: "Indoor biological and air-quality early warning for homes and facilities.",
+    poster: "/assets/alarm/alarm-device.jpg",
+    icon: productMarkIcon("alarm", 16, "white"),
   },
   {
     title: "FUSARIUM",
@@ -95,18 +114,18 @@ const TILES: HomeTile[] = [
     description: "Manned, unmanned, and CREP mission intelligence around MYCA and MINDEX.",
     video: "/assets/homepage/tiles/fusarium-tile-1080-2026.mp4",
     sources: ["/assets/homepage/tiles/fusarium-tile-1080-2026.mp4"],
-    icon: Shield,
+    icon: productMarkIcon("fusarium", 16, "white"),
     span: 2,
   },
   {
     title: "NatureOS",
-    eyebrow: "Earth Intelligence",
+    eyebrow: "Nature Operating System",
     href: "/natureos",
-    description: "Workflows, live environmental data, ecological operations, and Earth-scale intelligence.",
+    description: "Sense, simulate, and operate living systems — Earth Simulator, devices, lab tools, MINDEX, and NLM.",
     video: "/assets/homepage/tiles/generic-tile-1080-2026.mp4",
     sources: ["/assets/homepage/tiles/generic-tile-1080-2026.mp4"],
     poster: HOME_HERO_POSTER,
-    icon: Globe2,
+    icon: productMarkIcon("natureos", 16, "white"),
     span: 2,
   },
   {
@@ -117,7 +136,7 @@ const TILES: HomeTile[] = [
     video: "/assets/homepage/tiles/earth-simulator-tile-1080-2026.mp4",
     sources: ["/assets/homepage/tiles/earth-simulator-tile-1080-2026.mp4"],
     poster: HOME_HERO_POSTER,
-    icon: Globe2,
+    icon: productMarkIcon("earth-simulator", 16, "white"),
   },
   {
     title: "MYCA",
@@ -127,7 +146,7 @@ const TILES: HomeTile[] = [
     video: "/assets/homepage/tiles/mycobrain-tile-1080-2026.mp4",
     sources: ["/assets/homepage/tiles/mycobrain-tile-1080-2026.mp4"],
     poster: "/assets/devices/mycobrainjetson-black.jpg",
-    icon: Sparkles,
+    icon: productMarkIcon("myca", 16, "white"),
   },
 ]
 

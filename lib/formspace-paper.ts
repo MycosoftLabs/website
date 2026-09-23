@@ -70,6 +70,62 @@ export function extractFormSpaceExcerpt(body: string): string {
   return body.slice(abstractStart, sectionTwoStart).trimEnd()
 }
 
+/** Modular right-panel sections for the FormSpace application shell. */
+export interface FormSpacePanelSections {
+  /** Short overview: lead sentence + keywords (not the full paper). */
+  overview: string
+  /** Full Abstract markdown (heading through Keywords). */
+  abstract: string
+  /** Purpose and contribution (section 1) markdown. */
+  description: string
+  keywords: string[]
+}
+
+export type FormSpacePanelMode = keyof Pick<
+  FormSpacePanelSections,
+  "overview" | "abstract" | "description"
+>
+
+function extractKeywords(abstractMarkdown: string): string[] {
+  const match = /\*\*Keywords:\*\*\s*(.+)$/m.exec(abstractMarkdown)
+  if (!match) return []
+  return match[1]
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
+function firstParagraphAfterHeading(markdown: string): string {
+  const withoutHeading = markdown.replace(/^#\s+.+\r?\n+/, "")
+  const paragraphs = withoutHeading.split(/\r?\n\r?\n+/).map((p) => p.trim())
+  const first = paragraphs.find(
+    (p) => p.length > 0 && !p.startsWith("#") && !p.startsWith("**Keywords"),
+  )
+  return first ?? ""
+}
+
+/**
+ * Splits the publication-safe excerpt into Overview / Abstract / Description
+ * for the FormSpace application right panel (one focused section at a time).
+ */
+export function extractFormSpacePanelSections(body: string): FormSpacePanelSections {
+  const excerpt = extractFormSpaceExcerpt(body)
+  const purposeStart = excerpt.indexOf("# 1 Purpose and contribution")
+  if (purposeStart < 0) {
+    throw new Error("FormSpace paper is missing the Purpose and contribution section")
+  }
+
+  const abstract = excerpt.slice(0, purposeStart).trimEnd()
+  const description = excerpt.slice(purposeStart).trimEnd()
+  const keywords = extractKeywords(abstract)
+  const lead = firstParagraphAfterHeading(abstract)
+  const keywordLine =
+    keywords.length > 0 ? `\n\n**Keywords:** ${keywords.join(", ")}` : ""
+  const overview = `# Overview\n\n${lead}${keywordLine}`.trimEnd()
+
+  return { overview, abstract, description, keywords }
+}
+
 export function resolveFormSpaceAsset(source: string): string {
   return ASSET_PATHS[source] ?? source
 }

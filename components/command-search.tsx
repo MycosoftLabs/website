@@ -538,11 +538,11 @@ export function CommandSearch({ ...props }: DialogProps) {
                       <Cpu className="mr-2 h-4 w-4 text-green-500" />
                       <span>Browse Devices</span>
                     </CommandItem>
-                    <CommandItem onSelect={() => runCommand(() => router.push("/apps"))}>
+                    <CommandItem onSelect={() => runCommand(() => router.push("/natureos"))}>
                       <div className="mr-2 flex h-4 w-4 items-center justify-center">
                         <span className="h-3 w-3 rounded-sm bg-primary"></span>
                       </div>
-                      <span>Explore Apps</span>
+                      <span>Open NatureOS</span>
                     </CommandItem>
                   </CommandGroup>
                 )}

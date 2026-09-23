@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="22.72 19.72 210.56 210.56" class="natureos" role="img" aria-labelledby="title">
+<title id="title">NatureOS — Mycosoft</title>
+<desc>An open ecosystem surrounds a branching hypha: a shared operating environment for connected natural systems.</desc>
+
+
+<g class="mark" fill="#000000"><path class="part habitat" data-part="habitat" d="M 85 203 C 54 188 34 159 34 126 C 34 74 76 32 128 32 C 180 32 222 74 222 126 C 222 159 202 188 171 203 C 164 206 157 203 156 197 C 154 191 157 187 163 183 C 185 169 198 150 198 126 C 198 87 167 56 128 56 C 89 56 58 87 58 126 C 58 150 71 169 93 183 C 99 187 102 191 100 197 C 99 203 92 206 85 203 Z"/><path class="part hypha" data-part="hypha" d="M 121 218 C 120 218 120 216 120 212 L 120 173 C 120 151 110 144 93 136 C 78 129 70 117 73 106 C 75 95 89 98 101 106 C 112 113 120 126 125 139 C 126 142 130 142 131 139 C 136 126 144 113 155 106 C 167 98 181 95 183 106 C 186 117 178 129 163 136 C 146 144 136 151 136 173 L 136 212 C 136 216 136 218 135 218 Z"/></g>
+</svg>

@@ -241,6 +241,8 @@ const nextConfig = {
   async redirects() {
     return [
       { source: "/myca-ai", destination: "/myca", permanent: false },
+      // SI overview renamed from /ai -> /si (Sep 22, 2026)
+      { source: "/ai", destination: "/si", permanent: true },
       { source: "/myocode", destination: "/devices/myconode", permanent: false },
       { source: "/myo-code", destination: "/devices/myconode", permanent: false },
       { source: "/sporebase", destination: "/devices/sporebase", permanent: false },
@@ -263,6 +265,21 @@ const nextConfig = {
       { source: "/cmmc", destination: "/compliance", permanent: true },
       { source: "/fusarium/launchpad/advanced", destination: "/fusarium/launchpad", permanent: true },
       { source: "/fusarium/launchpad/cmmc", destination: "/compliance", permanent: true },
+      // App suite removed (Sep 22, 2026) — tools live under NatureOS / Defense
+      { source: "/apps", destination: "/natureos", permanent: true },
+      { source: "/apps/earth-simulator", destination: "/natureos/earth-simulator", permanent: true },
+      { source: "/apps/petri-dish-sim", destination: "/natureos/virtual-petri-dish", permanent: true },
+      { source: "/apps/mushroom-sim", destination: "/natureos/biology-simulator", permanent: true },
+      { source: "/apps/compound-sim", destination: "/natureos/compound-analyser", permanent: true },
+      { source: "/apps/spore-tracker", destination: "/natureos/aerosol", permanent: true },
+      { source: "/apps/growth-analytics", destination: "/natureos/growth-analytics", permanent: true },
+      { source: "/apps/physics-sim", destination: "/natureos/tools/physics-sim", permanent: true },
+      { source: "/apps/digital-twin", destination: "/natureos/tools/digital-twin", permanent: true },
+      { source: "/apps/lifecycle-sim", destination: "/natureos/tools/lifecycle-sim", permanent: true },
+      { source: "/apps/genetic-circuit", destination: "/natureos/tools/genetic-circuit", permanent: true },
+      { source: "/apps/symbiosis", destination: "/natureos/tools/symbiosis", permanent: true },
+      { source: "/apps/retrosynthesis", destination: "/natureos/tools/retrosynthesis", permanent: true },
+      { source: "/apps/alchemy-lab", destination: "/natureos/tools/alchemy-lab", permanent: true },
     ]
   },
 }

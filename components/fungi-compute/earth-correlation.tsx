@@ -18,7 +18,7 @@ export function EarthCorrelation() {
         <TrendingUp className="h-2 w-2 mr-1" />
         0.73
       </Badge>
-      <span className="text-[8px] text-cyan-400/40 flex items-center gap-1">
+      <span className="text-[8px] text-cyan-200 flex items-center gap-1">
         <CloudRain className="h-2.5 w-2.5" />
         Rain +2h
       </span>

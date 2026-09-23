@@ -5,11 +5,12 @@ import Link from "next/link"
 import { format } from "date-fns"
 import { motion } from "framer-motion"
 import {
-  Globe, Database, Cpu, Brain, Activity, Shield,
+  Globe, Database, Activity, Shield,
   TrendingUp, Leaf, FlaskConical, Building2, Clock
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { productMarkIcon } from "@/components/brand/product-icon"
 
 interface DashboardHeroProps {
   displayName: string
@@ -19,8 +20,8 @@ interface DashboardHeroProps {
 const capabilities = [
   { icon: Globe, label: "Environmental Monitoring", color: "text-emerald-400", borderColor: "border-emerald-500/30" },
   { icon: Database, label: "Species Intelligence (MINDEX)", color: "text-blue-400", borderColor: "border-blue-500/30" },
-  { icon: Cpu, label: "Device Fleet (MycoBrain)", color: "text-purple-400", borderColor: "border-purple-500/30" },
-  { icon: Brain, label: "SI Agents (MYCA)", color: "text-amber-400", borderColor: "border-amber-500/30" },
+  { icon: productMarkIcon("mycobrain"), label: "Device Fleet (MycoBrain)", color: "text-purple-400", borderColor: "border-purple-500/30" },
+  { icon: productMarkIcon("myca"), label: "SI Agents (MYCA)", color: "text-amber-400", borderColor: "border-amber-500/30" },
   { icon: Activity, label: "Earth Simulation (CREP)", color: "text-red-400", borderColor: "border-red-500/30" },
   { icon: Shield, label: "Biosecurity & Defense", color: "text-teal-400", borderColor: "border-teal-500/30" },
 ]

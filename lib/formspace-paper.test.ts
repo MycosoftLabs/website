@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest"
 import {
   buildFormSpaceToc,
   extractFormSpaceExcerpt,
+  extractFormSpacePanelSections,
   parseFormSpacePaper,
   resolveFormSpaceAsset,
 } from "./formspace-paper"
@@ -21,7 +22,7 @@ describe("FormSpace public white paper", () => {
       title: "FormSpace",
       subtitle: "A mathematical framework for learning organization and emergent behavior",
       author: "Mycosoft",
-      date: "22 September 2026",
+      date: "",
       version: "1.1 public review draft",
       lang: "en-US",
     })
@@ -37,6 +38,21 @@ describe("FormSpace public white paper", () => {
     )
     expect(excerpt).toContain("# 1 Purpose and contribution")
     expect(excerpt).not.toContain("# 2 Scientific motivation and scope")
+  })
+
+  it("splits the excerpt into Overview, Abstract, and Description panel sections", () => {
+    const paper = parseFormSpacePaper(canonicalPaper)
+    const sections = extractFormSpacePanelSections(paper.body)
+
+    expect(sections.overview).toContain("# Overview")
+    expect(sections.overview).toContain("FormSpace is Mycosoft’s chart")
+    expect(sections.overview).not.toMatch(/compress/i)
+    expect(sections.keywords).toContain("FormSpace")
+    expect(sections.abstract).toMatch(/^# Abstract/)
+    expect(sections.abstract).toContain("**Keywords:**")
+    expect(sections.abstract).not.toContain("# 1 Purpose and contribution")
+    expect(sections.description).toMatch(/^# 1 Purpose and contribution/)
+    expect(sections.description).not.toContain("# 2 Scientific motivation and scope")
   })
 
   it("contains no prohibited demonstration identifiers", () => {

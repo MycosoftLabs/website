@@ -156,6 +156,12 @@ const categories: HubCategory[] = [
     description: "Chain-of-custody oriented flows.",
     items: [
       {
+        name: "Aerosol / Spore Tracker",
+        description: "Bioaerosol and spore dispersal sensing workflows.",
+        href: "/natureos/aerosol",
+        status: "live",
+      },
+      {
         name: "Samples",
         description: "Use Lab Tools → samples routes (IDs from register flow).",
         href: "/natureos/lab-tools/register",

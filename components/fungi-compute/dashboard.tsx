@@ -12,6 +12,7 @@ import { Brain, Maximize2, Minimize2, Activity, Waves, Grid3X3, Zap, Radio, Arro
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import "./fungi-compute-contrast.css"
 import { 
   useFCIDevices, 
   useSignalStream, 
@@ -104,28 +105,14 @@ export function FungiComputeDashboard() {
   }, [])
 
   return (
-    <div className="relative w-full h-full overflow-hidden">
-      {/* Advanced background with depth */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a0e1a] via-[#0d1321] to-[#08090d]" />
-      
-      {/* Animated glow orbs */}
-      <div className="absolute inset-0 overflow-hidden opacity-40 pointer-events-none">
-        <div className="absolute top-1/4 -left-24 w-96 h-96 bg-cyan-500/30 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-1/3 right-0 w-80 h-80 bg-emerald-500/25 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: "1.5s" }} />
-        <div className="absolute top-2/3 left-1/3 w-64 h-64 bg-purple-500/20 rounded-full blur-[80px] animate-pulse" style={{ animationDelay: "3s" }} />
-      </div>
-
-      {/* Scanline overlay */}
-      <div 
-        className="absolute inset-0 pointer-events-none opacity-[0.03]"
-        style={{
-          backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(6,182,212,0.1) 2px, rgba(6,182,212,0.1) 4px)",
-        }}
-      />
+    <div className="fungi-compute-console relative w-full h-full overflow-hidden bg-black text-white">
+      {/* Pure black glass base — no blue-slate wash */}
+      <div className="absolute inset-0 bg-black" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.04),transparent_55%)] pointer-events-none" />
 
       <div className="relative h-full flex flex-col p-2 gap-2 overflow-hidden">
         {/* Compact Glass Header */}
-        <header className="flex-none flex items-center justify-between px-4 py-2 rounded-2xl backdrop-blur-2xl bg-black/40 border border-cyan-500/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15),inset_0_1px_0_0_rgba(255,255,255,0.05)]">
+        <header className="flex-none flex items-center justify-between px-4 py-2 rounded-2xl backdrop-blur-2xl bg-black/70 border border-white/30 shadow-[0_8px_32px_0_rgba(0,0,0,0.7),inset_0_1px_0_0_rgba(255,255,255,0.16)]">
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 to-emerald-400 rounded-xl blur-md opacity-60" />
@@ -134,10 +121,10 @@ export function FungiComputeDashboard() {
               </div>
             </div>
             <div>
-              <h1 className="text-lg font-bold bg-gradient-to-r from-cyan-400 via-emerald-400 to-cyan-400 bg-clip-text text-transparent leading-none">
+              <h1 className="text-lg font-bold text-white leading-none drop-shadow-[0_0_10px_rgba(165,243,252,0.85)]">
                 FUNGI COMPUTE
               </h1>
-              <p className="text-[10px] text-cyan-400/50 font-mono mt-0.5">Bio-Electric Interface v1.0</p>
+              <p className="text-[10px] text-white font-mono mt-0.5 font-semibold">Bio-Electric Interface v1.0</p>
             </div>
           </div>
 

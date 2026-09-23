@@ -265,7 +265,7 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
             className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
               tab === "notes"
                 ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40"
-                : "text-cyan-400/50 hover:text-cyan-400"
+                : "text-cyan-200 hover:text-cyan-400"
             }`}
           >
             <FileText className="h-3 w-3 inline mr-1" />
@@ -276,7 +276,7 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
             className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
               tab === "myca"
                 ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40"
-                : "text-cyan-400/50 hover:text-cyan-400"
+                : "text-cyan-200 hover:text-cyan-400"
             }`}
           >
             <Sparkles className="h-3 w-3 inline mr-1" />
@@ -287,7 +287,7 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
             className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
               tab === "settings"
                 ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40"
-                : "text-cyan-400/50 hover:text-cyan-400"
+                : "text-cyan-200 hover:text-cyan-400"
             }`}
           >
             <Settings className="h-3 w-3 inline mr-1" />
@@ -301,7 +301,7 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
             <div className="space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs text-cyan-400/70 font-semibold">Experiment Notes</label>
+                  <label className="text-xs text-cyan-100 font-semibold">Experiment Notes</label>
                   <Button 
                     variant="ghost" 
                     size="sm" 
@@ -317,21 +317,21 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
                   value={experimentNotes}
                   onChange={(e) => setExperimentNotes(e.target.value)}
                   placeholder="Document your observations, probe placement, substrate conditions..."
-                  className="min-h-[120px] bg-black/40 border-cyan-500/20 text-cyan-100 text-xs placeholder:text-cyan-400/30"
+                  className="min-h-[120px] bg-black/40 border-cyan-500/20 text-cyan-100 text-xs placeholder:text-cyan-200"
                 />
               </div>
               
               <Separator className="bg-cyan-500/10" />
               
               <div>
-                <label className="text-xs text-cyan-400/70 font-semibold mb-2 block">Active Device</label>
+                <label className="text-xs text-cyan-100 font-semibold mb-2 block">Active Device</label>
                 <Badge variant="outline" className="w-full justify-start text-xs border-emerald-500/30 text-emerald-400">
                   {deviceId || "No device selected"}
                 </Badge>
               </div>
               
               <div>
-                <label className="text-xs text-cyan-400/70 font-semibold mb-2 block">Quick Actions</label>
+                <label className="text-xs text-cyan-100 font-semibold mb-2 block">Quick Actions</label>
                 <div className="grid grid-cols-2 gap-2">
                   <Button 
                     variant="outline" 
@@ -366,7 +366,7 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
           {tab === "myca" && (
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-cyan-400/70 font-semibold mb-2 block flex items-center gap-1">
+                <label className="text-xs text-cyan-100 font-semibold mb-2 block flex items-center gap-1">
                   <Sparkles className="h-3 w-3" />
                   Ask MYCA About Signals
                 </label>
@@ -374,7 +374,7 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
                   value={mycaQuery}
                   onChange={(e) => setMycaQuery(e.target.value)}
                   placeholder="What pattern is this? Why is the spike rate increasing? Correlate with weather..."
-                  className="min-h-[80px] bg-black/40 border-cyan-500/20 text-cyan-100 text-xs placeholder:text-cyan-400/30"
+                  className="min-h-[80px] bg-black/40 border-cyan-500/20 text-cyan-100 text-xs placeholder:text-cyan-200"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && e.ctrlKey) {
                       askMyca()
@@ -408,7 +408,7 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
           {tab === "settings" && (
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-cyan-400/70 font-semibold mb-2 block flex items-center gap-1">
+                <label className="text-xs text-cyan-100 font-semibold mb-2 block flex items-center gap-1">
                   <Waves className="h-3 w-3" />
                   SDR Filtering
                 </label>
@@ -420,7 +420,7 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
               <Separator className="bg-cyan-500/10" />
               
               <div>
-                <label className="text-xs text-cyan-400/70 font-semibold mb-2 block flex items-center gap-1">
+                <label className="text-xs text-cyan-100 font-semibold mb-2 block flex items-center gap-1">
                   <Zap className="h-3 w-3" />
                   Stimulation
                 </label>
@@ -432,7 +432,7 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
               <Separator className="bg-cyan-500/10" />
               
               <div>
-                <label className="text-xs text-cyan-400/70 font-semibold mb-2 block">Display</label>
+                <label className="text-xs text-cyan-100 font-semibold mb-2 block">Display</label>
                 <div className="space-y-2">
                   <SettingRow label="Show Grid" value="On" />
                   <SettingRow label="Persistence" value="Medium" />
@@ -443,7 +443,7 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
               <Separator className="bg-cyan-500/10" />
               
               <div>
-                <label className="text-xs text-cyan-400/70 font-semibold mb-2 block flex items-center gap-1">
+                <label className="text-xs text-cyan-100 font-semibold mb-2 block flex items-center gap-1">
                   <Link2 className="h-3 w-3" />
                   Integrations
                 </label>
@@ -465,7 +465,7 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
 function SettingRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between p-2 rounded-lg bg-black/30 border border-cyan-500/10">
-      <span className="text-xs text-cyan-400/60">{label}</span>
+      <span className="text-xs text-cyan-100">{label}</span>
       <span className="text-xs text-cyan-400 font-mono">{value}</span>
     </div>
   )

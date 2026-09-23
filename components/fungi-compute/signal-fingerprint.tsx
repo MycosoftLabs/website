@@ -18,6 +18,7 @@
 import { useRef, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { drawCanvasLabel } from "./canvas-label"
 import { cn } from "@/lib/utils"
 import { 
   Fingerprint, RotateCcw, Download, ChevronLeft, ChevronRight,
@@ -157,7 +158,7 @@ export function SignalFingerprint({ fingerprint = null, deviceId = null, classNa
       const maxR = Math.min(w, h) / 2 - 25
       
       // Clear
-      ctx.fillStyle = "#050810"
+      ctx.fillStyle = "#000000"
       ctx.fillRect(0, 0, w, h)
       
       // Generate animated signature based on species pattern
@@ -177,10 +178,10 @@ export function SignalFingerprint({ fingerprint = null, deviceId = null, classNa
         
         // Level labels
         if (i === 5) {
-          ctx.fillStyle = "rgba(6, 182, 212, 0.4)"
-          ctx.font = "8px monospace"
-          ctx.textAlign = "center"
-          ctx.fillText("100%", cx, cy - maxR - 3)
+          drawCanvasLabel(ctx, "100%", cx, cy - maxR - 3, {
+            align: "center",
+            font: "bold 11px monospace",
+          })
         }
       }
       
@@ -188,7 +189,7 @@ export function SignalFingerprint({ fingerprint = null, deviceId = null, classNa
       FREQUENCY_BANDS.forEach((band, i) => {
         const angle = (band.angle * Math.PI) / 180 - Math.PI / 2
         
-        ctx.strokeStyle = "rgba(6, 182, 212, 0.1)"
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.25)"
         ctx.lineWidth = 1
         ctx.beginPath()
         ctx.moveTo(cx, cy)
@@ -200,11 +201,11 @@ export function SignalFingerprint({ fingerprint = null, deviceId = null, classNa
         const labelX = cx + Math.cos(angle) * labelR
         const labelY = cy + Math.sin(angle) * labelR
         
-        ctx.fillStyle = "rgba(6, 182, 212, 0.5)"
-        ctx.font = "7px monospace"
-        ctx.textAlign = "center"
-        ctx.textBaseline = "middle"
-        ctx.fillText(band.name, labelX, labelY)
+        drawCanvasLabel(ctx, band.name, labelX, labelY, {
+          align: "center",
+          baseline: "middle",
+          font: "bold 10px monospace",
+        })
       })
       
       // Draw species signature polygon
@@ -355,7 +356,7 @@ export function SignalFingerprint({ fingerprint = null, deviceId = null, classNa
       </div>
       
       {/* Canvas */}
-      <div ref={containerRef} className="flex-1 relative rounded overflow-hidden bg-[#050810] border border-cyan-500/20 min-h-0 min-w-0">
+      <div ref={containerRef} className="flex-1 relative rounded overflow-hidden bg-black/95 border border-cyan-500/20 min-h-0 min-w-0">
         <canvas ref={canvasRef} width={dimensions.width} height={dimensions.height} className="block" />
         
         {/* Match indicator */}
@@ -369,23 +370,23 @@ export function SignalFingerprint({ fingerprint = null, deviceId = null, classNa
       
       {/* Spike Statistics */}
       <div className="flex-none grid grid-cols-3 gap-1 py-1">
-        <div className="text-center p-1 rounded bg-cyan-500/10 border border-cyan-500/20">
-          <div className="text-[7px] text-cyan-400/60">Duration</div>
-          <div className="text-[10px] font-bold text-cyan-400">{spikeStats.duration.toFixed(1)}min</div>
+        <div className="text-center p-1.5 rounded bg-black/70 border border-white/35">
+          <div className="fungi-stat-label text-[9px] font-semibold text-white">Duration</div>
+          <div className="fungi-metric-value text-[11px] font-bold text-white">{spikeStats.duration.toFixed(1)}min</div>
         </div>
-        <div className="text-center p-1 rounded bg-emerald-500/10 border border-emerald-500/20">
-          <div className="text-[7px] text-emerald-400/60">Amplitude</div>
-          <div className="text-[10px] font-bold text-emerald-400">{(spikeStats.amplitude * 100).toFixed(0)}%</div>
+        <div className="text-center p-1.5 rounded bg-black/70 border border-white/35">
+          <div className="fungi-stat-label text-[9px] font-semibold text-white">Amplitude</div>
+          <div className="fungi-metric-value text-[11px] font-bold text-white">{(spikeStats.amplitude * 100).toFixed(0)}%</div>
         </div>
-        <div className="text-center p-1 rounded bg-purple-500/10 border border-purple-500/20">
-          <div className="text-[7px] text-purple-400/60">ISI</div>
-          <div className="text-[10px] font-bold text-purple-400">{spikeStats.isi.toFixed(1)}min</div>
+        <div className="text-center p-1.5 rounded bg-black/70 border border-white/35">
+          <div className="fungi-stat-label text-[9px] font-semibold text-white">ISI</div>
+          <div className="fungi-metric-value text-[11px] font-bold text-white">{spikeStats.isi.toFixed(1)}min</div>
         </div>
       </div>
       
       {/* Species Label */}
       <div className="flex-none text-center py-0.5">
-        <span className="text-[7px] font-mono" style={{ color: selectedSpecies.color }}>
+        <span className="text-[10px] font-bold font-mono text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">
           {selectedSpecies.name}
         </span>
       </div>

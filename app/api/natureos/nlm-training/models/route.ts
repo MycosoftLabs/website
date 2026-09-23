@@ -30,7 +30,11 @@ export async function GET() {
   const models: any[] = live ? [live] : []
 
   const identity = await resolveVerifiedIdentity()
-  if (identity.isAuthenticated && (identity.isSuperuser || isOwnerOrSuperuserRole(identity.userRole))) {
+  // NLM UI uses super_admin/admin; include owner/superuser and email-elevated roles
+  if (
+    identity.isAuthenticated &&
+    (identity.isSuperuser || isOwnerOrSuperuserRole(identity.userRole))
+  ) {
     try {
       const supabase = await createAdminClient()
       const { data } = await supabase

@@ -52,9 +52,9 @@ export default function AVANIPage() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Link href="/ai">
+            <Link href="/si">
               <Button variant="outline" size="lg" className="gap-2 min-h-[44px] min-w-[160px] px-6 touch-manipulation">
-                SI Overview
+                Super Intelligence
               </Button>
             </Link>
             <Link href="/myca">

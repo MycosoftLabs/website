@@ -17,7 +17,7 @@ export function DeviceMap() {
       <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-emerald-500/30 text-emerald-400">
         1 Device
       </Badge>
-      <span className="text-[8px] text-cyan-400/40 text-center">Lab A, Station 3</span>
+      <span className="text-[8px] text-cyan-200 text-center">Lab A, Station 3</span>
     </div>
   )
 }

@@ -18,6 +18,10 @@ import {
   Wifi,
   Wind,
 } from "lucide-react"
+import {
+  MYCOBRAIN_GLASS_CYCLE_FRAMES,
+  ProductGlassIconCycle,
+} from "@/components/brand/product-glass-icon-cycle"
 import { MycobrainSensorFabricBackground } from "@/components/devices/mycobrain-sensor-fabric-background"
 import { MycobrainV2BoardBackground } from "@/components/devices/mycobrain-v2-board-background"
 import { MycobrainFleetBackground } from "@/components/devices/mycobrain-fleet-background"
@@ -216,8 +220,15 @@ export default function MycobrainPage() {
               <CircuitBoard className="h-4 w-4" />
               Shared board architecture for the Mycosoft fleet
             </div>
-            <h1 className="text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
-              MycoBrain
+            <h1 className="inline-flex items-center gap-[0.18em] text-5xl font-bold tracking-tight leading-none sm:text-6xl lg:text-7xl">
+              <ProductGlassIconCycle
+                frames={MYCOBRAIN_GLASS_CYCLE_FRAMES}
+                className="origin-center h-[1em] w-[1em] scale-90 translate-y-[5px]"
+                alt="MycoBrain"
+                reducedMotionLightIndex={0}
+                reducedMotionDarkIndex={1}
+              />
+              <span className="leading-none">MycoBrain</span>
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-white/84 sm:text-xl">
               The central brain and sensing processor for the future of droids. Mycobrain is the first non-human computer built specifically for Mycosoft devices. It&apos;s a modular nervous system that lets every droid carry the sensor stack its mission needs.

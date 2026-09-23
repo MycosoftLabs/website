@@ -1,11 +1,9 @@
-import type { Metadata } from "next"
-import { AppsPortal } from "@/components/apps/apps-portal"
+import { redirect } from "next/navigation"
 
-export const metadata: Metadata = {
-  title: "Applications | Mycosoft",
-  description: "Mission-critical applications powered by MYCA and AVANI—environmental intelligence, mycology research, and defense operations",
-}
-
-export default function AppsPage() {
-  return <AppsPortal />
+/**
+ * App suite landing removed (Sep 22, 2026). Science / research / developer
+ * tools live under NatureOS; defense tools under Defense / Fusarium.
+ */
+export default function AppsPageRedirect() {
+  redirect("/natureos")
 }

@@ -3,11 +3,12 @@
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { Search, Cloud, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Waves, Plane, Bot, Users, Rocket } from "lucide-react"
+import { Search, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, FlaskConical, TreeDeciduous, Users, Rocket, Wrench } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 // Dialog removed - MYCA bot icon removed from header
 import Image from "next/image"
+import { productMarkIcon } from "@/components/brand/product-icon"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -22,7 +23,6 @@ import { MobileNav } from "@/components/mobile-nav"
 import { useEffect, useState, useRef, useCallback, useMemo, type MouseEvent } from "react"
 import { cn } from "@/lib/utils"
 import { AI_NAV_ITEMS } from "@/lib/nav-ai"
-import { PUBLIC_TOOL_HREFS } from "@/lib/nav-public-tools"
 import { useGateAccess } from "@/components/access/gate-wrapper"
 import { AccessGate } from "@/lib/access/types"
 
@@ -31,16 +31,14 @@ import { motion } from "framer-motion"
 
 // Navigation dropdown items configuration
 const defenseItems = [
-  { title: "FUSARIUM", href: "/defense/fusarium", icon: Bug, description: "Environmental Intelligence for Defense" },
+  { title: "FUSARIUM", href: "/defense/fusarium", icon: productMarkIcon("fusarium"), description: "Environmental Intelligence for Defense" },
   { title: "Launchpad", href: "/fusarium/launchpad", icon: Rocket, description: "FUSARIUM contractor readiness workspace" },
   { title: "OEI Capabilities", href: "/defense/oei", icon: Target, description: "Doctrine Capabilities" },
   { title: "Technical Documentation", href: "/defense/technical-docs", icon: FileText, description: "Defense systems documentation" },
 ]
 
-// Apr 23, 2026 (Morgan): NatureOS top-nav dropdown slimmed to the
-// four most-used public tools — Earth Simulator (CREP), Fungi Compute,
-// Petri Dish Simulator, Ancestry Database. MINDEX / Device Network /
-// Species Explorer moved to the full sidebar on /natureos routes.
+// Sep 22, 2026 (Morgan): First dropdown item is NatureOS marketing
+// (replaces auto "overview"). Hub app lives at /natureos/dashboard.
 type NavItem = {
   title: string
   href: string
@@ -49,31 +47,25 @@ type NavItem = {
   companyOnly?: boolean
 }
 const natureOSItems: NavItem[] = [
-  { title: "Earth Simulator", href: "/natureos/earth-simulator", icon: Globe, description: "Live planetary intelligence — the CREP globe" },
+  { title: "NatureOS", href: "/natureos", icon: productMarkIcon("natureos"), description: "Nature operating system — sensing, simulation & environmental intelligence" },
+  { title: "Earth Simulator", href: "/natureos/earth-simulator", icon: productMarkIcon("earth-simulator"), description: "Live planetary intelligence — the CREP globe" },
   { title: "Fungi Compute", href: "/natureos/fungi-compute", icon: Cpu, description: "Mycelial neural networks & bio-compute" },
   { title: "Virtual Petri Dish", href: "/natureos/virtual-petri-dish", icon: FlaskConical, description: "Virtual culture growth simulation" },
   { title: "Ancestry Database", href: "/natureos/ancestry", icon: TreeDeciduous, description: "Fungal genealogy & genomics explorer" },
+  { title: "Tools Hub", href: "/natureos/tools", icon: Wrench, description: "Science, lab, and developer tools catalog" },
 ]
 
+// Droids first (href /devices) — replaces auto "Devices overview"; do not change route
 const devicesItems = [
-  { title: "MycoBrain", href: "/devices/mycobrain", icon: Cpu, description: "Device brain and sensing platform" },
-  { title: "Mushroom 1", href: "/devices/mushroom-1", icon: Antenna, description: "Walking Ground Droid" },
-  { title: "SporeBase", href: "/devices/sporebase", icon: Wind, description: "Breathing Aerosol Collector" },
-  { title: "Hyphae 1", href: "/devices/hyphae-1", icon: Box, description: "Modular Data Center" },
-  { title: "MycoNode", href: "/devices/myconode", icon: Radio, description: "Mesh Network Probe" },
-  { title: "ALARM", href: "/devices/alarm", icon: AlertTriangle, description: "Biological Home Alarm" },
-  { title: "Psathyrella", href: "/devices/psathyrella", icon: Waves, description: "Swimming Sensor Buoy" },
-  { title: "Agaric", href: "/devices/agaric", icon: Plane, description: "Flying Myco Drone" },
-]
-
-const appsItems = [
-  { title: "Petri Dish Simulator", href: PUBLIC_TOOL_HREFS.petriDish, icon: FlaskConical, description: "Virtual culture growth simulation" },
-  { title: "Mushroom Simulator", href: PUBLIC_TOOL_HREFS.mushroomSim, icon: Microscope, description: "3D fungal growth modeling", companyOnly: true },
-  { title: "Compound Analyzer", href: PUBLIC_TOOL_HREFS.compoundSim, icon: FlaskConical, description: "Chemical compound analysis" },
-  { title: "Spore Tracker", href: PUBLIC_TOOL_HREFS.sporeTracker, icon: Compass, description: "Spore dispersal mapping", companyOnly: true },
-  { title: "Ancestry Database", href: "/natureos/ancestry", icon: TreeDeciduous, description: "Fungal genealogy explorer" },
-  { title: "Genomics Tools", href: "/natureos/ancestry/tools#genomics", icon: Microscope, description: "Genome browsers & visualization" },
-  { title: "Growth Analytics", href: PUBLIC_TOOL_HREFS.growthAnalytics, icon: BarChart3, description: "Performance metrics & insights", companyOnly: true },
+  { title: "Droids", href: "/devices", icon: Cpu, description: "all droids" },
+  { title: "MycoBrain", href: "/devices/mycobrain", icon: productMarkIcon("mycobrain"), description: "Device brain and sensing platform" },
+  { title: "Mushroom 1", href: "/devices/mushroom-1", icon: productMarkIcon("mushroom-1"), description: "Walking Ground Droid" },
+  { title: "SporeBase", href: "/devices/sporebase", icon: productMarkIcon("sporebase"), description: "Breathing Aerosol Collector" },
+  { title: "Hyphae 1", href: "/devices/hyphae-1", icon: productMarkIcon("hyphae-1"), description: "Modular Data Center" },
+  { title: "MycoNode", href: "/devices/myconode", icon: productMarkIcon("myconode"), description: "Mesh Network Probe" },
+  { title: "ALARM", href: "/devices/alarm", icon: productMarkIcon("alarm"), description: "Biological Home Alarm" },
+  { title: "Psathyrella", href: "/devices/psathyrella", icon: productMarkIcon("psathyrella"), description: "Swimming Sensor Buoy" },
+  { title: "Agaric", href: "/devices/agaric", icon: productMarkIcon("agaric"), description: "Flying Myco Drone" },
 ]
 
 // Individual dropdown component with animations
@@ -168,13 +160,6 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
     orange: "shadow-orange-500/20",
   }
 
-  const iconColorVariants: Record<string, string> = {
-    blue: "text-blue-400 group-hover:text-blue-300",
-    green: "text-emerald-400 group-hover:text-emerald-300",
-    purple: "text-purple-400 group-hover:text-purple-300",
-    orange: "text-orange-400 group-hover:text-orange-300",
-  }
-
   const buttonActiveColor: Record<string, string> = {
     blue: "bg-blue-500/10 border-blue-500/30",
     green: "bg-emerald-500/10 border-emerald-500/30",
@@ -191,10 +176,16 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
 
   const buttonContent = (
     <>
-      <Icon className={cn(
-        "h-4 w-4 transition-all duration-300 ease-out",
-        isOpen ? iconColorVariants[accentColor].split(" ")[0] : "text-muted-foreground group-hover:text-foreground"
-      )} />
+      {/* Square lockup: icon fills the full 16×16 slot (ProductIcon clips overflow) */}
+      <span
+        className={cn(
+          "relative inline-flex size-4 shrink-0 items-center justify-center overflow-hidden leading-none",
+          isOpen ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
+        )}
+        aria-hidden
+      >
+        <Icon className="absolute inset-0 size-full transition-colors duration-300 ease-out" />
+      </span>
       <span className="transition-colors duration-300">{label}</span>
       <ChevronDown
         className={cn(
@@ -241,7 +232,7 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
         onMouseLeave={handleDropdownMouseLeave}
         className={cn(
           "absolute top-full left-0 mt-2 w-80 rounded-xl overflow-hidden z-[60]",
-          "bg-background/95 backdrop-blur-xl border shadow-2xl transition-all duration-150 ease-out -translate-y-1",
+          "site-chrome-dropdown border shadow-2xl transition-all duration-150 ease-out -translate-y-1",
           "invisible opacity-0 pointer-events-none group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0",
           "group-focus-within:visible group-focus-within:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0",
           isOpen && "visible opacity-100 pointer-events-auto translate-y-0",
@@ -284,7 +275,10 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
                           "group-hover/item:bg-white/10 group-hover/item:border-white/20",
                         )}
                       >
-                        <ItemIcon className={cn("h-4 w-4", iconColorVariants[accentColor])} />
+                        {/* Flat currentColor marks — muted like Lucide, not accent blue */}
+                        <span className="relative inline-flex size-4 shrink-0 items-center justify-center overflow-hidden text-muted-foreground group-hover/item:text-foreground" aria-hidden>
+                          <ItemIcon className="absolute inset-0 size-full" />
+                        </span>
                       </div>
                       <div className="relative min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground">{item.title}</p>
@@ -316,7 +310,7 @@ const LIGHT_LOGO_SRC =
 /** Static shell — identical on SSR and first client paint to avoid hydration mismatch. */
 function HeaderShell() {
   return (
-    <header className="bg-background/80 backdrop-blur-xl sticky top-0 z-[200] shadow-none">
+    <header className="site-chrome-nav sticky top-0 z-[200] shadow-none border-b">
       <div className="container max-w-7xl mx-auto flex h-12 md:h-14 items-center justify-between px-3 md:px-4">
         <div className="flex items-center gap-1.5 md:gap-2 font-semibold">
           <Link href="/" aria-label="Mycosoft home" className="flex items-center gap-1.5 md:gap-2 font-semibold">
@@ -360,9 +354,6 @@ function HeaderContent() {
   const visibleNatureOSItems = natureOSItems.filter(
     (item) => !item.companyOnly || isCompanyUser,
   )
-  const visibleAppsItems = appsItems.filter(
-    (item) => !item.companyOnly || isCompanyUser,
-  )
 
   // Transform supabase user to the expected format
   const user = supabaseUser ? {
@@ -376,7 +367,9 @@ function HeaderContent() {
             supabaseUser.user_metadata?.picture ||
             "/placeholder.svg",
   } : null
+  // EVINT first (href /defense) — replaces auto "Defense overview"; do not change route
   const visibleDefenseItems = [
+    { title: "EVINT", href: "/defense", icon: productMarkIcon("fusarium"), description: "Environmental Intelligence" },
     defenseItems[0],
     user
       ? { title: "Launchpad workspace", href: "/app/launchpad/dashboard", icon: Rocket, description: "Open your contractor workspace" }
@@ -403,7 +396,7 @@ function HeaderContent() {
   }
 
   return (
-    <header className="bg-background/80 backdrop-blur-xl sticky top-0 z-[200] shadow-none">
+    <header className="site-chrome-nav sticky top-0 z-[200] shadow-none border-b">
       {/* h-12 on mobile (saves 8px), h-14 on desktop */}
       <div className="container max-w-7xl mx-auto flex h-12 md:h-14 items-center justify-between px-3 md:px-4">
         <div className="flex items-center gap-1.5 md:gap-2 font-semibold">
@@ -458,20 +451,20 @@ function HeaderContent() {
           {/* SI Dropdown — public IA: Overview, MYCA, AVANI, NLM, Agent Access */}
           <NavDropdown
             label="SI"
-            icon={Bot}
+            icon={productMarkIcon("myca")}
             items={AI_NAV_ITEMS}
             isOpen={openDropdown === "ai"}
             onOpen={() => setOpenDropdown("ai")}
             onClose={() => setOpenDropdown(null)}
             accentColor="orange"
-            mainHref="/ai"
+            mainHref="/si"
             globalTimeoutRef={globalDropdownTimeoutRef}
           />
 
-          {/* Defense Dropdown */}
+          {/* Defense Dropdown — Fusarium mark */}
           <NavDropdown
             label="Defense"
-            icon={Bug}
+            icon={productMarkIcon("fusarium")}
             items={visibleDefenseItems}
             isOpen={openDropdown === "defense"}
             onOpen={() => setOpenDropdown("defense")}
@@ -484,19 +477,18 @@ function HeaderContent() {
           {/* NatureOS Dropdown */}
           <NavDropdown
             label="NatureOS"
-            icon={Cloud}
+            icon={productMarkIcon("natureos")}
             items={visibleNatureOSItems}
             isOpen={openDropdown === "natureos"}
             onOpen={() => setOpenDropdown("natureos")}
             onClose={() => setOpenDropdown(null)}
             accentColor="blue"
-            mainHref="/natureos"
             globalTimeoutRef={globalDropdownTimeoutRef}
           />
 
-          {/* Devices Dropdown */}
+          {/* Droids Dropdown (routes stay under /devices*) */}
           <NavDropdown
-            label="Devices"
+            label="Droids"
             icon={Cpu}
             items={devicesItems}
             isOpen={openDropdown === "devices"}
@@ -504,19 +496,6 @@ function HeaderContent() {
             onClose={() => setOpenDropdown(null)}
             accentColor="purple"
             mainHref="/devices"
-            globalTimeoutRef={globalDropdownTimeoutRef}
-          />
-
-          {/* Apps Dropdown */}
-          <NavDropdown
-            label="Apps"
-            icon={Apps}
-            items={visibleAppsItems}
-            isOpen={openDropdown === "apps"}
-            onOpen={() => setOpenDropdown("apps")}
-            onClose={() => setOpenDropdown(null)}
-            accentColor="orange"
-            mainHref="/apps"
             globalTimeoutRef={globalDropdownTimeoutRef}
           />
 

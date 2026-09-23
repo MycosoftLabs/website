@@ -31,7 +31,7 @@ interface NLMPanelProps {
 
 // GFST Pattern Classifications
 const PATTERN_CLASSES = [
-  { id: "baseline", name: "Baseline Activity", color: "#94a3b8", description: "Normal resting state" },
+  { id: "baseline", name: "Baseline Activity", color: "#e2e8f0", description: "Normal resting state" },
   { id: "growth", name: "Active Growth", color: "#22c55e", description: "Metabolic activity detected" },
   { id: "stress", name: "Stress Response", color: "#f59e0b", description: "Environmental stressor" },
   { id: "communication", name: "Communication", color: "#3b82f6", description: "Inter-hyphal signaling" },
@@ -147,7 +147,7 @@ export function NLMPanel({ deviceId = null, patterns = [], className }: NLMPanel
       const h = canvas.height
       
       // Clear
-      ctx.fillStyle = "#050810"
+      ctx.fillStyle = "#000000"
       ctx.fillRect(0, 0, w, h)
       
       // Draw neural network visualization (decorative only; no fake analysis)
@@ -203,7 +203,7 @@ export function NLMPanel({ deviceId = null, patterns = [], className }: NLMPanel
             const px = node.x + (target.x - node.x) * progress
             const py = node.y + (target.y - node.y) * progress
             
-            ctx.fillStyle = "#06b6d4"
+            ctx.fillStyle = "#ffffff"
             ctx.shadowColor = "#06b6d4"
             ctx.shadowBlur = 4
             ctx.beginPath()
@@ -234,7 +234,7 @@ export function NLMPanel({ deviceId = null, patterns = [], className }: NLMPanel
     })
     
     // Layer labels
-    ctx.fillStyle = "rgba(255, 255, 255, 0.3)"
+    ctx.fillStyle = "#ffffff"
     ctx.font = "7px monospace"
     ctx.textAlign = "center"
     const labels = ["Input", "Hidden", "Hidden", "Output"]
@@ -286,48 +286,48 @@ export function NLMPanel({ deviceId = null, patterns = [], className }: NLMPanel
       </div>
       
       {/* Neural Network Visualization */}
-      <div ref={containerRef} className="flex-[1.5] relative rounded overflow-hidden bg-[#050810] border border-purple-500/20 min-h-0 min-w-0">
+      <div ref={containerRef} className="flex-[1.5] relative rounded overflow-hidden bg-black/95 border border-purple-500/20 min-h-0 min-w-0">
         <canvas ref={canvasRef} width={dimensions.width} height={dimensions.height} className="block" />
       </div>
       
       {/* Analysis: real API or explicit degraded state only (no mock data) */}
       {nlmStatus === "loading" && (
-        <div className="flex-none p-1 mt-1 rounded bg-black/40 border border-purple-500/20 text-[8px] text-gray-400">
+        <div className="flex-none p-1 mt-1 rounded bg-black/40 border border-purple-500/20 text-[8px] text-white">
           Checking NLM…
         </div>
       )}
       {nlmStatus === "degraded" && (
-        <div className="flex-none p-1 mt-1 rounded bg-black/40 border border-amber-500/20 text-[8px] text-amber-400/90">
+        <div className="flex-none p-1 mt-1 rounded bg-black/40 border border-amber-500/20 text-[8px] text-amber-200">
           MAS NLM reachable or offline, but no loaded checkpoint. Forecast unqualified.
         </div>
       )}
       {nlmStatus === "live" && (
         <>
-          <div className="flex-none p-1 mt-1 rounded bg-black/40 border border-purple-500/20 text-[8px] text-gray-400">
+          <div className="flex-none p-1 mt-1 rounded bg-black/60 border border-white/30 text-[9px] font-semibold text-white">
             MAS NLM {weightCount ? `${weightCount} on-disk weights` : modelLoaded ? "loaded" : "reachable"}
             {weightsSha ? ` · ${weightsSha.slice(0, 12)}…` : ""} · forecast unqualified · p null
           </div>
-          <div className="flex-none flex items-center justify-between p-1 mt-1 rounded bg-black/40 border border-cyan-500/20 text-[8px] text-gray-400">
-            <Activity className="h-2.5 w-2.5 text-cyan-500/50" />
+          <div className="flex-none flex items-center justify-between p-1 mt-1 rounded bg-black/60 border border-white/30 text-[9px] font-semibold text-white">
+            <Activity className="h-3 w-3 text-cyan-200" />
             Behavioral state: No analysis data
           </div>
           {anomalyScore != null && anomalyScore > 0.1 && (
             <div className="flex-none flex items-center gap-1 p-1 mt-1 rounded bg-amber-500/10 border border-amber-500/30">
-              <AlertTriangle className="h-2.5 w-2.5 text-amber-400" />
-              <span className="text-[8px] text-amber-400">Anomaly: {(anomalyScore * 100).toFixed(0)}%</span>
+              <AlertTriangle className="h-2.5 w-2.5 text-amber-200" />
+              <span className="text-[9px] font-semibold text-amber-100">Anomaly: {(anomalyScore * 100).toFixed(0)}%</span>
             </div>
           )}
           <div className="flex-none mt-1 space-y-0.5">
-            <div className="text-[7px] text-gray-500 px-0.5">Predictions</div>
+            <div className="fungi-stat-label text-[9px] font-bold text-white px-0.5">Predictions</div>
             {predictions.length > 0 ? (
               predictions.slice(0, 2).map((pred, i) => (
-                <div key={i} className="flex items-center justify-between px-1 py-0.5 rounded bg-black/30">
-                  <span className="text-[7px] text-gray-400">{pred.label}</span>
-                  <span className="text-[7px] font-mono text-purple-400">{(pred.probability * 100).toFixed(0)}%</span>
+                <div key={i} className="flex items-center justify-between px-1 py-0.5 rounded bg-black/50 border border-white/20">
+                  <span className="text-[9px] font-semibold text-white">{pred.label}</span>
+                  <span className="fungi-metric-value text-[9px] font-mono text-white">{(pred.probability * 100).toFixed(0)}%</span>
                 </div>
               ))
             ) : (
-              <div className="text-[7px] text-gray-500 px-1 py-0.5">No analysis data</div>
+              <div className="text-[9px] font-semibold text-white px-1 py-0.5">No analysis data</div>
             )}
           </div>
         </>

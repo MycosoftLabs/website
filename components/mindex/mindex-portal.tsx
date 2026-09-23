@@ -237,7 +237,7 @@ export function MINDEXPortal() {
   }, [])
 
   return (
-    <div className="min-h-dvh bg-background">
+    <div className="mindex-glass-page min-h-dvh bg-background">
       {/* Hero Section */}
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
         {/* Animated Background */}
@@ -245,14 +245,14 @@ export function MINDEXPortal() {
           {/* Grid pattern */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#8884_1px,transparent_1px),linear-gradient(to_bottom,#8884_1px,transparent_1px)] bg-[size:32px_32px] opacity-10" />
           
-          {/* Gradient orbs */}
+          {/* Gradient orbs — purple brand accents only */}
           <motion.div 
             className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"
             animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
             transition={{ duration: 8, repeat: Infinity }}
           />
           <motion.div 
-            className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"
+            className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"
             animate={{ scale: [1.2, 1, 1.2], opacity: [0.2, 0.4, 0.2] }}
             transition={{ duration: 10, repeat: Infinity }}
           />
@@ -304,7 +304,7 @@ export function MINDEXPortal() {
           >
             <div className="relative inline-block">
               <div className="absolute inset-0 bg-purple-500/20 blur-2xl rounded-full" />
-              <div className="relative p-6 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-3xl border border-purple-500/30">
+              <div className="relative p-6 bg-gradient-to-br from-purple-500/20 to-purple-500/10 rounded-3xl border border-purple-500/30 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
                 <Database className="h-16 w-16 text-purple-400" />
               </div>
             </div>
@@ -317,7 +317,7 @@ export function MINDEXPortal() {
             transition={{ delay: 0.3 }}
             className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6"
           >
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-blue-400 to-purple-400">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-purple-300 to-purple-500">
               MINDEX
             </span>
           </motion.h1>
@@ -351,13 +351,13 @@ export function MINDEXPortal() {
             transition={{ delay: 0.6 }}
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
-            <Button size="lg" className="text-lg px-8 bg-purple-600 hover:bg-purple-700" asChild>
+            <Button size="lg" className="text-lg px-8 bg-purple-600/90 hover:bg-purple-700 backdrop-blur-md border border-purple-400/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]" asChild>
               <Link href="/natureos/mindex">
                 Open MINDEX Dashboard
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 border-cyan-500/30 hover:bg-cyan-500/10" asChild>
+            <Button size="lg" variant="outline" className="text-lg px-8 border-purple-500/30 hover:bg-purple-500/10 backdrop-blur-md bg-white/30 dark:bg-black/30" asChild>
               <Link href="/natureos/mindex/explorer">
                 Species Explorer
                 <Globe className="ml-2 h-5 w-5" />
@@ -391,7 +391,7 @@ export function MINDEXPortal() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.9 + index * 0.05 }}
-                className="bg-background/50 backdrop-blur-xl border border-purple-500/20 rounded-xl p-4"
+                className="bg-white/50 dark:bg-black/40 backdrop-blur-xl border border-purple-500/20 rounded-xl p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]"
               >
                 <stat.icon className="h-5 w-5 text-purple-400 mx-auto mb-2" />
                 <div className="text-2xl font-bold text-purple-400">{stat.value}</div>
@@ -414,7 +414,7 @@ export function MINDEXPortal() {
       </section>
 
       {/* Why MINDEX Section */}
-      <section className="py-24 bg-muted/30">
+      <section className="py-24 bg-black/[0.03] dark:bg-white/[0.03]">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center mb-16">
             <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">Why MINDEX?</Badge>
@@ -465,7 +465,7 @@ export function MINDEXPortal() {
                 transition={{ delay: index * 0.1 }}
                 viewport={{ once: true }}
               >
-                <Card className="h-full border-purple-500/20 hover:border-purple-500/40 transition-colors bg-background/50">
+                <Card className="h-full border-purple-500/20 hover:border-purple-500/40 transition-colors bg-white/50 dark:bg-black/40 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]">
                   <CardHeader>
                     <div className="p-3 bg-purple-500/10 rounded-xl w-fit mb-4">
                       <feature.icon className="h-8 w-8 text-purple-400" />
@@ -550,7 +550,7 @@ export function MINDEXPortal() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="bg-gradient-to-br from-purple-500/10 via-background to-blue-500/10 rounded-3xl p-8 border border-purple-500/20"
+                className="bg-gradient-to-br from-purple-500/10 via-white/40 to-purple-500/5 rounded-3xl p-8 border border-purple-500/20 backdrop-blur-xl dark:via-black/40"
               >
                 <div className="flex items-center gap-4 mb-6">
                   <div className="p-4 bg-purple-500/20 rounded-2xl">
@@ -722,7 +722,7 @@ export function MINDEXPortal() {
       </section>
 
       {/* Integration Protocols Section */}
-      <section className="py-24 bg-muted/30">
+      <section className="py-24 bg-black/[0.03] dark:bg-white/[0.03]">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">Integration</Badge>
@@ -919,7 +919,7 @@ Signer: mycobrain_0042`}
       </section>
 
       {/* Data Flow Section */}
-      <section className="py-24 bg-muted/30">
+      <section className="py-24 bg-black/[0.03] dark:bg-white/[0.03]">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">Data Flow</Badge>
@@ -984,7 +984,7 @@ Signer: mycobrain_0042`}
           <div className="max-w-4xl mx-auto text-center">
             <div className="relative inline-block mb-8">
               <div className="absolute inset-0 bg-purple-500/20 blur-3xl rounded-full" />
-              <div className="relative p-6 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-3xl border border-purple-500/30">
+              <div className="relative p-6 bg-gradient-to-br from-purple-500/20 to-purple-500/10 rounded-3xl border border-purple-500/30 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
                 <Database className="h-16 w-16 text-purple-400" />
               </div>
             </div>
@@ -998,7 +998,7 @@ Signer: mycobrain_0042`}
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="text-lg px-8 bg-purple-600 hover:bg-purple-700" asChild>
+              <Button size="lg" className="text-lg px-8 bg-purple-600/90 hover:bg-purple-700 backdrop-blur-md border border-purple-400/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]" asChild>
                 <Link href="/natureos/mindex">
                   Open MINDEX Dashboard
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -1041,7 +1041,7 @@ Signer: mycobrain_0042`}
                   initial={{ opacity: 0, y: 10 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="bg-background/50 backdrop-blur-xl border border-purple-500/20 rounded-xl p-4"
+                  className="bg-white/50 dark:bg-black/40 backdrop-blur-xl border border-purple-500/20 rounded-xl p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-purple-400 font-medium text-sm">Solana</span>

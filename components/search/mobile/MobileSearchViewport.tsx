@@ -333,7 +333,7 @@ export function MobileSearchViewport({ initialQuery = "" }: MobileSearchViewport
           </div>
           {earthContextFilters?.isContextual && (
             <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[10px]">
-              <Link href={`/apps/earth-simulator?q=${encodeURIComponent(query)}`}>
+              <Link href={`/natureos/earth-simulator?q=${encodeURIComponent(query)}`}>
                 Globe <ExternalLink className="ml-1 h-3 w-3" />
               </Link>
             </Button>
@@ -565,7 +565,7 @@ function MobileEarthSummary({
           </div>
         </div>
         <Button asChild variant="outline" size="sm" className="h-7 shrink-0 px-2 text-[10px]">
-          <Link href={`/apps/earth-simulator?q=${encodeURIComponent(query)}`}>
+          <Link href={`/natureos/earth-simulator?q=${encodeURIComponent(query)}`}>
             Full globe <ExternalLink className="ml-1 h-3 w-3" />
           </Link>
         </Button>

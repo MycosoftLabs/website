@@ -223,10 +223,17 @@ export function ModeToggle() {
           transform: scale(1.1);
         }
 
+        .theme-switch-balls {
+          /* Keep inset:0 from shared absolute layer; balls center in the full pill. */
+          display: flex;
+          align-items: center;
+        }
+
         .theme-switch-active-ball,
         .theme-switch-inactive-ball {
           position: absolute;
-          top: 0.1rem;
+          top: 50%;
+          margin-top: calc(var(--ball) / -2);
           width: var(--ball);
           aspect-ratio: 1;
           border-radius: 50%;
@@ -288,7 +295,8 @@ export function ModeToggle() {
         .theme-switch-active-ball-light,
         .theme-switch-inactive-ball-light {
           position: absolute;
-          top: 0.1rem;
+          top: 50%;
+          margin-top: -1rem;
           width: 2rem;
           aspect-ratio: 1;
           border-top: 0.34rem rgba(255, 255, 255, 0.16) solid;

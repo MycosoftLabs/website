@@ -18,6 +18,7 @@ import {
   Play, Pause, RotateCcw, Download, 
   ChevronLeft, ChevronRight, Zap
 } from "lucide-react"
+import { drawCanvasLabel } from "./canvas-label"
 
 interface CausalityGraphProps {
   className?: string
@@ -169,7 +170,7 @@ export function CausalityGraph({ className }: CausalityGraphProps) {
       const { matrix, flows, pacemaker: currentPacemaker } = causalityRef.current
       
       // Clear
-      ctx.fillStyle = "#0a0e1a"
+      ctx.fillStyle = "#000000"
       ctx.fillRect(0, 0, w, h)
       
       const centerX = w / 2
@@ -245,7 +246,7 @@ export function CausalityGraph({ className }: CausalityGraphProps) {
           ctx.shadowBlur = 15 + 5 * Math.sin(t * 3)
         }
         
-        ctx.fillStyle = isPacemakerNode ? "#10b981" : "#334155"
+        ctx.fillStyle = isPacemakerNode ? "#10b981" : "#0a0a0a"
         ctx.beginPath()
         ctx.arc(pos.x, pos.y, nodeRadius, 0, Math.PI * 2)
         ctx.fill()
@@ -268,15 +269,10 @@ export function CausalityGraph({ className }: CausalityGraphProps) {
         }
       })
       
-      // Legend
-      ctx.fillStyle = "#ffffff"
-      ctx.font = "9px monospace"
-      ctx.textAlign = "left"
-      ctx.fillText("Transfer Entropy", 8, 15)
-      ctx.fillStyle = "#10b981"
-      ctx.fillText("● Pacemaker", 8, 28)
-      ctx.fillStyle = "#06b6d4"
-      ctx.fillText("→ Causal flow", 8, 41)
+      // Legend — stroked white / neon
+      drawCanvasLabel(ctx, "Transfer Entropy", 8, 15, { align: "left", font: "bold 11px monospace" })
+      drawCanvasLabel(ctx, "● Pacemaker", 8, 28, { align: "left", font: "bold 11px monospace", fill: "#6ee7b7" })
+      drawCanvasLabel(ctx, "→ Causal flow", 8, 41, { align: "left", font: "bold 11px monospace" })
       
       animationRef.current = requestAnimationFrame(draw)
     }
@@ -334,16 +330,16 @@ export function CausalityGraph({ className }: CausalityGraphProps) {
         </Button>
       </div>
       
-      <div ref={containerRef} className="flex-1 relative rounded overflow-hidden bg-[#0a0e1a] border border-emerald-500/20 min-h-0 min-w-0">
+      <div ref={containerRef} className="flex-1 relative rounded overflow-hidden bg-black/95 border border-emerald-500/20 min-h-0 min-w-0">
         <canvas ref={canvasRef} width={dimensions.width} height={dimensions.height} className="block" />
-        <div className="absolute top-8 right-2 backdrop-blur-xl bg-black/60 border border-emerald-500/20 rounded-lg p-1.5 text-[8px] text-emerald-400/70">
+        <div className="absolute top-8 right-2 backdrop-blur-xl bg-black/80 border border-white/35 rounded-lg p-2 text-[10px] font-semibold text-white shadow-[0_0_12px_rgba(255,255,255,0.12)]">
           <div>Electrodes: {ELECTRODE_LAYOUT.length}</div>
           <div>Active flows: {flowCount}</div>
         </div>
       </div>
       
       <div className="flex-none text-center py-0.5">
-        <a href="https://doi.org/10.1038/s41598-024-66223-6" target="_blank" rel="noopener noreferrer" className="text-[8px] text-emerald-400/50 hover:text-emerald-400">
+        <a href="https://doi.org/10.1038/s41598-024-66223-6" target="_blank" rel="noopener noreferrer" className="text-[8px] text-emerald-200 hover:text-emerald-400">
           Fukasawa et al. (2024) Sci Rep
         </a>
       </div>

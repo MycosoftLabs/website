@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { 
   Loader2, User, Settings, Leaf, Cpu, Database, 
-  Activity, TrendingUp, Zap, ExternalLink, Home, 
+  Activity, TrendingUp, ExternalLink, Home, 
   Crown, Shield, ArrowLeft, ChevronRight, Bell,
   CreditCard, LogOut, Brain, Globe, Menu, DollarSign
 } from "lucide-react"
@@ -212,13 +212,6 @@ export default function DashboardPage() {
             >
               <Leaf className="w-4 h-4 text-emerald-400" />
               NatureOS
-            </Link>
-            <Link
-              href="/apps"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors whitespace-nowrap"
-            >
-              <Zap className="w-4 h-4 text-blue-400" />
-              Apps
             </Link>
             <Link
               href="/mindex"

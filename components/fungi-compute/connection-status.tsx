@@ -19,9 +19,9 @@ const STATUS_CONFIG: Record<string, { icon: typeof Wifi; label: string; color: s
   disconnected: {
     icon: WifiOff,
     label: "Disconnected",
-    color: "text-gray-400",
-    bgColor: "bg-gray-500/20",
-    glowColor: "transparent",
+    color: "text-white",
+    bgColor: "bg-white/15",
+    glowColor: "rgba(255, 255, 255, 0.35)",
   },
   connecting: {
     icon: Loader2,
@@ -82,7 +82,7 @@ export function ConnectionStatus({ status, className }: ConnectionStatusProps) {
             statusKey === "connecting" && "bg-amber-400",
             statusKey === "reconnecting" && "bg-amber-400",
             statusKey === "error" && "bg-red-400",
-            statusKey === "disconnected" && "bg-gray-400"
+            statusKey === "disconnected" && "bg-white"
           )}
           style={{
             boxShadow: statusKey === "connected" 

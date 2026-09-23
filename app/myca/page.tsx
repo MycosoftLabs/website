@@ -18,6 +18,10 @@ import { ComparisonTable } from "@/components/myca/ComparisonTable"
 import { TechnicalSpecs } from "@/components/myca/TechnicalSpecs"
 import { MYCAAbstract } from "@/components/myca/MYCAAbstract"
 import { MYCAConsciousnessStatus } from "@/components/mas/myca-consciousness-status"
+import {
+  MYCA_GLASS_CYCLE_FRAMES,
+  ProductGlassIconCycle,
+} from "@/components/brand/product-glass-icon-cycle"
 import { NeuromorphicProvider, NeuBadge, NeuCard, NeuCardContent } from "@/components/ui/neuromorphic"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, ExternalLink, Leaf, Globe, FileText, Cpu, Network, Shield } from "lucide-react"
@@ -44,17 +48,34 @@ export default function MYCAPage() {
           <div className="mb-6 flex justify-center">
             <MYCAConsciousnessStatus variant="badge" refreshInterval={30000} />
           </div>
-          <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight mb-6 portal-hero-title">
-            <span className="bg-gradient-to-r from-green-400 via-emerald-300 to-teal-400 bg-clip-text text-transparent">
-              MYCA
+          <p className="text-sm md:text-base uppercase tracking-[0.2em] text-green-400/90 mb-4 font-medium">
+            Agentic operating intelligence
+          </p>
+          <h1 className="mb-6 text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight portal-hero-title">
+            <span className="inline-flex max-w-full flex-wrap items-center justify-center gap-[0.18em] leading-none">
+              <ProductGlassIconCycle
+                frames={MYCA_GLASS_CYCLE_FRAMES}
+                className="origin-center h-[1em] w-[1em] scale-90 translate-y-[5px]"
+                alt="MYCA"
+                reducedMotionLightIndex={0}
+                reducedMotionDarkIndex={1}
+              />
+              <span className="leading-none bg-gradient-to-r from-green-400 via-emerald-300 to-teal-400 bg-clip-text text-transparent">
+                MYCA
+              </span>
             </span>
             <br />
             <span className="text-foreground">Environmental Super Intelligence</span>
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-            Edge-native intelligence for the mycelial edge. MYCA runs in distributed edge data centers
-            embedded inside our dedicated hardware platforms and nodes, treating them like a planetary
-            nervous system that pushes intelligence as close as possible to real-world signals.
+          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-4">
+            MYCA is Mycosoft&apos;s multi-agent system (MAS)—a custom-built orchestrator and agent
+            network refined over the last three years to coordinate perception, memory, voice, and
+            action across the mycelial edge.
+          </p>
+          <p className="text-base md:text-lg text-muted-foreground/90 max-w-3xl mx-auto mb-8">
+            Edge-native intelligence remains close to real-world signals: distributed edge data centers
+            inside our hardware platforms and nodes form a planetary nervous system, while the
+            orchestrator routes work across specialized agents instead of a single monolithic model.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center flex-wrap">
             <Link href="#live-demo">
@@ -84,7 +105,65 @@ export default function MYCAPage() {
         </div>
       </section>
 
-      {/* Section 3: Edge-Native Intelligence */}
+      {/* Section 3: Multi-Agent System (MAS) */}
+      <section className="py-16 md:py-24 border-b">
+        <div className="container max-w-6xl mx-auto px-4 md:px-6">
+          <div className="text-center mb-12">
+            <NeuBadge variant="default" className="mb-4 border border-green-500/30">
+              Multi-Agent System
+            </NeuBadge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Built as a MAS with a living orchestrator
+            </h2>
+            <p className="text-muted-foreground max-w-3xl mx-auto text-base md:text-lg leading-relaxed">
+              MYCA is not a chatbot wrapper. It is a multi-agent system designed and iterated at Mycosoft
+              over the last three years—an orchestrator that plans, routes, and coordinates specialized
+              agents across memory, devices, science, voice, and operations.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <NeuCard className="border border-green-500/25 bg-white/5 backdrop-blur-md supports-[backdrop-filter]:bg-white/5">
+              <NeuCardContent>
+                <div className="flex items-center gap-2 mb-4">
+                  <Network className="h-6 w-6 text-green-400 shrink-0" />
+                  <h3 className="font-bold text-xl">Multi-agent system</h3>
+                </div>
+                <p className="text-muted-foreground leading-relaxed text-sm md:text-base">
+                  Specialized agents share work—corporate, scientific, device, data, and integration
+                  roles—so MYCA can pursue goals as a coordinated team rather than a single prompt path.
+                </p>
+              </NeuCardContent>
+            </NeuCard>
+            <NeuCard className="border border-emerald-500/25 bg-white/5 backdrop-blur-md supports-[backdrop-filter]:bg-white/5">
+              <NeuCardContent>
+                <div className="flex items-center gap-2 mb-4">
+                  <Cpu className="h-6 w-6 text-emerald-400 shrink-0" />
+                  <h3 className="font-bold text-xl">Orchestrator core</h3>
+                </div>
+                <p className="text-muted-foreground leading-relaxed text-sm md:text-base">
+                  The orchestrator is the operating layer: it interprets intent, selects agents, maintains
+                  session and long-term memory context, and closes the loop from sensing to decision to action.
+                </p>
+              </NeuCardContent>
+            </NeuCard>
+            <NeuCard className="border border-teal-500/25 bg-white/5 backdrop-blur-md supports-[backdrop-filter]:bg-white/5">
+              <NeuCardContent>
+                <div className="flex items-center gap-2 mb-4">
+                  <Shield className="h-6 w-6 text-teal-400 shrink-0" />
+                  <h3 className="font-bold text-xl">Three years of build</h3>
+                </div>
+                <p className="text-muted-foreground leading-relaxed text-sm md:text-base">
+                  Custom-built at Mycosoft—not assembled from generic agent kits. Architecture, memory,
+                  voice, and edge deployment grew together so agentic operating intelligence stays grounded
+                  in real environments.
+                </p>
+              </NeuCardContent>
+            </NeuCard>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 4: Edge-Native Intelligence */}
       <section className="py-16 md:py-24 border-b">
         <div className="container max-w-4xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
@@ -104,7 +183,7 @@ export default function MYCAPage() {
             </p>
             <p>
               Under the hood, MYCA is powered by Nemotron foundation models, a built-from-the-ground-up
-              orchestration system, and PersonaPlex for full-duplex voice-to-voice interactions, with support for
+              multi-agent orchestration system, and PersonaPlex for full-duplex voice-to-voice interactions, with support for
               Blackwell-generation edge GPUs so each node can host rich, local agents. MYCA maintains a
               coherent worldview across all these nodes, allowing it to reason about environments, policies,
               and user intent while still respecting locality and data sovereignty.
@@ -113,7 +192,7 @@ export default function MYCAPage() {
         </div>
       </section>
 
-      {/* Section 4: MYCA + AVANI Yin-Yang */}
+      {/* Section 5: MYCA + AVANI Yin-Yang */}
       <section className="py-16 md:py-24 border-b bg-muted/30">
         <div className="container max-w-5xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">

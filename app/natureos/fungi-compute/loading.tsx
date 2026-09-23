@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export default function FungiComputeLoading() {
   return (
-    <div className="min-h-screen bg-[#050810] p-4">
+    <div className="min-h-screen bg-black p-4">
       {/* Header skeleton */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">

@@ -16,6 +16,7 @@ import {
   Download, Crosshair, Layers, Grid3X3,
   Clock, Zap
 } from "lucide-react"
+import { drawCanvasLabel } from "./canvas-label"
 
 interface ChannelConfig {
   id: number
@@ -165,7 +166,7 @@ export function Oscilloscope({ className, signalBuffer = [] }: OscilloscopeProps
         ctx.fillStyle = "rgba(5, 8, 16, 0.1)"
         ctx.fillRect(0, 0, w, h)
       } else {
-        ctx.fillStyle = "#050810"
+        ctx.fillStyle = "#000000"
         ctx.fillRect(0, 0, w, h)
       }
       
@@ -279,21 +280,16 @@ export function Oscilloscope({ className, signalBuffer = [] }: OscilloscopeProps
         ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
         ctx.fillRect(cursorPos.x + 10, cursorPos.y - 30, 80, 25)
         ctx.fillStyle = "#ffffff"
-        ctx.font = "10px monospace"
+        ctx.font = "bold 11px monospace"
         ctx.textAlign = "left"
         ctx.fillText(`t: ${time.toFixed(2)}s`, cursorPos.x + 15, cursorPos.y - 18)
         ctx.fillText(`V: ${voltage.toFixed(1)}µV`, cursorPos.x + 15, cursorPos.y - 8)
       }
       
-      // Scale info
-      ctx.fillStyle = "#06b6d4"
-      ctx.font = "10px monospace"
-      ctx.textAlign = "left"
-      ctx.fillText(`${timeScale.label}/div`, 5, h - 5)
-      ctx.textAlign = "right"
-      ctx.fillText(`${voltScale.label}/div`, w - 5, h - 5)
-      ctx.textAlign = "center"
-      ctx.fillText(formatTime(t), w / 2, 12)
+      // Scale info — stroked white for max contrast on black glass
+      drawCanvasLabel(ctx, `${timeScale.label}/div`, 5, h - 5, { align: "left", font: "bold 12px monospace" })
+      drawCanvasLabel(ctx, `${voltScale.label}/div`, w - 5, h - 5, { align: "right", font: "bold 12px monospace" })
+      drawCanvasLabel(ctx, formatTime(t), w / 2, 14, { align: "center", font: "bold 12px monospace" })
       
       if (showPersistence) {
         persistenceRef.current = ctx.getImageData(0, 0, w, h)
@@ -367,7 +363,7 @@ export function Oscilloscope({ className, signalBuffer = [] }: OscilloscopeProps
         </div>
         
         <div className="flex items-center gap-0.5">
-          <Clock className="h-3 w-3 text-cyan-400/50" />
+          <Clock className="h-3 w-3 text-cyan-200" />
           <Button variant="ghost" size="icon" onClick={() => setTimeScaleIdx(Math.max(0, timeScaleIdx - 1))} className="h-5 w-5 p-0 text-cyan-400">
             <ZoomIn className="h-2.5 w-2.5" />
           </Button>
@@ -378,7 +374,7 @@ export function Oscilloscope({ className, signalBuffer = [] }: OscilloscopeProps
         </div>
         
         <div className="flex items-center gap-0.5">
-          <Zap className="h-3 w-3 text-emerald-400/50" />
+          <Zap className="h-3 w-3 text-emerald-200" />
           <Button variant="ghost" size="icon" onClick={() => setVoltScaleIdx(Math.max(0, voltScaleIdx - 1))} className="h-5 w-5 p-0 text-emerald-400">
             <ZoomIn className="h-2.5 w-2.5" />
           </Button>
@@ -389,13 +385,13 @@ export function Oscilloscope({ className, signalBuffer = [] }: OscilloscopeProps
         </div>
         
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => setShowGrid(!showGrid)} className={cn("h-5 w-5 p-0", showGrid ? "text-cyan-400" : "text-gray-500")} title="Grid">
+          <Button variant="ghost" size="icon" onClick={() => setShowGrid(!showGrid)} className={cn("h-5 w-5 p-0", showGrid ? "text-cyan-400" : "text-white")} title="Grid">
             <Grid3X3 className="h-3 w-3" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setShowPersistence(!showPersistence)} className={cn("h-5 w-5 p-0", showPersistence ? "text-purple-400" : "text-gray-500")} title="Persistence">
+          <Button variant="ghost" size="icon" onClick={() => setShowPersistence(!showPersistence)} className={cn("h-5 w-5 p-0", showPersistence ? "text-purple-400" : "text-white")} title="Persistence">
             <Layers className="h-3 w-3" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setShowCursor(!showCursor)} className={cn("h-5 w-5 p-0", showCursor ? "text-amber-400" : "text-gray-500")} title="Cursor">
+          <Button variant="ghost" size="icon" onClick={() => setShowCursor(!showCursor)} className={cn("h-5 w-5 p-0", showCursor ? "text-amber-400" : "text-white")} title="Cursor">
             <Crosshair className="h-3 w-3" />
           </Button>
           <Button variant="ghost" size="icon" onClick={exportData} className="h-5 w-5 p-0 text-cyan-400" title="Export">
@@ -404,7 +400,7 @@ export function Oscilloscope({ className, signalBuffer = [] }: OscilloscopeProps
         </div>
       </div>
       
-      <div ref={containerRef} className="flex-1 relative rounded overflow-hidden bg-[#050810] border border-cyan-500/20 min-h-0 min-w-0">
+      <div ref={containerRef} className="flex-1 relative rounded overflow-hidden bg-black/95 border border-cyan-500/20 min-h-0 min-w-0">
         <div className="absolute inset-0 pointer-events-none z-10" style={{ backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)` }} />
         <canvas ref={canvasRef} width={dimensions.width} height={dimensions.height} className="block cursor-crosshair" onClick={handleCanvasClick} />
         <div className="absolute top-2 right-2 flex flex-col gap-1 z-20">
@@ -427,7 +423,7 @@ export function Oscilloscope({ className, signalBuffer = [] }: OscilloscopeProps
             </button>
           ))}
         </div>
-        <span className="text-[8px] text-cyan-400/50 font-mono">Fungal Electrophysiology</span>
+        <span className="text-[8px] text-cyan-200 font-mono">Fungal Electrophysiology</span>
       </div>
     </div>
   )

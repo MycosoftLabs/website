@@ -371,13 +371,13 @@ export const DOCS_CATALOG: DocSection[] = [
   },
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 8. Apps
+  // 8. NatureOS Tools (former App suite docs)
   // ─────────────────────────────────────────────────────────────────────────
   {
-    id: "apps",
-    title: "Apps",
-    href: "/docs/apps",
-    description: "Studio tools and simulators built on the Mycosoft platform.",
+    id: "natureos-tools",
+    title: "NatureOS Tools",
+    href: "/natureos/tools",
+    description: "Science, lab, and developer tools inside NatureOS.",
     entries: [
       {
         title: "Earth Simulator",

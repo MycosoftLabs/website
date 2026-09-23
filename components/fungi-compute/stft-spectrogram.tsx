@@ -20,6 +20,7 @@ import {
   ChevronUp, ChevronDown, Download, Eye,
   Clock, Zap, Target
 } from "lucide-react"
+import { drawCanvasLabel } from "./canvas-label"
 
 interface STFTSpectrogramProps {
   className?: string
@@ -209,7 +210,7 @@ export function STFTSpectrogram({ className, signalBuffer = [] }: STFTSpectrogra
       }
       
       // Clear
-      ctx.fillStyle = "#050810"
+      ctx.fillStyle = "#000000"
       ctx.fillRect(0, 0, w, h)
       
       // Draw spectrogram
@@ -267,18 +268,17 @@ export function STFTSpectrogram({ className, signalBuffer = [] }: STFTSpectrogra
         }
       }
       
-      // Draw frequency axis
-      ctx.fillStyle = "#06b6d4"
-      ctx.font = "10px monospace"
-      ctx.textAlign = "right"
-      
+      // Draw frequency axis — stroked white
       const freqStep = (freqRange.max - freqRange.min) / 5
       for (let i = 0; i <= 5; i++) {
         const freq = freqRange.min + i * freqStep
         const y = h - (i / 5) * h
-        ctx.fillText(`${freq.toFixed(1)} Hz`, w - 5, y + 4)
+        drawCanvasLabel(ctx, `${freq.toFixed(1)} Hz`, w - 5, y + 4, {
+          align: "right",
+          font: "bold 12px monospace",
+        })
         
-        ctx.strokeStyle = "rgba(6, 182, 212, 0.15)"
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.2)"
         ctx.lineWidth = 1
         ctx.beginPath()
         ctx.moveTo(0, y)
@@ -286,8 +286,10 @@ export function STFTSpectrogram({ className, signalBuffer = [] }: STFTSpectrogra
         ctx.stroke()
       }
       
-      ctx.textAlign = "center"
-      ctx.fillText("← Time", w / 2, h - 5)
+      drawCanvasLabel(ctx, "← Time", w / 2, h - 5, {
+        align: "center",
+        font: "bold 12px monospace",
+      })
       
       animationRef.current = requestAnimationFrame(draw)
     }
@@ -360,7 +362,7 @@ export function STFTSpectrogram({ className, signalBuffer = [] }: STFTSpectrogra
         </div>
         
         <div className="flex items-center gap-0.5">
-          <Clock className="h-3 w-3 text-cyan-400/50" />
+          <Clock className="h-3 w-3 text-cyan-200" />
           <Button variant="ghost" size="icon" onClick={() => setTimeScaleIdx(Math.max(0, timeScaleIdx - 1))} className="h-5 w-5 p-0 text-cyan-400">
             <ZoomIn className="h-2.5 w-2.5" />
           </Button>
@@ -381,7 +383,7 @@ export function STFTSpectrogram({ className, signalBuffer = [] }: STFTSpectrogra
         </div>
         
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => setShowBioMarker(!showBioMarker)} className={cn("h-5 w-5 p-0", showBioMarker ? "text-emerald-400" : "text-gray-500")} title="Bio Marker">
+          <Button variant="ghost" size="icon" onClick={() => setShowBioMarker(!showBioMarker)} className={cn("h-5 w-5 p-0", showBioMarker ? "text-emerald-400" : "text-white")} title="Bio Marker">
             <Target className="h-3 w-3" />
           </Button>
           <Button variant="ghost" size="icon" onClick={cycleColormap} className="h-5 w-5 p-0 text-purple-400" title={`Colormap: ${colormap}`}>
@@ -393,35 +395,35 @@ export function STFTSpectrogram({ className, signalBuffer = [] }: STFTSpectrogra
         </div>
       </div>
       
-      <div ref={containerRef} className="flex-1 relative rounded overflow-hidden bg-[#050810] border border-cyan-500/20 min-h-0 min-w-0">
+      <div ref={containerRef} className="flex-1 relative rounded overflow-hidden bg-black/95 border border-cyan-500/20 min-h-0 min-w-0">
         <canvas ref={canvasRef} width={dimensions.width} height={dimensions.height} className="block" />
         
-        <div className="absolute top-2 left-2 backdrop-blur-xl bg-black/60 border border-cyan-500/20 rounded-lg p-2 space-y-1">
-          <div className="text-[9px] text-cyan-400 font-semibold">Band Power</div>
+        <div className="absolute top-2 left-2 backdrop-blur-xl bg-black/80 border border-white/35 rounded-lg p-2 space-y-1 shadow-[0_0_16px_rgba(255,255,255,0.12)]">
+          <div className="fungi-stat-label text-[10px] font-bold text-white">Band Power</div>
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
-              <span className="text-[8px] text-gray-400 w-12">&lt;1 Hz:</span>
-              <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden w-16">
-                <div className="h-full bg-gray-500 rounded-full transition-all" style={{ width: `${powerStats.lowBand * 100}%` }} />
+              <span className="fungi-stat-label text-[9px] text-white w-12">&lt;1 Hz:</span>
+              <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden w-16">
+                <div className="h-full bg-white/80 rounded-full transition-all" style={{ width: `${powerStats.lowBand * 100}%` }} />
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[8px] text-emerald-400 w-12">1.5-5 Hz:</span>
-              <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden w-16">
-                <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${powerStats.bioBand * 100}%` }} />
+              <span className="fungi-stat-label text-[9px] text-emerald-200 w-12">1.5-5 Hz:</span>
+              <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden w-16">
+                <div className="h-full bg-emerald-400 rounded-full transition-all" style={{ width: `${powerStats.bioBand * 100}%` }} />
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[8px] text-gray-400 w-12">&gt;5 Hz:</span>
-              <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden w-16">
-                <div className="h-full bg-gray-500 rounded-full transition-all" style={{ width: `${powerStats.highBand * 100}%` }} />
+              <span className="fungi-stat-label text-[9px] text-white w-12">&gt;5 Hz:</span>
+              <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden w-16">
+                <div className="h-full bg-white/80 rounded-full transition-all" style={{ width: `${powerStats.highBand * 100}%` }} />
               </div>
             </div>
           </div>
         </div>
         
-        <div className="absolute bottom-2 right-2 backdrop-blur-xl bg-black/60 border border-cyan-500/20 rounded-lg p-2">
-          <div className="text-[8px] text-cyan-400 font-mono mb-1">{colormap}</div>
+        <div className="absolute bottom-2 right-2 backdrop-blur-xl bg-black/80 border border-white/35 rounded-lg p-2">
+          <div className="fungi-stat-label text-[9px] text-white font-mono mb-1">{colormap}</div>
           <div className="w-16 h-2 rounded" style={{
             background: colormap === "hot" 
               ? "linear-gradient(to right, #000, #f00, #ff0, #fff)"
@@ -431,7 +433,7 @@ export function STFTSpectrogram({ className, signalBuffer = [] }: STFTSpectrogra
               ? "linear-gradient(to right, #0f0f50, #3399cc, #99ffff)"
               : "linear-gradient(to right, #0d0887, #cc4778, #f0f921)"
           }} />
-          <div className="flex justify-between text-[7px] text-gray-400 mt-0.5">
+          <div className="flex justify-between text-[8px] text-white mt-0.5 font-semibold">
             <span>Low</span>
             <span>High</span>
           </div>
@@ -439,7 +441,7 @@ export function STFTSpectrogram({ className, signalBuffer = [] }: STFTSpectrogra
       </div>
       
       <div className="flex-none flex items-center justify-center py-0.5">
-        <a href="https://doi.org/10.1016/j.isci.2025.113484" target="_blank" rel="noopener noreferrer" className="text-[8px] text-cyan-400/50 hover:text-cyan-400">
+        <a href="https://doi.org/10.1016/j.isci.2025.113484" target="_blank" rel="noopener noreferrer" className="text-[8px] text-cyan-200 hover:text-cyan-400">
           Buffi et al. (2025) iScience - STFT Method
         </a>
       </div>

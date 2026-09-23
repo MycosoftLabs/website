@@ -151,7 +151,7 @@ function LinearGenomeView({
       </div>
 
       {/* Ruler */}
-      <div className="h-8 bg-slate-800 rounded-t-lg relative overflow-hidden">
+      <div className="h-8 bg-zinc-900 rounded-t-lg relative overflow-hidden">
         {Array.from({ length: 11 }).map((_, i) => {
           const pos = start + ((end - start) * i) / 10
           return (
@@ -160,8 +160,8 @@ function LinearGenomeView({
               className="absolute flex flex-col items-center"
               style={{ left: `${i * 10}%` }}
             >
-              <div className="h-3 w-px bg-slate-500" />
-              <span className="text-[10px] text-slate-400 whitespace-nowrap">
+              <div className="h-3 w-px bg-zinc-600" />
+              <span className="text-[10px] text-zinc-400 whitespace-nowrap">
                 {formatPosition(pos)}
               </span>
             </div>
@@ -177,9 +177,9 @@ function LinearGenomeView({
       </div>
 
       {/* Gene track */}
-      <div className="h-20 bg-slate-900 relative overflow-hidden">
-        <div className="absolute left-0 top-0 w-12 h-full bg-slate-800 flex items-center justify-center z-10">
-          <span className="text-[10px] text-slate-400 rotate-[-90deg]">Genes</span>
+      <div className="h-20 bg-black relative overflow-hidden">
+        <div className="absolute left-0 top-0 w-12 h-full bg-zinc-900 flex items-center justify-center z-10">
+          <span className="text-[10px] text-zinc-400 rotate-[-90deg]">Genes</span>
         </div>
         <div className="ml-12 h-full relative">
           {visibleGenes.map((gene, i) => {
@@ -228,7 +228,7 @@ function LinearGenomeView({
       </div>
 
       {/* Sequence track placeholder */}
-      <div className="h-10 bg-slate-800 rounded-b-lg flex items-center justify-center text-xs text-slate-500">
+      <div className="h-10 bg-zinc-900 rounded-b-lg flex items-center justify-center text-xs text-zinc-500">
         <Dna className="h-4 w-4 mr-2 opacity-50" />
         Sequence track (zoom in to 10kb to view)
       </div>

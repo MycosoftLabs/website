@@ -1,11 +1,10 @@
 /**
  * Canonical tool URLs for anonymous users.
  *
- * `/apps/*` is authenticated at middleware (except a tiny allowlist), so marketing
- * nav and portals must link here — same UI as `/apps/*` but served under
- * `/natureos/tools/*` simulators without a login redirect. Top NatureOS apps
- * use canonical `/natureos/*` paths (May 2026 reorg); old `/natureos/tools/*`
- * URLs redirect permanently.
+ * Former `/apps/*` suite URLs permanently redirect to these NatureOS paths.
+ * Marketing nav and portals must link here. Top NatureOS tools use canonical
+ * `/natureos/*` paths (May 2026 reorg); old `/natureos/tools/*` URLs for
+ * primary apps redirect permanently where noted below.
  */
 export const PUBLIC_TOOL_HREFS = {
   earthSimulator: "/natureos/earth-simulator",

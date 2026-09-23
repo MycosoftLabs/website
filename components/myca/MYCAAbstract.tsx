@@ -19,10 +19,10 @@ const FLOW_SECTIONS = [
     icon: HelpCircle,
     title: "What",
     subtitle: "What is MYCA",
-    visual: "MYCA is environmental superintelligence—SI grounded in the real world instead of the web.",
+    visual: "MYCA is agentic operating intelligence—a multi-agent system with an orchestrator, grounded in the real world.",
     content: [
-      "A Nature Learning Model that learns from sensors, weather, soil, and biological signals—not just text and images from the internet.",
-      "It coordinates frontier SI models while staying rooted in reality-grounded truth.",
+      "A custom-built multi-agent system (MAS) developed at Mycosoft over the last three years, with an orchestrator that coordinates specialized agents.",
+      "A Nature Learning Model that learns from sensors, weather, soil, and biological signals—not just text and images from the internet—while staying rooted in reality-grounded truth.",
     ],
     image: "/assets/myconode/myconode a.png",
     imageAlt: "MycoNode subsurface probe—sensing biological reality",
