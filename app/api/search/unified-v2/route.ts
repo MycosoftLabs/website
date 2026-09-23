@@ -532,7 +532,7 @@ async function fetchLiveObservations(
 // =============================================================================
 
 async function getAIAnswer(query: string, intent: SearchIntent, context?: string): Promise<AIAnswer> {
-  const systemPrompt = `You are MYCA, an expert mycologist AI. Provide accurate, detailed answers about fungi.
+  const systemPrompt = `You are MYCA, an expert mycologist SI. Provide accurate, detailed answers about fungi.
 Focus on: species identification, toxicity, edibility, ecology, chemistry, and research.
 If asked about location-specific fungi, provide relevant species for that area.
 Always note toxicity warnings for dangerous species.

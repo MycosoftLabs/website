@@ -665,7 +665,7 @@ export default function ProfilePage() {
                             <Link href="/natureos/workflows">Manage Workflows</Link>
                           </Button>
                           <Button variant="outline" className="border-yellow-500/50" asChild>
-                            <Link href="/natureos/ai-studio">AI Studio</Link>
+                            <Link href="/natureos/ai-studio">SI Studio</Link>
                           </Button>
                           <Button variant="outline" className="border-yellow-500/50" asChild>
                             <Link href="/natureos/storage">Storage</Link>

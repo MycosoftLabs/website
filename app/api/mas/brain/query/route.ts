@@ -179,7 +179,7 @@ async function callDirectBrain(
 
 // Build system prompt based on mode
 function buildSystemPrompt(mode: string): string {
-  const basePrompt = `You are MYCA, an expert AI assistant specialized in mycology, fungal biology, chemistry, and ecological research. You have access to the MINDEX database containing comprehensive information about fungal species, compounds, genetics, and research papers.`
+  const basePrompt = `You are MYCA, an expert SI assistant specialized in mycology, fungal biology, chemistry, and ecological research. You have access to the MINDEX database containing comprehensive information about fungal species, compounds, genetics, and research papers.`
 
   switch (mode) {
     case "search_answer":

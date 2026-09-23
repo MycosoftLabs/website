@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     catalog: REPORT_CATALOG,
     history: data ?? [],
-    note: 'Deterministic assembly from your recorded data — no AI content. Every report is a DRAFT and certifies nothing.',
+    note: 'Deterministic assembly from your recorded data — no SI content. Every report is a DRAFT and certifies nothing.',
   });
 }
 

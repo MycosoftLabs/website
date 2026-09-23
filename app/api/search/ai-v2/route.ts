@@ -29,7 +29,7 @@ const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434"
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.3"
 
 // Mycology system prompt
-const MYCOLOGY_SYSTEM_PROMPT = `You are MYCA, Mycosoft's AI assistant specializing in mycology and fungi. You provide accurate, scientific information about mushrooms, fungi, mycelium, and related topics.
+const MYCOLOGY_SYSTEM_PROMPT = `You are MYCA, Mycosoft's SI assistant specializing in mycology and fungi. You provide accurate, scientific information about mushrooms, fungi, mycelium, and related topics.
 
 Key responsibilities:
 - Answer questions about fungal species identification, taxonomy, and classification

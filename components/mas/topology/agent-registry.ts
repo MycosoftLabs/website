@@ -185,7 +185,7 @@ const FINANCIAL_AGENTS: AgentDefinition[] = [
 // ============================================
 const MYCOLOGY_AGENTS: AgentDefinition[] = [
   { id: "mycology-bio", name: "Mycology Bio Agent", shortName: "MycoBio", type: "agent", category: "mycology", description: "Core mycology research", defaultStatus: "active", priority: 9, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "species-classifier", name: "Species Classifier", shortName: "Species", type: "agent", category: "mycology", description: "AI species identification", defaultStatus: "active", priority: 8, canStart: true, canStop: true, canRestart: true, canConfigure: true },
+  { id: "species-classifier", name: "Species Classifier", shortName: "Species", type: "agent", category: "mycology", description: "SI species identification", defaultStatus: "active", priority: 8, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "taxonomy-manager", name: "Taxonomy Manager", shortName: "Taxonomy", type: "agent", category: "mycology", description: "Taxonomic hierarchy management", defaultStatus: "active", priority: 8, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "trait-extractor", name: "Trait Extractor", shortName: "Traits", type: "agent", category: "mycology", description: "Trait extraction from text", defaultStatus: "active", priority: 7, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "edibility-classifier", name: "Edibility Classifier", shortName: "Edibility", type: "agent", category: "mycology", description: "Edibility determination", defaultStatus: "active", priority: 9, canStart: true, canStop: true, canRestart: true, canConfigure: true },

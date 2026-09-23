@@ -1,7 +1,7 @@
 /**
- * AI Overview Page — Stack View: MYCA + AVANI + NLM + NVIDIA
+ * SI Overview Page — Stack View: MYCA + AVANI + NLM + NVIDIA
  * Route: /ai
- * Public entry point for the layered AI ecosystem.
+ * Public entry point for the layered superintelligence ecosystem.
  * Updated: Mar 18, 2026
  */
 
@@ -24,9 +24,9 @@ import {
 } from "@/components/ui/accordion"
 import { ArrowRight, Shield, Sparkles, Brain, Users, Bot, Cpu, Globe, Layers } from "lucide-react"
 export const metadata: Metadata = {
-  title: "AI | Layered Intelligence Stack | Mycosoft",
+  title: "SI | Layered Superintelligence Stack | Mycosoft",
   description:
-    "Mycosoft's AI stack is built as a layered ecosystem: MYCA (environmental super intelligence), AVANI (live Earth substrate), and NLM (Nature Learning Model) — powered by nature and computers.",
+    "Mycosoft's superintelligence stack is a layered ecosystem: MYCA (environmental superintelligence), AVANI (live Earth substrate), and NLM (Nature Learning Model) — powered by nature and computers.",
 }
 
 export default function AIOverviewPage() {
@@ -46,10 +46,10 @@ export default function AIOverviewPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/28 via-slate-950/10 to-background/82" />
         <div className="container max-w-4xl mx-auto px-4 md:px-6 text-center relative z-10">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.75)]">
-            A Layered AI Ecosystem
+            A Layered Superintelligence Ecosystem
           </h1>
           <p className="text-lg text-white/86 max-w-3xl mx-auto mb-8 drop-shadow-[0_2px_10px_rgba(0,0,0,0.72)]">
-            Our AI stack is built as a layered ecosystem, not a single monolith. Planet-scale sensing,
+            Our superintelligence stack is built as a layered ecosystem, not a single monolith. Planet-scale sensing,
             edge-native agents, robust reasoning, and human-readable explanations — powered by nature
             and computers.
           </p>
@@ -90,7 +90,7 @@ export default function AIOverviewPage() {
                 <div className="flex items-center gap-3">
                   <Sparkles className="h-5 w-5 text-white shrink-0" />
                   <CardTitle className="text-xl text-white">MYCA</CardTitle>
-                  <span className="ai-stack-label ml-auto">Stochastic AI</span>
+                  <span className="ai-stack-label ml-auto">Stochastic SI</span>
                 </div>
                 <CardDescription className="text-white/75">
                   Environmental super intelligence
@@ -114,7 +114,7 @@ export default function AIOverviewPage() {
                 <div className="flex items-center gap-3">
                   <Globe className="h-5 w-5 text-rose-500 dark:text-rose-300 shrink-0" />
                   <CardTitle className="text-xl text-rose-950 dark:text-white">AVANI</CardTitle>
-                  <span className="ai-stack-label ml-auto">Deterministic AI</span>
+                  <span className="ai-stack-label ml-auto">Deterministic SI</span>
                 </div>
                 <CardDescription className="text-rose-950/70 dark:text-rose-50/75">
                   Live Earth substrate
@@ -261,7 +261,7 @@ export default function AIOverviewPage() {
         <div className="container max-w-4xl mx-auto px-4 md:px-6">
           <h2 className="text-2xl md:text-3xl font-bold mb-6">Cost Less. Do More. Govern Better.</h2>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-6">
-            Mycosoft reduces the hidden costs of fragmented AI: fewer disconnected tools, less
+            Mycosoft reduces the hidden costs of fragmented superintelligence: fewer disconnected tools, less
             duplicated work, less vendor lock-in, less manual orchestration, lower oversight burden
             because governance is built in, and fewer mistakes from context loss and unsafe automation.
           </p>
@@ -304,7 +304,7 @@ export default function AIOverviewPage() {
           <h2 className="text-2xl md:text-3xl font-bold mb-8">Frequently Asked Questions</h2>
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="stack">
-              <AccordionTrigger className="text-base text-left">What are the layers of Mycosoft&apos;s AI stack?</AccordionTrigger>
+              <AccordionTrigger className="text-base text-left">What are the layers of Mycosoft&apos;s superintelligence stack?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
                 Three core layers: MYCA (environmental super intelligence at the edge), AVANI (live Earth substrate
                 for continuous environmental context), and NLM (Nature Learning Model for structured

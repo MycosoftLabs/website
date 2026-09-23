@@ -140,7 +140,7 @@ export default function DocumentsPage() {
             Generate DRAFT policy
           </GlassButton>
           <span className="text-xs text-muted-foreground">
-            Works without an AI key (deterministic skeleton); richer narrative when a drafting model is configured.
+            Works without an SI key (deterministic skeleton); richer narrative when a drafting model is configured.
           </span>
         </div>
       </Card>

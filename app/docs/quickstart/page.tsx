@@ -52,7 +52,7 @@ export default function Page() {
           >
             <div className="text-sm font-semibold text-foreground">Path B — Platform</div>
             <p className="mt-1 text-sm text-muted-foreground">
-              You want NatureOS for dashboards, AI Studio, MINDEX, and the apps without rolling out
+              You want NatureOS for dashboards, SI Studio, MINDEX, and the apps without rolling out
               hardware yet.
             </p>
           </Link>
@@ -187,7 +187,7 @@ export default function Page() {
 
         <h3 id="platform-access">1. Request platform access</h3>
         <p>
-          NatureOS is the cloud and edge platform: dashboards, AI Studio, MINDEX (data plane), Earth
+          NatureOS is the cloud and edge platform: dashboards, SI Studio, MINDEX (data plane), Earth
           Simulator (environmental world model), CREP (Common Relevant Environmental Picture), and
           the apps. Request a workspace at{" "}
           <a href="mailto:contact@mycosoft.com">contact@mycosoft.com</a> with your team, intended
@@ -203,7 +203,7 @@ export default function Page() {
           </li>
           <li>
             <strong>Existing telemetry.</strong> Bring your own CSV, Parquet, or live stream over the
-            NatureOS ingestion API. MINDEX stores the canonical record; AI Studio reads from it.
+            NatureOS ingestion API. MINDEX stores the canonical record; SI Studio reads from it.
           </li>
           <li>
             <strong>Mycosoft devices.</strong> If you add devices later (Path A), they appear

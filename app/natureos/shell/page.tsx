@@ -73,37 +73,37 @@ const WELCOME_MESSAGE = `
 ║   ██║ ╚═╝ ██║   ██║   ╚██████╗╚██████╔╝███████║╚██████╔╝██║        ██║      ║
 ║   ╚═╝     ╚═╝   ╚═╝    ╚═════╝ ╚═════╝ ╚══════╝ ╚═════╝ ╚═╝        ╚═╝      ║
 ║                                                                              ║
-║              NatureOS AI Developer Shell v3.0.0                              ║
-║         Cursor-like AI Coding + System Administration                        ║
+║              NatureOS SI Developer Shell v3.0.0                              ║
+║         Cursor-like SI Coding + System Administration                        ║
 ║                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
-💡 This shell combines AI-powered coding (like Cursor) with system administration.
+💡 This shell combines superintelligence-powered coding (like Cursor) with system administration.
 
 Quick Start:
-  • 'ai <message>'     - Chat with MYCA AI for code help, debugging, explanations
-  • 'code <request>'   - Generate code with AI (MYCA learns from all interactions)
+  • 'ai <message>'     - Chat with MYCA SI for code help, debugging, explanations
+  • 'code <request>'   - Generate code with SI (MYCA learns from all interactions)
   • 'run <code>'       - Execute generated code
   • 'help'             - See all commands
 
-Press Tab for autocomplete. Type 'ai' to start AI coding mode.
+Press Tab for autocomplete. Type 'ai' to start SI coding mode.
 `
 
 const HELP_TEXT = `
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                    NatureOS AI Developer Shell                               ║
+║                    NatureOS SI Developer Shell                               ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║                                                                              ║
-║  🤖 AI CODING COMMANDS (Cursor-like)                                         ║
+║  🤖 SI CODING COMMANDS (Cursor-like)                                         ║
 ║  ─────────────────────────────────────────────────────────────────────────── ║
-║  ai <message>       Chat with MYCA AI for coding help, debugging, etc.       ║
+║  ai <message>       Chat with MYCA SI for coding help, debugging, etc.       ║
 ║  code <request>     Generate code based on description                       ║
-║  refactor <code>    Ask AI to improve/refactor code                          ║
-║  explain <code>     Get AI explanation of code                               ║
-║  debug <issue>      Debug issues with AI assistance                          ║
+║  refactor <code>    Ask SI to improve/refactor code                          ║
+║  explain <code>     Get SI explanation of code                               ║
+║  debug <issue>      Debug issues with SI assistance                          ║
 ║  test <code>        Generate tests for code                                  ║
 ║  docs <code>        Generate documentation                                   ║
-║  review <code>      AI code review                                           ║
+║  review <code>      SI code review                                           ║
 ║                                                                              ║
 ║  📁 FILE OPERATIONS                                                          ║
 ║  ─────────────────────────────────────────────────────────────────────────── ║
@@ -234,7 +234,7 @@ export default function ShellPage() {
         body: JSON.stringify({
           message,
           context: `NatureOS Shell - ${context}`,
-          systemPrompt: `You are MYCA, Mycosoft's AI assistant integrated into the NatureOS development shell.
+          systemPrompt: `You are MYCA, Mycosoft's SI assistant integrated into the NatureOS development shell.
 You help developers with:
 - Writing, explaining, and debugging code
 - System administration and DevOps
@@ -266,7 +266,7 @@ Be concise but thorough. All interactions train you to be better.`,
       console.error("MYCA API error:", e)
     }
     
-    return `I'm currently running in limited mode. The AI backend may be starting up.
+    return `I'm currently running in limited mode. The SI backend may be starting up.
 
 In the meantime, you can:
 • Use 'health' to check system status
@@ -295,10 +295,10 @@ In the meantime, you can:
     const fullArgs = args.join(" ")
 
     try {
-      // AI Commands (Cursor-like)
+      // SI Commands (Cursor-like)
       if (command === "ai" || command === "chat") {
         if (!fullArgs) {
-          output = "💡 AI Mode: Type your question or request.\nExample: ai How do I create a new API endpoint in Next.js?"
+          output = "💡 SI Mode: Type your question or request.\nExample: ai How do I create a new API endpoint in Next.js?"
         } else {
           output = `🤖 MYCA:\n\n${await callMYCA(fullArgs, "general-development")}`
           isAI = true
@@ -467,7 +467,7 @@ Your feedback: "${feedback}"`
           output = `📊 MYCA Training Data from This Session:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Commands Executed:     ${currentTab.commandHistory.length}
-  AI Interactions:       ${currentTab.history.filter(h => h.isAI).length}
+  SI Interactions:       ${currentTab.history.filter(h => h.isAI).length}
   Code Generations:      ${currentTab.history.filter(h => h.isCode).length}
   
   All interactions are logged to improve MYCA's responses.
@@ -642,13 +642,13 @@ mycosoft-gateway  0.8%      64 MiB / 512 MiB
         return
       }
       else if (command === "version") {
-        output = `NatureOS AI Developer Shell v3.0.0
-MYCA AI Engine: NLM-Funga v0.1
+        output = `NatureOS SI Developer Shell v3.0.0
+MYCA SI Engine: NLM-Funga v0.1
 Platform: NatureOS Cloud
 Build: ${new Date().toISOString().split("T")[0]}
 
 Features:
-  • AI-powered code generation (Cursor-like)
+  • Superintelligence-powered code generation (Cursor-like)
   • MYCA integration with learning
   • System administration
   • SDK and API development`
@@ -735,9 +735,9 @@ Features:
       ...prev,
       {
         id,
-        name: type === "ai" ? "AI Chat" : type === "code" ? "Code" : `Shell ${prev.length + 1}`,
+        name: type === "ai" ? "SI Chat" : type === "code" ? "Code" : `Shell ${prev.length + 1}`,
         type,
-        history: [{ command: "", output: type === "ai" ? "🤖 MYCA AI Chat - Ask anything about development." : "New session started.", timestamp: new Date() }],
+        history: [{ command: "", output: type === "ai" ? "🤖 MYCA SI Chat - Ask anything about development." : "New session started.", timestamp: new Date() }],
         commandHistory: [],
       },
     ])
@@ -762,11 +762,11 @@ Features:
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Terminal className="h-6 w-6 text-green-500" />
-            NatureOS AI Developer Shell
+            NatureOS SI Developer Shell
             <Badge variant="outline" className="ml-2 text-xs">Cursor-like</Badge>
           </h1>
           <p className="text-muted-foreground text-sm">
-            AI-powered coding + system administration • All interactions train MYCA
+            superintelligence-powered coding + system administration • All interactions train MYCA
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -815,7 +815,7 @@ Features:
                 <Button variant="ghost" size="icon" onClick={() => addTab("shell")} title="New Shell">
                   <Plus className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => addTab("ai")} title="New AI Chat">
+                <Button variant="ghost" size="icon" onClick={() => addTab("ai")} title="New SI Chat">
                   <Bot className="h-4 w-4" />
                 </Button>
                 <Button variant="ghost" size="icon" onClick={copyToClipboard} title="Copy Output">
@@ -923,7 +923,7 @@ Features:
       {/* Quick Commands */}
       <div className="mt-4 flex flex-wrap gap-2">
         <Badge variant="outline" className="cursor-pointer hover:bg-slate-800" onClick={() => { setInput("ai "); inputRef.current?.focus() }}>
-          <Bot className="h-3 w-3 mr-1" /> AI Chat
+          <Bot className="h-3 w-3 mr-1" /> SI Chat
         </Badge>
         <Badge variant="outline" className="cursor-pointer hover:bg-slate-800" onClick={() => { setInput("code "); inputRef.current?.focus() }}>
           <Wand2 className="h-3 w-3 mr-1" /> Generate Code

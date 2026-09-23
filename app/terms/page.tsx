@@ -28,18 +28,18 @@ export default function TermsPage() {
               <dd className="text-muted-foreground">{`contact@mycosoft.com`}</dd>
             </dl>
           </div>
-          <p>{`These Terms of Service, together with all supplemental terms, order forms, product notices, hardware documentation, software licenses, open-source licenses, acceptable use policies, privacy notices, data processing terms, security policies, deployment rules, autonomous systems policies, reseller terms, procurement terms, and other documents incorporated by reference, form a legally binding agreement between you and Mycosoft. By accessing, browsing, logging into, purchasing, downloading, installing, connecting to, receiving data from, interacting with, deploying, reselling, integrating, operating, observing, testing, or otherwise using any Mycosoft website, software, hardware, device, API, dashboard, autonomous agent, AI tool, model, firmware, source code repository, data feed, documentation, simulation, field system, sensor network, robotic platform, environmental intelligence system, biological interface, or service, you agree to these Terms.`}</p>
+          <p>{`These Terms of Service, together with all supplemental terms, order forms, product notices, hardware documentation, software licenses, open-source licenses, acceptable use policies, privacy notices, data processing terms, security policies, deployment rules, autonomous systems policies, reseller terms, procurement terms, and other documents incorporated by reference, form a legally binding agreement between you and Mycosoft. By accessing, browsing, logging into, purchasing, downloading, installing, connecting to, receiving data from, interacting with, deploying, reselling, integrating, operating, observing, testing, or otherwise using any Mycosoft website, software, hardware, device, API, dashboard, autonomous agent, SI tool, model, firmware, source code repository, data feed, documentation, simulation, field system, sensor network, robotic platform, environmental intelligence system, biological interface, or service, you agree to these Terms.`}</p>
           <h2 id="section-1">{`1. Agreement; Acceptance; Binding Effect`}</h2>
           <h3 id="sub-1-1">{`1.1 Acceptance by Use`}</h3>
           <p>{`You accept these Terms when you do any of the following:`}</p>
           <ul>
             <li>{`visit or use any Mycosoft website, including mycosoft.com;`}</li>
             <li>{`create, access, or use an account;`}</li>
-            <li>{`log into NatureOS, MYCA, MINDEX, AI Studio, Earth Simulator, CREP, FUSARIUM, OEI, SporeBase, HPL, Mycorrhizae Protocol interfaces, device dashboards, APIs, developer portals, or related services;`}</li>
+            <li>{`log into NatureOS, MYCA, MINDEX, SI Studio, Earth Simulator, CREP, FUSARIUM, OEI, SporeBase, HPL, Mycorrhizae Protocol interfaces, device dashboards, APIs, developer portals, or related services;`}</li>
             <li>{`use, download, copy, fork, install, compile, build, execute, inspect, test, or interact with any Mycosoft code, SDK, firmware, software, repository, binary, compiled program, API source code, scripts, models, or documentation;`}</li>
             <li>{`purchase, preorder, lease, borrow, receive, deploy, install, operate, test, modify, connect, or interact with any Mycosoft device, including Mushroom 1, Mushroom-branded devices, MycoBrain, MycoNode, SporeBase, ALARM, Hyphae 1, Tricorder, Petraeus, Mushroom 2, FCI probes, MycoTenna, Psathyrella, Agaric, or any other Mycosoft hardware;`}</li>
             <li>{`receive, ingest, query, view, export, process, redistribute, or rely on any Mycosoft data, telemetry, model output, sensor output, geospatial output, environmental intelligence, biological signal, fungal signal, acoustic signature, public-data feed, open-source intelligence, API output, chain-of-custody record, or dashboard visualization;`}</li>
-            <li>{`interact with MYCA, AVANI, NLM, MAS, agentic workflows, autonomous negotiation tools, voice interfaces, chat interfaces, planning tools, scientific agents, business agents, device agents, robotics agents, or other AI systems;`}</li>
+            <li>{`interact with MYCA, AVANI, NLM, MAS, agentic workflows, autonomous negotiation tools, voice interfaces, chat interfaces, planning tools, scientific agents, business agents, device agents, robotics agents, or other SI systems;`}</li>
             <li>{`act as a value-added reseller, distributor, systems integrator, contractor, subcontractor, channel partner, managed service provider, government contractor, deployment sponsor, research partner, or field operator for any Mycosoft system; or`}</li>
             <li>{`click “I agree,” sign an order form, accept a quote, execute a pilot agreement, connect an API key, power on a device, activate a telemetry stream, open a dashboard, or otherwise manifest assent.`}</li>
           </ul>
@@ -65,20 +65,20 @@ export default function TermsPage() {
           <h3 id="sub-2-2">{`2.2 California LLC Subsidiary / Operating Affiliate`}</h3>
           <p>{`Where services are performed, operated, supported, developed, manufactured, deployed, tested, sold, distributed, or serviced through Mycosoft LLC, a California limited liability company, references to “Mycosoft” include Mycosoft LLC to the extent applicable. Mycosoft, Inc. remains the parent, owner, licensor, or principal contracting party unless a separate written agreement states otherwise.`}</p>
           <h3 id="sub-2-3">{`2.3 No Personal Liability of Personnel`}</h3>
-          <p>{`No officer, director, employee, contractor, developer, scientist, AI system, agent operator, board member, shareholder, affiliate, or representative of Mycosoft is personally liable for obligations under these Terms solely because of their relationship to Mycosoft, except to the extent required by non-waivable law or a separate written agreement signed in an individual capacity.`}</p>
+          <p>{`No officer, director, employee, contractor, developer, scientist, SI system, agent operator, board member, shareholder, affiliate, or representative of Mycosoft is personally liable for obligations under these Terms solely because of their relationship to Mycosoft, except to the extent required by non-waivable law or a separate written agreement signed in an individual capacity.`}</p>
           <h3 id="sub-2-4">{`2.4 Agents and Autonomous Systems Are Company Systems`}</h3>
-          <p>{`MYCA, AVANI, MAS agents, device agents, AI assistants, autonomous negotiation tools, autonomous scientific agents, robotics agents, firmware agents, operational bots, and other machine systems are tools, systems, or processes of Mycosoft or its customers. They are not independent legal persons. They do not possess authority to bind Mycosoft except as expressly authorized by a signed written agreement, an authenticated workflow, or a designated officer-approved transaction.`}</p>
+          <p>{`MYCA, AVANI, MAS agents, device agents, SI assistants, autonomous negotiation tools, autonomous scientific agents, robotics agents, firmware agents, operational bots, and other machine systems are tools, systems, or processes of Mycosoft or its customers. They are not independent legal persons. They do not possess authority to bind Mycosoft except as expressly authorized by a signed written agreement, an authenticated workflow, or a designated officer-approved transaction.`}</p>
           <h3 id="sub-2-5">{`2.5 No Partnership or Agency`}</h3>
           <p>{`Except as expressly stated in a signed reseller, VAR, teaming, subcontract, or agency agreement, these Terms do not create any partnership, joint venture, fiduciary relationship, agency, franchise, employment relationship, or exclusive dealing arrangement.`}</p>
           <h2 id="section-3">{`3. Definitions`}</h2>
           <h3 id="sub-3-1">{`3.1 “Services”`}</h3>
-          <p>{`“Services” means all Mycosoft websites, platforms, software, systems, devices, firmware, hardware, APIs, dashboards, data feeds, documentation, models, AI tools, autonomous agents, cloud services, edge services, field systems, research systems, device networks, simulations, developer tools, training systems, products, pilots, professional services, support, maintenance, and related offerings.`}</p>
+          <p>{`“Services” means all Mycosoft websites, platforms, software, systems, devices, firmware, hardware, APIs, dashboards, data feeds, documentation, models, SI tools, autonomous agents, cloud services, edge services, field systems, research systems, device networks, simulations, developer tools, training systems, products, pilots, professional services, support, maintenance, and related offerings.`}</p>
           <h3 id="sub-3-2">{`3.2 “Platforms”`}</h3>
-          <p>{`“Platforms” means Mycosoft software and cloud systems, including NatureOS, Earth Simulator, MINDEX, AI Studio, MYCA, MAS, AVANI, NLM, CREP, OEI, FUSARIUM, Mycorrhizae Protocol interfaces, HPL interfaces, SporeBase dashboards, device portals, field telemetry systems, developer portals, and any successor systems.`}</p>
+          <p>{`“Platforms” means Mycosoft software and cloud systems, including NatureOS, Earth Simulator, MINDEX, SI Studio, MYCA, MAS, AVANI, NLM, CREP, OEI, FUSARIUM, Mycorrhizae Protocol interfaces, HPL interfaces, SporeBase dashboards, device portals, field telemetry systems, developer portals, and any successor systems.`}</p>
           <h3 id="sub-3-3">{`3.3 “Devices”`}</h3>
           <p>{`“Devices” means Mycosoft hardware, field equipment, edge nodes, sensors, probes, robotics, drone systems, buoys, gateways, antennas, boards, embedded systems, or biological interfaces, including Mushroom 1, Mushroom-branded electronic sensing devices, MycoBrain, MycoNode, FCI probes, SporeBase, ALARM, Hyphae 1, Tricorder, Petraeus, Mushroom 2, MycoTenna, Psathyrella, Agaric, gateways, edge nodes, and any related accessories.`}</p>
-          <h3 id="sub-3-4">{`3.4 “AI Systems”`}</h3>
-          <p>{`“AI Systems” means MYCA, AVANI, MAS, NLM, model agents, frontier model integrations, local models, autonomous scientific agents, business agents, robotics agents, voice agents, model orchestration tools, reasoning systems, classifiers, automated decision-support systems, simulations, environmental world models, or other machine-learning, statistical, algorithmic, or automated systems provided by or integrated with Mycosoft.`}</p>
+          <h3 id="sub-3-4">{`3.4 “SI Systems”`}</h3>
+          <p>{`“SI Systems” means MYCA, AVANI, MAS, NLM, model agents, frontier model integrations, local models, autonomous scientific agents, business agents, robotics agents, voice agents, model orchestration tools, reasoning systems, classifiers, automated decision-support systems, simulations, environmental world models, or other machine-learning, statistical, algorithmic, or automated systems provided by or integrated with Mycosoft.`}</p>
           <h3 id="sub-3-5">{`3.5 “Data”`}</h3>
           <p>{`“Data” means any data, signal, sample, telemetry, input, output, observation, measurement, image, audio, video, biological signal, bioelectric signal, waveform, API output, geospatial coordinate, AIS/ADS-B/vehicle/vessel/train/aircraft/public movement record, specimen record, spore record, model output, simulation output, environmental condition, device log, chain-of-custody record, software log, user content, derived data, metadata, or analytic result.`}</p>
           <h3 id="sub-3-6">{`3.6 “Customer Data”`}</h3>
@@ -101,11 +101,11 @@ export default function TermsPage() {
           <h3 id="sub-4-1">{`4.1 Covered Services`}</h3>
           <p>{`These Terms cover all Mycosoft Services, whether branded, white-labeled, experimental, prototype, beta, commercial, public-sector, defense, research, open-source, source-available, hosted, self-hosted, embedded, field-deployed, or locally operated.`}</p>
           <h3 id="sub-4-2">{`4.2 Covered Platforms`}</h3>
-          <p>{`Covered Platforms include NatureOS, Earth Simulator, MINDEX, AI Studio, MYCA, MAS, AVANI, NLM, CREP, OEI, FUSARIUM, HPL, Mycorrhizae Protocol, SporeBase dashboards, Mushroom dashboards, device managers, AI Studio, developer portals, APIs, repositories, and successor systems.`}</p>
+          <p>{`Covered Platforms include NatureOS, Earth Simulator, MINDEX, SI Studio, MYCA, MAS, AVANI, NLM, CREP, OEI, FUSARIUM, HPL, Mycorrhizae Protocol, SporeBase dashboards, Mushroom dashboards, device managers, SI Studio, developer portals, APIs, repositories, and successor systems.`}</p>
           <h3 id="sub-4-3">{`4.3 Covered Devices`}</h3>
           <p>{`Covered Devices include Mushroom 1, Mushroom-branded electronic sensing devices, MycoBrain, MycoNode, FCI, FCI probes, SporeBase, ALARM, Hyphae 1, Tricorder, Petraeus, Mushroom 2, MycoTenna, Psathyrella, Agaric, gateways, antennas, LoRa nodes, edge compute nodes, robotics platforms, UAV payloads, UAS payloads, maritime buoys, subsurface probes, hydrophones, bioaerosol collectors, environmental sensor kits, and prototypes.`}</p>
           <h3 id="sub-4-4">{`4.4 Covered Data Activities`}</h3>
-          <p>{`These Terms cover Data collection, storage, transmission, visualization, analysis, modeling, export, ingestion, fusion, chain-of-custody, cryptographic hashing, model training, anomaly detection, alerting, public-data aggregation, dashboard display, autonomous workflow execution, and AI-generated outputs.`}</p>
+          <p>{`These Terms cover Data collection, storage, transmission, visualization, analysis, modeling, export, ingestion, fusion, chain-of-custody, cryptographic hashing, model training, anomaly detection, alerting, public-data aggregation, dashboard display, autonomous workflow execution, and SI-generated outputs.`}</p>
           <h3 id="sub-4-5">{`4.5 Covered Physical Domains`}</h3>
           <p>{`These Terms cover use of Services in or related to terrestrial, subsurface, aerial, maritime, inland waterway, underwater, laboratory, built-environment, agricultural, forest, desert, public-land, private-land, industrial, defense, public-sector, international, and remote environments.`}</p>
           <h2 id="section-5">{`5. Eligibility; Authority; Enterprise, Government, and Representative Use`}</h2>
@@ -143,24 +143,24 @@ export default function TermsPage() {
           <p>{`Professional services, consulting, custom development, field deployment support, procurement assistance, defense proposal support, data science, firmware development, or integration work are governed by the applicable statement of work or signed services agreement.`}</p>
           <h3 id="sub-7-6">{`7.6 No Guaranteed Outcomes`}</h3>
           <p>{`Mycosoft does not guarantee scientific results, environmental outcomes, regulatory approvals, permits, aircraft authorizations, maritime authorizations, public-land approvals, mining claim recognition, grazing permissions, government awards, grants, contracts, carbon credits, tax benefits, insurance coverage, revenue, safety outcomes, or model accuracy.`}</p>
-          <h2 id="section-8">{`8. Autonomous Systems, AI Tools, Multi-Agent Systems, and Machine-Generated Actions`}</h2>
-          <h3 id="sub-8-1">{`8.1 AI Systems Are Tools`}</h3>
-          <p>{`AI Systems are decision-support, automation, analysis, modeling, and operational tools. They do not replace human judgment, regulatory compliance, professional review, field verification, licensed operators, pilots, mariners, engineers, scientists, attorneys, doctors, financial advisors, emergency responders, procurement officials, or government authorities.`}</p>
-          <h3 id="sub-8-2">{`8.2 AI Outputs May Be Wrong`}</h3>
-          <p>{`AI Outputs may be incomplete, inaccurate, stale, biased, probabilistic, synthetic, hallucinated, misclassified, overconfident, underconfident, spoofed by bad inputs, or unsuitable for your use case. You are responsible for validating AI Outputs before relying on them.`}</p>
+          <h2 id="section-8">{`8. Autonomous Systems, SI Tools, Multi-Agent Systems, and Machine-Generated Actions`}</h2>
+          <h3 id="sub-8-1">{`8.1 SI Systems Are Tools`}</h3>
+          <p>{`SI Systems are decision-support, automation, analysis, modeling, and operational tools. They do not replace human judgment, regulatory compliance, professional review, field verification, licensed operators, pilots, mariners, engineers, scientists, attorneys, doctors, financial advisors, emergency responders, procurement officials, or government authorities.`}</p>
+          <h3 id="sub-8-2">{`8.2 SI Outputs May Be Wrong`}</h3>
+          <p>{`SI Outputs may be incomplete, inaccurate, stale, biased, probabilistic, synthetic, hallucinated, misclassified, overconfident, underconfident, spoofed by bad inputs, or unsuitable for your use case. You are responsible for validating SI Outputs before relying on them.`}</p>
           <h3 id="sub-8-3">{`8.3 Human Oversight`}</h3>
-          <p>{`You must maintain appropriate human oversight for any AI-assisted operation that may affect safety, property, legal rights, privacy, environment, public infrastructure, financial decisions, regulated activities, government decisions, aircraft, vessels, vehicles, robotics, field devices, biological systems, or public alerts.`}</p>
+          <p>{`You must maintain appropriate human oversight for any SI-assisted operation that may affect safety, property, legal rights, privacy, environment, public infrastructure, financial decisions, regulated activities, government decisions, aircraft, vessels, vehicles, robotics, field devices, biological systems, or public alerts.`}</p>
           <h3 id="sub-8-4">{`8.4 Autonomous Workflows`}</h3>
-          <p>{`By using AI Systems, you authorize Mycosoft systems to process inputs, route tasks among agents, call tools, interact with APIs, generate plans, summarize data, recommend actions, create tickets, modify dashboards, queue commands, communicate status, and perform other automated actions within the permissions you configure or authorize.`}</p>
+          <p>{`By using SI Systems, you authorize Mycosoft systems to process inputs, route tasks among agents, call tools, interact with APIs, generate plans, summarize data, recommend actions, create tickets, modify dashboards, queue commands, communicate status, and perform other automated actions within the permissions you configure or authorize.`}</p>
           <h3 id="sub-8-5">{`8.5 No Fully Autonomous High-Risk Reliance Without Separate Agreement`}</h3>
-          <p>{`You may not use AI Systems as the sole basis for high-risk decisions, including life safety, targeting, law enforcement, employment, credit, housing, insurance, medical, legal, military action, public benefits, biometric identification, or rights-impacting decisions, without a separate written agreement and required legal, technical, and human oversight controls.`}</p>
-          <h3 id="sub-8-6">{`8.6 AI Identity and Disclosure`}</h3>
-          <p>{`Where required by law or good practice, users must be informed when they are interacting with AI Systems or receiving AI-generated content. You are responsible for required disclosures when you deploy Mycosoft AI Systems to interact with your users, employees, contractors, government personnel, citizens, customers, patients, students, stakeholders, or the public.`}</p>
+          <p>{`You may not use SI Systems as the sole basis for high-risk decisions, including life safety, targeting, law enforcement, employment, credit, housing, insurance, medical, legal, military action, public benefits, biometric identification, or rights-impacting decisions, without a separate written agreement and required legal, technical, and human oversight controls.`}</p>
+          <h3 id="sub-8-6">{`8.6 SI Identity and Disclosure`}</h3>
+          <p>{`Where required by law or good practice, users must be informed when they are interacting with SI Systems or receiving SI-generated content. You are responsible for required disclosures when you deploy Mycosoft SI Systems to interact with your users, employees, contractors, government personnel, citizens, customers, patients, students, stakeholders, or the public.`}</p>
           <h2 id="section-9">{`9. Agentic Negotiation, Contracting Workflows, Permissions, and Stakeholder Coordination`}</h2>
           <h3 id="sub-9-1">{`9.1 Agentic Coordination`}</h3>
-          <p>{`Mycosoft AI Systems may support workflows for identifying stakeholders, drafting permissions, mapping land rights, requesting site access, preparing documents, coordinating deployment approvals, routing communications, and negotiating operational parameters.`}</p>
+          <p>{`Mycosoft SI Systems may support workflows for identifying stakeholders, drafting permissions, mapping land rights, requesting site access, preparing documents, coordinating deployment approvals, routing communications, and negotiating operational parameters.`}</p>
           <h3 id="sub-9-2">{`9.2 No Automatic Legal Authority`}</h3>
-          <p>{`No AI System, autonomous agent, bot, workflow, or device has authority to bind Mycosoft, you, a landowner, a government agency, a tribal authority, a mineral claimant, a grazing permittee, a vessel owner, an aircraft operator, an easement holder, or any third party unless that authority is expressly granted in a signed writing or authenticated transaction.`}</p>
+          <p>{`No SI System, autonomous agent, bot, workflow, or device has authority to bind Mycosoft, you, a landowner, a government agency, a tribal authority, a mineral claimant, a grazing permittee, a vessel owner, an aircraft operator, an easement holder, or any third party unless that authority is expressly granted in a signed writing or authenticated transaction.`}</p>
           <h3 id="sub-9-3">{`9.3 Permission Records`}</h3>
           <p>{`Users must maintain complete records of permissions, permits, landowner consents, easements, right-of-way agreements, leases, mining claim documents, grazing authorizations, public-land approvals, FAA authorizations, maritime approvals, radio licenses, environmental reviews, and other approvals for Deployments.`}</p>
           <h3 id="sub-9-4">{`9.4 Agent Communications Are Logged`}</h3>
@@ -296,11 +296,11 @@ export default function TermsPage() {
           <h3 id="sub-19-2">{`19.2 Personal Information`}</h3>
           <p>{`You must not submit personal information, sensitive personal information, biometric information, precise location information, health information, children’s information, personnel records, government identifiers, or other regulated data unless authorized and unless the applicable Service environment is designed for that data.`}</p>
           <h3 id="sub-19-3">{`19.3 Automated Decision-Making`}</h3>
-          <p>{`Where AI Systems are used for automated decision-making, profiling, scoring, classification, recommendations, alerts, or significant decisions, you are responsible for ensuring lawful notice, consent, opt-out, access, explanation, human review, risk assessment, and other rights required by applicable law.`}</p>
+          <p>{`Where SI Systems are used for automated decision-making, profiling, scoring, classification, recommendations, alerts, or significant decisions, you are responsible for ensuring lawful notice, consent, opt-out, access, explanation, human review, risk assessment, and other rights required by applicable law.`}</p>
           <h3 id="sub-19-4">{`19.4 California Privacy`}</h3>
           <p>{`For California residents and California-regulated processing, Mycosoft will comply with applicable California privacy laws to the extent they apply. Customers using the Services to process California personal information are responsible for determining whether they are businesses, service providers, contractors, third parties, or other regulated actors and for entering any required data processing terms.`}</p>
           <h3 id="sub-19-5">{`19.5 EU, UK, and International Privacy`}</h3>
-          <p>{`For EU, UK, or other international data, you are responsible for lawful basis, notices, data transfer mechanisms, data processing agreements, data subject rights, automated decision-making obligations, AI transparency, and other required compliance unless a separate agreement assigns responsibility to Mycosoft.`}</p>
+          <p>{`For EU, UK, or other international data, you are responsible for lawful basis, notices, data transfer mechanisms, data processing agreements, data subject rights, automated decision-making obligations, SI transparency, and other required compliance unless a separate agreement assigns responsibility to Mycosoft.`}</p>
           <h3 id="sub-19-6">{`19.6 Sensitive Locations`}</h3>
           <p>{`You may not use the Services to collect, infer, or publish personal data from sensitive locations, including homes, schools, medical facilities, places of worship, shelters, protests, political gatherings, union activity, protected cultural sites, or other sensitive areas without lawful basis and appropriate safeguards.`}</p>
           <h2 id="section-20">{`20. Acceptable Use Policy`}</h2>
@@ -390,7 +390,7 @@ export default function TermsPage() {
           <p>{`You may not issue press releases, use Mycosoft’s name in marketing, identify Mycosoft as a customer or partner, or make public claims about Mycosoft without written permission, except as permitted by law.`}</p>
           <h2 id="section-26">{`26. Patents, Patent-Pending Technology, Industrial Designs, Utility Claims, and Reservation of Rights`}</h2>
           <h3 id="sub-26-1">{`26.1 Patent-Pending Technology`}</h3>
-          <p>{`Mycosoft technology may be protected by pending or issued design patents, utility patents, provisional applications, trade secrets, copyrights, trademarks, industrial designs, and other rights covering device interiors, biological interfaces, fungal computing, environmental sensing, hardware form factors, firmware, protocols, AI systems, data provenance, telemetry, and related inventions.`}</p>
+          <p>{`Mycosoft technology may be protected by pending or issued design patents, utility patents, provisional applications, trade secrets, copyrights, trademarks, industrial designs, and other rights covering device interiors, biological interfaces, fungal computing, environmental sensing, hardware form factors, firmware, protocols, SI systems, data provenance, telemetry, and related inventions.`}</p>
           <h3 id="sub-26-2">{`26.2 No Patent License`}</h3>
           <p>{`Except as expressly stated in a signed agreement or open-source license, these Terms do not grant any patent license.`}</p>
           <h3 id="sub-26-3">{`26.3 Reservation`}</h3>
@@ -404,7 +404,7 @@ export default function TermsPage() {
           <p>{`Unsolicited ideas are not confidential unless covered by a written confidentiality agreement.`}</p>
           <h2 id="section-28">{`28. Third-Party Services, Data Sources, APIs, Open-Source Dependencies, and External Platforms`}</h2>
           <h3 id="sub-28-1">{`28.1 Third-Party Services`}</h3>
-          <p>{`The Services may integrate with third-party services, including cloud providers, AI model providers, payment processors, mapping providers, satellite providers, AIS/ADS-B providers, cellular providers, LoRa networks, data brokers, government APIs, open-source repositories, blockchains, development tools, lab tools, and public datasets.`}</p>
+          <p>{`The Services may integrate with third-party services, including cloud providers, SI model providers, payment processors, mapping providers, satellite providers, AIS/ADS-B providers, cellular providers, LoRa networks, data brokers, government APIs, open-source repositories, blockchains, development tools, lab tools, and public datasets.`}</p>
           <h3 id="sub-28-2">{`28.2 Third-Party Terms`}</h3>
           <p>{`Your use of third-party services is subject to third-party terms. Mycosoft is not responsible for third-party services, data, outages, changes, errors, security issues, or restrictions.`}</p>
           <h3 id="sub-28-3">{`28.3 No Endorsement`}</h3>
@@ -432,7 +432,7 @@ export default function TermsPage() {
           <h3 id="sub-30-2">{`30.2 Restricted Parties`}</h3>
           <p>{`You may not use, export, reexport, transfer, provide, sell, license, deploy, support, or make available the Services to restricted parties, sanctioned parties, embargoed destinations, prohibited end users, or prohibited end uses.`}</p>
           <h3 id="sub-30-3">{`30.3 Controlled Technology`}</h3>
-          <p>{`Certain Devices, firmware, technical data, defense integrations, sensing systems, acoustic systems, UAS systems, maritime systems, cryptographic systems, AI models, and environmental intelligence tools may be subject to export classification, licensing, or restrictions.`}</p>
+          <p>{`Certain Devices, firmware, technical data, defense integrations, sensing systems, acoustic systems, UAS systems, maritime systems, cryptographic systems, SI models, and environmental intelligence tools may be subject to export classification, licensing, or restrictions.`}</p>
           <h3 id="sub-30-4">{`30.4 No Unauthorized Defense Export`}</h3>
           <p>{`You may not use the Services to export defense articles, defense services, technical data, military systems, controlled training, controlled software, or controlled assistance without required authorization.`}</p>
           <h3 id="sub-30-5">{`30.5 Anti-Corruption`}</h3>
@@ -508,9 +508,9 @@ export default function TermsPage() {
           <h3 id="sub-36-2">{`36.2 No Implied Warranties`}</h3>
           <p>{`Mycosoft disclaims all implied warranties, including merchantability, fitness for a particular purpose, title, non-infringement, accuracy, availability, reliability, quiet enjoyment, and course of dealing.`}</p>
           <h3 id="sub-36-3">{`36.3 No Warranty of Data Accuracy`}</h3>
-          <p>{`Mycosoft does not warrant that Data, telemetry, AI Outputs, OSINT, public data, geospatial data, location data, model outputs, classifications, alerts, chain-of-custody records, or dashboards are accurate, complete, timely, legally sufficient, or suitable for any purpose.`}</p>
+          <p>{`Mycosoft does not warrant that Data, telemetry, SI Outputs, OSINT, public data, geospatial data, location data, model outputs, classifications, alerts, chain-of-custody records, or dashboards are accurate, complete, timely, legally sufficient, or suitable for any purpose.`}</p>
           <h3 id="sub-36-4">{`36.4 No Warranty of Regulatory Approval`}</h3>
-          <p>{`Mycosoft does not warrant that any Device, Deployment, AI Output, model, dashboard, report, data feed, public-land use, airspace use, maritime use, radio use, government use, or biological use is approved by any regulator or lawful in any specific jurisdiction.`}</p>
+          <p>{`Mycosoft does not warrant that any Device, Deployment, SI Output, model, dashboard, report, data feed, public-land use, airspace use, maritime use, radio use, government use, or biological use is approved by any regulator or lawful in any specific jurisdiction.`}</p>
           <h3 id="sub-36-5">{`36.5 No Warranty Against Environmental Loss`}</h3>
           <p>{`Mycosoft does not warrant against loss, damage, theft, vandalism, weather damage, wildlife damage, biofouling, corrosion, battery failure, sensor drift, radio interference, GPS denial, satellite outage, cellular outage, soil conditions, water conditions, marine hazards, or other field risks.`}</p>
           <h2 id="section-37">{`37. Limitation of Liability`}</h2>
@@ -589,7 +589,7 @@ export default function TermsPage() {
           <h3 id="sub-42-1">{`42.1 International Use`}</h3>
           <p>{`You are responsible for compliance with all laws applicable where you access, deploy, operate, export, import, transmit, process, or use the Services.`}</p>
           <h3 id="sub-42-2">{`42.2 Foreign Law`}</h3>
-          <p>{`Foreign jurisdictions may regulate drones, sensors, biological sampling, environmental monitoring, encryption, radio transmission, AI systems, location data, vessel tracking, aircraft tracking, public-sector data, defense technology, and field devices differently. You are responsible for compliance.`}</p>
+          <p>{`Foreign jurisdictions may regulate drones, sensors, biological sampling, environmental monitoring, encryption, radio transmission, SI systems, location data, vessel tracking, aircraft tracking, public-sector data, defense technology, and field devices differently. You are responsible for compliance.`}</p>
           <h3 id="sub-42-3">{`42.3 High Seas`}</h3>
           <p>{`Operations in international waters remain subject to applicable law, including flag state law, U.S. law applicable to U.S. persons and entities, international maritime rules, sanctions, export controls, environmental law, port-state control, insurance rules, and contract requirements.`}</p>
           <h3 id="sub-42-4">{`42.4 Conflict`}</h3>
@@ -618,11 +618,11 @@ export default function TermsPage() {
           <h2 id="section-44">{`44. Contact Information`}</h2>
           <p>{`Questions about these Terms may be sent to: Mycosoft, Inc. Address to be added United States Email: contact@mycosoft.com Website: mycosoft.com Legal, privacy, security, procurement, and deployment notices should include sufficient detail for Mycosoft to identify the account, Device, Deployment, API key, order, project, or issue.`}</p>
           <h2 id="section-45">{`45. Supplemental Terms and Policy Attachments`}</h2>
-          <p>{`The following supplemental policies may apply and are incorporated by reference when posted, linked, included in an order, or otherwise made available: Privacy Policy Data Processing Addendum Acceptable Use Policy Autonomous Systems Policy Environmental Deployment Policy Hardware Terms and Limited Warranty Device Safety Manual Public Lands and Field Deployment Policy UAS / Drone Operations Policy Maritime Deployment Policy Radio and Spectrum Use Policy Export Control and Sanctions Policy Government and Public Sector Terms CUI / Classified Data Handling Addendum VAR / Reseller / Integrator Terms Open Source Notices Security and Responsible Disclosure Policy Beta and Experimental Features Terms API Terms AI Systems and Automated Decision-Making Terms`}</p>
+          <p>{`The following supplemental policies may apply and are incorporated by reference when posted, linked, included in an order, or otherwise made available: Privacy Policy Data Processing Addendum Acceptable Use Policy Autonomous Systems Policy Environmental Deployment Policy Hardware Terms and Limited Warranty Device Safety Manual Public Lands and Field Deployment Policy UAS / Drone Operations Policy Maritime Deployment Policy Radio and Spectrum Use Policy Export Control and Sanctions Policy Government and Public Sector Terms CUI / Classified Data Handling Addendum VAR / Reseller / Integrator Terms Open Source Notices Security and Responsible Disclosure Policy Beta and Experimental Features Terms API Terms SI Systems and Automated Decision-Making Terms`}</p>
           <hr className="my-10" />
           <h2 id="suppl-a">{`Supplemental Policy Attachment A: Autonomous Systems Policy`}</h2>
           <h3 id="sub-a-1">{`A.1 Purpose`}</h3>
-          <p>{`This policy governs autonomous agents, AI systems, device fleets, robotics, drones, maritime systems, field devices, and agentic workflows.`}</p>
+          <p>{`This policy governs autonomous agents, SI systems, device fleets, robotics, drones, maritime systems, field devices, and agentic workflows.`}</p>
           <h3 id="sub-a-2">{`A.2 Human Accountability`}</h3>
           <p>{`All autonomous systems must have a responsible human, organization, or Deployment Sponsor. No autonomous system may be deployed without a responsible party.`}</p>
           <h3 id="sub-a-3">{`A.3 Command Authority`}</h3>
@@ -704,7 +704,7 @@ export default function TermsPage() {
           <h3 id="sub-f-1">{`F.1 Screening`}</h3>
           <p>{`Users, VARs, and customers must screen end users, destinations, and end uses.`}</p>
           <h3 id="sub-f-2">{`F.2 Controlled Technology`}</h3>
-          <p>{`AI, acoustic sensing, drone payloads, maritime systems, encryption, defense integrations, biological systems, and technical data may be controlled.`}</p>
+          <p>{`SI, acoustic sensing, drone payloads, maritime systems, encryption, defense integrations, biological systems, and technical data may be controlled.`}</p>
           <h3 id="sub-f-3">{`F.3 No Restricted Use`}</h3>
           <p>{`Services may not be used for prohibited military, WMD, terrorist, sanctioned, surveillance, or human-rights-abusive end uses.`}</p>
           <h3 id="sub-f-4">{`F.4 Cooperation`}</h3>
@@ -734,17 +734,17 @@ export default function TermsPage() {
           <h3 id="sub-h-5">{`H.5 Audit and Records`}</h3>
           <p>{`Government deployments may require audit logs, chain-of-custody, device identity, operator identity, data lineage, and retention controls.`}</p>
           <hr className="my-10" />
-          <h2 id="suppl-i">{`Supplemental Policy Attachment I: AI Systems and Automated Decision-Making Terms`}</h2>
-          <h3 id="sub-i-1">{`I.1 AI Transparency`}</h3>
-          <p>{`Users must disclose AI interaction where required.`}</p>
+          <h2 id="suppl-i">{`Supplemental Policy Attachment I: SI Systems and Automated Decision-Making Terms`}</h2>
+          <h3 id="sub-i-1">{`I.1 SI Transparency`}</h3>
+          <p>{`Users must disclose SI interaction where required.`}</p>
           <h3 id="sub-i-2">{`I.2 Human Review`}</h3>
           <p>{`Significant decisions require human review unless lawfully exempt.`}</p>
           <h3 id="sub-i-3">{`I.3 No Rights-Impacting Sole Reliance`}</h3>
-          <p>{`AI Outputs must not be the sole basis for decisions affecting legal rights, safety, benefits, employment, credit, housing, healthcare, law enforcement, or public access.`}</p>
+          <p>{`SI Outputs must not be the sole basis for decisions affecting legal rights, safety, benefits, employment, credit, housing, healthcare, law enforcement, or public access.`}</p>
           <h3 id="sub-i-4">{`I.4 Risk Assessments`}</h3>
-          <p>{`Users are responsible for required risk assessments for AI or automated decision-making uses.`}</p>
-          <h3 id="sub-i-5">{`I.5 AI Logs`}</h3>
-          <p>{`AI interactions may be logged for audit, safety, security, training, and compliance.`}</p>
+          <p>{`Users are responsible for required risk assessments for SI or automated decision-making uses.`}</p>
+          <h3 id="sub-i-5">{`I.5 SI Logs`}</h3>
+          <p>{`SI interactions may be logged for audit, safety, security, training, and compliance.`}</p>
           <hr className="my-10" />
           <h2 id="suppl-j">{`Supplemental Policy Attachment J: Open Source Notice`}</h2>
           <h3 id="sub-j-1">{`J.1 Separate Licenses`}</h3>

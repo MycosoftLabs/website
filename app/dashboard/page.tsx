@@ -430,7 +430,7 @@ export default function DashboardPage() {
                 <Brain className="w-10 h-10 text-amber-400" />
                 <div>
                   <CardTitle className="text-white">MYCA Agent</CardTitle>
-                  <CardDescription className="text-slate-400">AI assistant interface</CardDescription>
+                  <CardDescription className="text-slate-400">SI assistant interface</CardDescription>
                 </div>
               </CardHeader>
             </Card>

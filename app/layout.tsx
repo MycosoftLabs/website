@@ -14,20 +14,21 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { ThemeColorSync } from "@/components/theme-color-sync"
 import { AuthProvider } from "@/contexts/auth-context"
 import { AppShellProviders } from "@/components/providers/AppShellProviders"
+import "katex/dist/katex.min.css"
 import "./globals.css"
 
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: "Mycosoft | Building The Earth Intelligence",
-  description: "Building The Earth Intelligence - AI-powered mycology research, fungal computing, and environmental monitoring platform",
+  description: "Building The Earth Intelligence - superintelligence-powered mycology research, fungal computing, and environmental monitoring platform",
   metadataBase: new URL('https://mycosoft.com'),
   alternates: {
     canonical: '/',
   },
   openGraph: {
     title: "Mycosoft | Building The Earth Intelligence",
-    description: "Building The Earth Intelligence - AI-powered mycology research, fungal computing, and environmental monitoring platform",
+    description: "Building The Earth Intelligence - superintelligence-powered mycology research, fungal computing, and environmental monitoring platform",
     url: "https://mycosoft.com",
     siteName: "Mycosoft",
     locale: "en_US",
@@ -37,7 +38,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Mycosoft | Building The Earth Intelligence",
-    description: "Building The Earth Intelligence - AI-powered mycology research, fungal computing, and environmental monitoring platform",
+    description: "Building The Earth Intelligence - superintelligence-powered mycology research, fungal computing, and environmental monitoring platform",
     images: ['/og-default.png'],
   },
 }

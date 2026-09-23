@@ -154,7 +154,7 @@ export class UnifiedAI {
       }
     }
 
-    throw lastError || new Error('All AI providers failed')
+    throw lastError || new Error('All SI providers failed')
   }
 
   /**

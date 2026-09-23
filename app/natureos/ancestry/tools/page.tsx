@@ -182,8 +182,8 @@ export default function AncestryToolsPage() {
           <Link href="/natureos/ai-studio/explainer" className="block">
             <Card className="hover:border-purple-500/40 transition-colors cursor-pointer">
               <CardContent className="pt-4">
-                <h3 className="font-semibold">AI Explainer</h3>
-                <p className="text-sm text-muted-foreground">Understand MYCA AI</p>
+                <h3 className="font-semibold">SI Explainer</h3>
+                <p className="text-sm text-muted-foreground">Understand MYCA SI</p>
               </CardContent>
             </Card>
           </Link>

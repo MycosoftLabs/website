@@ -451,8 +451,8 @@ export default function Quad360View({
 
         <button type="button" onClick={(e) => { e.stopPropagation(); setShowAi((v) => !v); }}
           className={cn(chip, showAi && ai.enabled ? chipOn : chipOff)}
-          title={ai.enabled ? "Toggle AI detection boxes" : "AI overlay is off — set NEXT_PUBLIC_PSATHYRELLA_CAM_AI=1"}>
-          <ScanSearch className="h-3 w-3" />AI{!ai.enabled && " off"}
+          title={ai.enabled ? "Toggle SI detection boxes" : "SI overlay is off — set NEXT_PUBLIC_PSATHYRELLA_CAM_AI=1"}>
+          <ScanSearch className="h-3 w-3" />SI{!ai.enabled && " off"}
         </button>
         {ai.enabled && showAi && (
           <span className="font-mono text-[9px] text-slate-500">
@@ -677,7 +677,7 @@ Unvalidated R&D weights — treat every classification as a hypothesis, not an i
             <div className="flex min-w-0 items-center gap-1.5">
               <span className="text-[7px] font-bold tracking-[0.2em] text-cyan-300/50">SEEING</span>
               {!showAi || !stitchAi.enabled ? (
-                <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500">AI overlay off — detector not asked</span>
+                <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500">SI overlay off — detector not asked</span>
               ) : !stitchAi.connected ? (
                 <span className="font-mono text-[10px] uppercase tracking-wider text-amber-300/90">detector unreachable — not an all-clear</span>
               ) : stitchDets.length === 0 ? (

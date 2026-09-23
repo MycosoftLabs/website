@@ -289,7 +289,7 @@ export default function ClearanceReadinessPage() {
                     ))}.
                     These topics have real legal consequences, and the right answer depends on facts a
                     checklist cannot capture. This card is a routing flag, not a legal conclusion —
-                    Launchpad and its AI never classify your export-control or FOCI posture.
+                    Launchpad and its SI never classify your export-control or FOCI posture.
                   </p>
                 </div>
               </div>

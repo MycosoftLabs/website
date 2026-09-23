@@ -14,7 +14,7 @@ export function welcomeTemplate(data: WelcomeEmailData): string {
         <li>Monitor environmental data with CREP dashboard</li>
         <li>Connect MycoBrain IoT devices for real-time sensing</li>
         <li>Access NatureOS Earth simulation platform</li>
-        <li>Chat with MYCA, our AI research assistant</li>
+        <li>Chat with MYCA, our superintelligence research assistant</li>
       </ul>
     </div>
     

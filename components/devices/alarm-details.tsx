@@ -116,7 +116,7 @@ const DEVICE_COMPONENTS: DeviceComponent[] = [
     name: "ESP32-S3 + TinyML",
     icon: Cpu,
     position: { top: "70%", left: "45%" },
-    description: "Edge AI for pattern recognition",
+    description: "Edge SI for pattern recognition",
     details: "The ESP32-S3 processor runs TinyML models trained on thousands of sensor patterns. It distinguishes between normal cooking smoke and fire, identifies specific contaminant types, and learns your space's normal patterns to reduce false alarms."
   },
   {
@@ -334,7 +334,7 @@ export function AlarmDetails() {
                   <div className="text-sm text-slate-500 dark:text-white">Certified</div>
                 </div>
                 <div className="alarm-stat-box text-center p-4 bg-red-50 rounded-xl dark:bg-slate-900 dark:text-white">
-                  <div className="text-3xl font-bold text-red-600 dark:text-white">AI</div>
+                  <div className="text-3xl font-bold text-red-600 dark:text-white">SI</div>
                   <div className="text-sm text-slate-500 dark:text-white">Powered</div>
                 </div>
               </div>
@@ -421,7 +421,7 @@ export function AlarmDetails() {
 
             <div className="order-1 lg:order-2">
               <NeuBadge variant="default" className="alarm-section-badge mb-4 bg-red-500 text-white border-0">
-                Artificial Intelligence
+                Super Intelligence
               </NeuBadge>
               <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-800">
                 Smart Enough to Know the Difference
@@ -429,7 +429,7 @@ export function AlarmDetails() {
               <div className="space-y-4 text-lg text-slate-600">
                 <p>
                   Nuisance alarms from cooking are the #1 reason people disable smoke
-                  detectors. ALARM&apos;s onboard AI learns the difference between burnt
+                  detectors. ALARM&apos;s onboard SI learns the difference between burnt
                   toast and a real fire.
                 </p>
                 <p>

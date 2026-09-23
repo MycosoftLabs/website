@@ -49,7 +49,7 @@ export default function IntegrationsPage() {
     {
       id: "elevenlabs",
       name: "ElevenLabs",
-      description: "AI voice synthesis and text-to-speech",
+      description: "SI voice synthesis and text-to-speech",
       category: "ai",
       status: "connected",
       enabled: true,
@@ -58,7 +58,7 @@ export default function IntegrationsPage() {
     {
       id: "openai",
       name: "OpenAI",
-      description: "GPT models for AI completion and embeddings",
+      description: "GPT models for SI completion and embeddings",
       category: "ai",
       status: "connected",
       enabled: true,
@@ -67,7 +67,7 @@ export default function IntegrationsPage() {
     {
       id: "anthropic",
       name: "Anthropic Claude",
-      description: "Claude AI models for analysis and reasoning",
+      description: "Claude models for analysis and reasoning",
       category: "ai",
       status: "disconnected",
       enabled: false,

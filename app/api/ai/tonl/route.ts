@@ -99,7 +99,7 @@ export async function GET() {
   return NextResponse.json({
     name: 'TONL API',
     version: '1.0.0',
-    description: 'Token-Optimized Notation Language service for AI communication',
+    description: 'Token-Optimized Notation Language service for SI communication',
     endpoints: {
       'POST /api/ai/tonl': {
         actions: {
@@ -119,7 +119,7 @@ export async function GET() {
             returns: 'OptimizedPrompt'
           },
           parse: {
-            description: 'Parse TONL response from AI',
+            description: 'Parse TONL response from SI',
             params: { data: 'string' },
             returns: 'ParsedData'
           }

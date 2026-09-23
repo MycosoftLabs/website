@@ -1142,7 +1142,7 @@ export function ConnectionWidget({
                 <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/30">
                   <div className="flex items-center gap-2 mb-2">
                     <Sparkles className="h-4 w-4 text-purple-400" />
-                    <span className="text-sm font-medium text-purple-400">AI Insights</span>
+                    <span className="text-sm font-medium text-purple-400">SI Insights</span>
                   </div>
                   <ul className="space-y-1">
                     {proposal.quickInsights.map((insight, i) => (
@@ -1248,7 +1248,7 @@ export function ConnectionWidget({
                 <div className="text-center py-8">
                   <Brain className="h-12 w-12 mx-auto text-purple-400/50 mb-2" />
                   <p className="text-sm text-white/50 mb-4">
-                    Get AI-powered implementation plan
+                    Get superintelligence-powered implementation plan
                   </p>
                   <Button
                     onClick={fetchLLMPlan}

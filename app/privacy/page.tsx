@@ -106,7 +106,7 @@ export default function PrivacyPage() {
           <h2 className="text-2xl font-bold mt-12 mb-4">7. Data Use and Retention</h2>
           <p>
             Mycosoft will never sell or use any user data for marketing or advertising purposes. All data will be used
-            in perpetuity for science, research, and training AI models, devices, and for use in scientific discovery.
+            in perpetuity for science, research, and training SI models, devices, and for use in scientific discovery.
           </p>
 
           <h2 className="text-2xl font-bold mt-12 mb-4">8. Your Privacy Rights</h2>

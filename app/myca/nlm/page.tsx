@@ -12,10 +12,10 @@ import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import { NLMTechnicalArchitecture } from "@/components/myca/NLMTechnicalArchitecture"
 import { LiveTranslationDemo } from "@/components/myca/LiveTranslationDemo"
 import { NLMStatsPanel } from "@/components/myca/NLMStatsPanel"
+import { NlmTrainingApplication } from "@/components/natureos/nlm-training/NlmTrainingApplication"
 import { NeuromorphicProvider, NeuCard, NeuCardContent } from "@/components/ui/neuromorphic"
 import {
   Brain,
@@ -48,13 +48,12 @@ import {
   GitBranch,
 } from "lucide-react"
 
-const TRAINING_PHASES = [
-  { name: "Mycospeak Foundation", progress: 100, status: "complete", description: "Base fungal communication patterns" },
-  { name: "Chemical Signal Mapping", progress: 100, status: "complete", description: "VOC and enzyme signal translation" },
-  { name: "Mycelial Network Topology", progress: 92, status: "training", description: "Network structure and behavior patterns" },
-  { name: "Interspecies Communication", progress: 52, status: "training", description: "Cross-kingdom signal interpretation" },
-  { name: "Environmental Response", progress: 18, status: "training", description: "Stress and adaptation signals" },
-  { name: "Symbiotic Relationships", progress: 5, status: "training", description: "Mycorrhizal communication patterns" },
+const REFERENCE_MODEL = [
+  { name: "Input", detail: "16 environmental features, 7 missingness flags, and 1 elapsed-time feature. Missing stays distinct from a measured zero." },
+  { name: "Memory", detail: "A learned projection and two selective state-space blocks. The sequence state resets between independent captures." },
+  { name: "Chart", detail: "32 learned coordinates per observation, then the nearest of four fitted prototypes. Novelty is the training 99th-percentile distance, not a claim that the input is false." },
+  { name: "Weights", detail: "A versioned trained parameter set produces the reference coordinates. The weights are published with the model." },
+  { name: "Abstention", detail: "Unsupported ontology, or every measurement missing, produces no probability. The model does not invent a midpoint." },
 ]
 
 const NLM_PHASES = [
@@ -84,7 +83,7 @@ const SIX_LAYERS = [
 export default function NLMPage() {
   return (
     <NeuromorphicProvider>
-      <div className="min-h-dvh">
+      <div className="product-glass-page min-h-dvh">
         {/* Hero */}
         <section className="relative overflow-hidden bg-gradient-to-br from-purple-900/30 via-green-900/20 to-emerald-900/30 border-b border-purple-500/20">
           <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px]" />
@@ -99,21 +98,21 @@ export default function NLMPage() {
                     Training Active
                   </Badge>
                   <Badge variant="outline" className="bg-amber-500/20 border-amber-500/50 text-amber-700 dark:text-amber-300">
-                    Frontier AI
+                    Frontier SI
                   </Badge>
                 </div>
                 <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-600 via-green-600 to-emerald-600 dark:from-purple-400 dark:via-green-400 dark:to-emerald-400 bg-clip-text text-transparent">
                   Nature Learning Model
                 </h1>
                 <p className="text-base md:text-lg text-muted-foreground mt-2 max-w-2xl">
-                  The reasoning backbone inside our ecosystem, responsible for turning MYCA and AVANI&apos;s rich data
-                  into structured inferences, rules, and decisions. Robust by design — operates under partial data,
-                  conflicting signals, and noisy environments while surfacing its own uncertainty.
+                  A numerical model of a physical environment through time. It learns light, sound, gas, electricity,
+                  heat, and pressure together, keeps a missing channel empty, and writes a state that says what was
+                  measured. The reference is a selective state-space model with a versioned trained parameter set.
                 </p>
               </div>
               <Link href="/natureos/model-training">
                 <Button size="lg" className="gap-2 min-h-[44px] min-w-[180px] mt-4 md:mt-0">
-                  NLM Training Dashboard
+                  Open Full Training Dashboard
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
@@ -121,8 +120,13 @@ export default function NLMPage() {
           </div>
         </section>
 
+        <section className="container mx-auto max-w-7xl px-4 py-8 md:px-6">
+          <div className="overflow-hidden rounded-2xl border border-white/15 bg-black shadow-2xl shadow-black/30">
+            <NlmTrainingApplication embedded />
+          </div>
+        </section>
+
         <div className="container max-w-6xl mx-auto px-4 md:px-6 py-12 space-y-16">
-          {/* Live stats from NLM engine — /api/myca/nlm/metrics */}
           <NLMStatsPanel />
 
           {/* NLM in Frontier AI */}
@@ -131,7 +135,7 @@ export default function NLMPage() {
               <NeuCardContent className="pt-6">
                 <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                   <LineChart className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-                  The NLM in the World of Frontier AI
+                  The NLM in the World of Frontier SI
                 </h2>
                 <p className="text-muted-foreground mb-4">
                   The Nature Learning Model (NLM) is the reasoning backbone inside our ecosystem, specializing in connecting dots
@@ -227,7 +231,7 @@ export default function NLMPage() {
               <NeuCardContent className="pt-6">
                 <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
                   <Sparkles className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                  What Makes NLM Different from Traditional AI?
+                  What Makes NLM Different from Traditional SI?
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-4">
@@ -263,20 +267,20 @@ export default function NLMPage() {
               <CardHeader><CardTitle className="text-xl">Abstract</CardTitle></CardHeader>
               <CardContent className="prose dark:prose-invert max-w-none space-y-3">
                 <p>
-                  The <strong>Nature Learning Model (NLM)</strong> is a proposed class of multi-modal foundation models that learn the
-                  <strong> information-bearing signals of living and non-living Earth systems</strong> and translate them into
-                  operational representations usable by humans, machines, and scientific workflows.
+                  The <strong>Nature Learning Model (NLM)</strong> in the September 2026 mathematical reference is a trained
+                  selective state-space model. Each observation is a 24-value input: 16 environmental features, 7 missingness
+                  flags, and one elapsed-time feature. Two state-space blocks emit 32 learned coordinates.
                 </p>
                 <p>
-                  Unlike a Large Language Model (LLM) trained primarily on human text, the NLM is trained on synchronized observations
-                  across biology and geophysics: <strong>bioelectric activity, chemical gradients, volatile compounds, growth dynamics,
-                  genomics, microbiome profiles, imagery, acoustics, and physical environmental telemetry</strong>.
+                  On the controlled synthetic population, clean pattern and link scores reach F1 1.0. A +20 °C temperature
+                  bias drops those scores to 0.558 and 0.566. Erasing the discriminative information drops both to 0.
+                  Missing measurements or an unsupported observation contract cause abstention. These are fixture results,
+                  not a field calibration.
                 </p>
                 <p>
-                  The program starts with <strong>fungi (&quot;funga&quot;)</strong> because fungal mycelia are ubiquitous, form dense networks,
-                  and show measurable electrical spiking activity. The initial deliverable is <strong>NLM‑Funga</strong>, trained on
-                  standardized fungal input-output datasets captured with Mycosoft&apos;s Fungal Computer Interface (FCI), producing a
-                  compact <strong>bio-token</strong> vocabulary (&quot;micro-speak&quot;) aligned to scientific ontologies.
+                  The training loss combines pattern classification, next-observation prediction, and reconstruction of the
+                  observed channels. Temperature scaling is fit on the validation split. Comparative advantage on real
+                  devices, sites, and conditions remains an open test.
                 </p>
               </CardContent>
             </Card>
@@ -286,19 +290,14 @@ export default function NLMPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5" /> Training Phases</CardTitle>
-                <CardDescription>Progressive learning stages for Mycospeak translation</CardDescription>
+                <CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5" /> Implemented reference</CardTitle>
+                <CardDescription>September 2026 mathematical reference. Not a progress bar, and not a field claim.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {TRAINING_PHASES.map((phase, i) => (
-                  <div key={i} className="space-y-2">
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-                      <div><span className="font-medium">{phase.name}</span><p className="text-sm text-muted-foreground">{phase.description}</p></div>
-                      <Badge variant={phase.status === "complete" ? "default" : phase.status === "training" ? "outline" : "secondary"} className="w-fit">
-                        {phase.status === "complete" ? "✓ Complete" : phase.status === "training" ? "Training..." : "Queued"}
-                      </Badge>
-                    </div>
-                    <Progress value={phase.progress} className="h-2" />
+                {REFERENCE_MODEL.map((item) => (
+                  <div key={item.name} className="space-y-1">
+                    <p className="font-medium">{item.name}</p>
+                    <p className="text-sm text-muted-foreground">{item.detail}</p>
                   </div>
                 ))}
               </CardContent>
@@ -562,7 +561,7 @@ export default function NLMPage() {
                       <CardContent className="p-4 flex flex-col items-center text-center">
                         <div className="p-3 rounded-xl bg-green-500/20 group-hover:bg-green-500/30 transition-colors mb-3"><Beaker className="h-8 w-8 text-green-500" /></div>
                         <h4 className="font-semibold">Smell Training Wizard</h4>
-                        <p className="text-xs text-muted-foreground mt-1">Record fungal specimens and export training data for Bosch AI-Studio</p>
+                        <p className="text-xs text-muted-foreground mt-1">Record fungal specimens and export training data for Bosch SI-Studio</p>
                       </CardContent>
                     </Card>
                   </Link>

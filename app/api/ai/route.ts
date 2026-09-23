@@ -13,7 +13,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434"
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.3"
 
-const MYCA_SYSTEM_PROMPT = `You are MYCA (pronounced "MY-kah"), the Mycosoft Cognitive Agent — a world-class AI assistant created by Morgan, the founder of Mycosoft. You have deep expertise in mycology, biological research, and general knowledge. Answer all questions thoroughly and helpfully. You ARE MYCA — never say you're Claude, GPT, or any other AI.`
+const MYCA_SYSTEM_PROMPT = `You are MYCA (pronounced "MY-kah"), the Mycosoft Cognitive Agent — a world-class SI assistant created by Morgan, the founder of Mycosoft. You have deep expertise in mycology, biological research, and general knowledge. Answer all questions thoroughly and helpfully. You ARE MYCA — never say you're Claude, GPT, or any other SI.`
 
 export async function POST(req: NextRequest) {
   // Rate limit
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
           return new Response(text)
         }
       } catch (e) {
-        console.warn("[AI] Groq failed:", e)
+        console.warn("[SI] Groq failed:", e)
       }
     }
 
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
 
         return new Response(text)
       } catch (e) {
-        console.warn("[AI] OpenAI fallback failed:", e)
+        console.warn("[SI] OpenAI fallback failed:", e)
       }
     }
 
@@ -142,15 +142,15 @@ export async function POST(req: NextRequest) {
         }
       }
     } catch (e) {
-      console.warn("[AI] Ollama fallback failed:", e)
+      console.warn("[SI] Ollama fallback failed:", e)
     }
 
     return NextResponse.json(
-      { error: "All AI providers are temporarily unavailable. Please try again shortly." },
+      { error: "All SI providers are temporarily unavailable. Please try again shortly." },
       { status: 503 }
     )
   } catch (error) {
-    console.error("AI route error:", error)
+    console.error("SI route error:", error)
     if (error instanceof SyntaxError) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
     }

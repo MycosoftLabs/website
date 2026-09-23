@@ -202,7 +202,7 @@ export const BECOME_A_DEFENSE_CONTRACTOR: WalkthroughDef = {
         'Customer-marked implemented, or Not applicable.',
       why:
         'This baseline is the single input your score, POA&M, and SSP are derived from. A first pass full of “Not started” is normal ' +
-        'and useful — an inflated baseline only defers the pain to an assessment. AI never marks anything implemented for you.',
+        'and useful — an inflated baseline only defers the pain to an assessment. SI never marks anything implemented for you.',
       actions: [
         {
           text: 'Work through the register family by family. When in doubt, mark Not started — you can upgrade a state when the work is really done.',

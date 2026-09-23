@@ -110,7 +110,7 @@ const NAV_GROUPS: Array<{ group: string; items: NavItem[] }> = [
     items: [
       { label: 'Company', href: '/app/launchpad/company', icon: Building2 },
       { label: 'Billing', href: '/app/launchpad/billing', icon: CreditCard },
-      { label: 'AI integrations', href: '/app/launchpad/settings/integrations', icon: Plug },
+      { label: 'SI integrations', href: '/app/launchpad/settings/integrations', icon: Plug },
       { label: 'API keys', href: '/app/launchpad/settings/keys', icon: KeyRound },
       { label: 'Data boundary', href: '/app/launchpad/settings/data-boundary', icon: ShieldAlert },
       { label: 'Export', href: '/app/launchpad/settings/export', icon: Download },

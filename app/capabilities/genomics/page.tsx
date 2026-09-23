@@ -48,8 +48,8 @@ const tools = [
     link: "/ancestry/tools#genomics"
   },
   {
-    title: "AI Explainer",
-    description: "Interactive educational tool explaining transformer architecture and MYCA AI integration",
+    title: "SI Explainer",
+    description: "Interactive educational tool explaining transformer architecture and MYCA SI integration",
     icon: Bot,
     color: "amber",
     features: ["Model transparency", "Architecture visualization", "Interactive learning", "MYCA integration"],

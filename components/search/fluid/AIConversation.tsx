@@ -251,7 +251,7 @@ export function AIConversation({
         onQueryChange(responseData.suggestedQuery)
       }
     } catch (error) {
-      console.error("AI conversation error:", error)
+      console.error("SI conversation error:", error)
       const errorMessage = "I encountered an error processing your request. Please try again."
       addAssistantMessage(errorMessage)
       setMessages((prev) =>
@@ -301,7 +301,7 @@ export function AIConversation({
           <Sparkles className="h-5 w-5 text-violet-500" />
         </div>
         <div className="flex-1">
-          <h3 className="font-semibold">MYCA AI Assistant</h3>
+          <h3 className="font-semibold">MYCA SI Assistant</h3>
           <p className="text-xs text-muted-foreground">
             Powered by Frontier LLM Router
           </p>

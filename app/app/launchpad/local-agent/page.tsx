@@ -275,7 +275,7 @@ export default function LocalAgentPage() {
             <div>
               <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">BYO privacy</div>
               <p className="text-sm leading-relaxed">
-                It uses <span className="font-medium">your</span> AI keys, locally. Prompts, files,
+                It uses <span className="font-medium">your</span> SI keys, locally. Prompts, files,
                 and raw system data never leave your machine — the model calls happen on your
                 hardware, against your provider account.
               </p>
@@ -349,7 +349,7 @@ export default function LocalAgentPage() {
             </li>
             <li className="flex gap-2">
               <span className="text-sky-500 shrink-0">5.</span>
-              <span><span className="font-medium">No credentials are stored.</span> Enrollment tokens and signing keys are kept as hashes only — there is no plaintext secret column anywhere. Your BYO AI key never transits this workspace.</span>
+              <span><span className="font-medium">No credentials are stored.</span> Enrollment tokens and signing keys are kept as hashes only — there is no plaintext secret column anywhere. Your BYO SI key never transits this workspace.</span>
             </li>
           </ul>
         </Card>
@@ -472,11 +472,11 @@ export default function LocalAgentPage() {
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-[11px] font-semibold text-emerald-500">3</span>
               <Bot className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-semibold">Connect your BYO AI key</span>
+              <span className="text-sm font-semibold">Connect your BYO SI key</span>
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Point the harness at your own AI provider in{' '}
-              <Link href="/app/launchpad/settings/integrations" className="text-sky-500 hover:underline">Settings → AI integrations</Link>{' '}
+              Point the harness at your own SI provider in{' '}
+              <Link href="/app/launchpad/settings/integrations" className="text-sky-500 hover:underline">Settings → SI integrations</Link>{' '}
               — your key, your account, used locally.
             </p>
           </Card>
@@ -534,7 +534,7 @@ export default function LocalAgentPage() {
                 set <code className="text-[11px] px-1 py-0.5 rounded bg-muted">agent_id</code>, your{' '}
                 <code className="text-[11px] px-1 py-0.5 rounded bg-muted">lp_</code> key, and optionally{' '}
                 <code className="text-[11px] px-1 py-0.5 rounded bg-muted">byo_ai.api_key</code>{' '}
-                (your AI key <span className="font-medium">never</span> leaves your machine). Then:
+                (your SI key <span className="font-medium">never</span> leaves your machine). Then:
               </p>
               <div className="overflow-x-auto rounded-lg border border-border bg-muted/40 mt-2 ml-5">
                 <pre className="p-3 text-xs leading-relaxed"><code>{'python -m launchpad_myca_harness once'}</code></pre>

@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     default: "Documentation | Mycosoft",
   },
   description:
-    "Developer documentation for the Mycosoft platform — AI stack, devices, APIs, dashboards, and federal compliance.",
+    "Developer documentation for the Mycosoft platform — SI stack, devices, APIs, dashboards, and federal compliance.",
 }
 
 /**

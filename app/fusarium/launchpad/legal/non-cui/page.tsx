@@ -38,8 +38,8 @@ export default function NonCuiPolicyPage() {
           "In an environment authorized for it. For Mycosoft that is PreVeil; for you it is whatever enclave your contract and your assessor accept. Launchpad is designed to track and organize readiness without becoming a second, unaccredited copy of your controlled environment.",
         ],
         [
-          "AI processing",
-          "Text you enter may be processed by AI providers to generate drafts and analysis. Those providers are commercial services outside any CUI boundary. This is a further reason the prohibition above is absolute rather than advisory, and it applies equally when you connect your own AI account.",
+          "SI processing",
+          "Text you enter may be processed by SI providers to generate drafts and analysis. Those providers are commercial services outside any CUI boundary. This is a further reason the prohibition above is absolute rather than advisory, and it applies equally when you connect your own SI account.",
         ],
         [
           "If prohibited data is entered anyway",

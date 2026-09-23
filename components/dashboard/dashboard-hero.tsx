@@ -20,7 +20,7 @@ const capabilities = [
   { icon: Globe, label: "Environmental Monitoring", color: "text-emerald-400", borderColor: "border-emerald-500/30" },
   { icon: Database, label: "Species Intelligence (MINDEX)", color: "text-blue-400", borderColor: "border-blue-500/30" },
   { icon: Cpu, label: "Device Fleet (MycoBrain)", color: "text-purple-400", borderColor: "border-purple-500/30" },
-  { icon: Brain, label: "AI Agents (MYCA)", color: "text-amber-400", borderColor: "border-amber-500/30" },
+  { icon: Brain, label: "SI Agents (MYCA)", color: "text-amber-400", borderColor: "border-amber-500/30" },
   { icon: Activity, label: "Earth Simulation (CREP)", color: "text-red-400", borderColor: "border-red-500/30" },
   { icon: Shield, label: "Biosecurity & Defense", color: "text-teal-400", borderColor: "border-teal-500/30" },
 ]
@@ -131,7 +131,7 @@ export function DashboardHero({ displayName, isSuperAdmin }: DashboardHeroProps)
 
         {/* Description */}
         <p className="text-slate-300 leading-relaxed max-w-4xl">
-          NatureOS is Mycosoft&apos;s environmental operating system — your unified command center for real-time planetary events, living systems, sensor fleets, and AI-driven action. Monitor earthquakes, weather systems, wildfires, volcanic activity, air, soil, biodiversity, spores, and mycelial networks; manage IoT devices, lab infrastructure, robotics, and autonomous agents; and turn raw environmental and biological signals into a live, queryable model of the world. From biosurveillance and ecological forecasting to precision agriculture, remediation, and autonomous science, NatureOS transforms nature data into actionable intelligence.
+          NatureOS is Mycosoft&apos;s environmental operating system — your unified command center for real-time planetary events, living systems, sensor fleets, and SI-driven action. Monitor earthquakes, weather systems, wildfires, volcanic activity, air, soil, biodiversity, spores, and mycelial networks; manage IoT devices, lab infrastructure, robotics, and autonomous agents; and turn raw environmental and biological signals into a live, queryable model of the world. From biosurveillance and ecological forecasting to precision agriculture, remediation, and autonomous science, NatureOS transforms nature data into actionable intelligence.
         </p>
 
         {isSuperAdmin && (

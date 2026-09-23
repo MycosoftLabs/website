@@ -37,7 +37,7 @@ const categories: HubCategory[] = [
     ],
   },
   {
-    title: "AI Analysis",
+    title: "SI Analysis",
     description: "Vision, VOC, and olfactory pipelines tied to devices and models.",
     items: [
       {

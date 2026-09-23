@@ -53,7 +53,7 @@ const MYCOSOFT_USERS: MycosoftUser[] = [
     email: "myca@mycosoft.org", 
     name: "MYCA", 
     role: "ai",
-    title: "AI Agent",
+    title: "SI Agent",
     permissions: ["ai", "dev", "data", "infra"],
   },
   {

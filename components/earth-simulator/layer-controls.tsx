@@ -100,7 +100,7 @@ const layerGroups: LayerGroup[] = [
     ],
   },
   {
-    name: "AI/Analysis",
+    name: "SI/Analysis",
     icon: Brain,
     layers: [
       { key: "nlm", label: "NLM Predictions", icon: Brain, description: "Nature Learning Model", comingSoon: true },
@@ -112,9 +112,9 @@ const layerGroups: LayerGroup[] = [
     icon: Zap,
     isEarth2: true,
     layers: [
-      { key: "earth2Forecast", label: "AI Forecast (Atlas)", icon: Cloud, description: "15-day medium-range forecast" },
+      { key: "earth2Forecast", label: "SI Forecast (Atlas)", icon: Cloud, description: "15-day medium-range forecast" },
       { key: "earth2Nowcast", label: "Nowcast (StormScope)", icon: Radar, description: "0-6 hour storm prediction" },
-      { key: "earth2SporeDisperal", label: "Spore Dispersal", icon: Wind, description: "AI-powered spore tracking" },
+      { key: "earth2SporeDisperal", label: "Spore Dispersal", icon: Wind, description: "superintelligence-powered spore tracking" },
       { key: "earth2WindField", label: "Wind Field 3D", icon: Wind, description: "3D wind vector arrows" },
       { key: "earth2StormCells", label: "Storm Cells", icon: CloudRain, description: "3D storm visualization" },
       { key: "earth2Clouds", label: "Volumetric Clouds", icon: Cloud, description: "3D cloud rendering" },
@@ -191,7 +191,7 @@ export function LayerControls({ layers, onLayersChange }: LayerControlsProps) {
                           )}
                           {layer.key.startsWith("earth2") && (
                             <Badge variant="outline" className="ml-2 text-[10px] py-0 px-1 border-cyan-500/50 text-cyan-400">
-                              AI
+                              SI
                             </Badge>
                           )}
                           {layer.comingSoon && (

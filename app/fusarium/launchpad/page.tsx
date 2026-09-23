@@ -77,7 +77,7 @@ const modules = [
   {
     name: "ASA Workspace",
     description:
-      "Automated Self-Assessment: scope your environment, work the 110 NIST SP 800-171 requirements, and get a deterministic weighted score with POA&M eligibility — never a guess, never an AI verdict.",
+      "Automated Self-Assessment: scope your environment, work the 110 NIST SP 800-171 requirements, and get a deterministic weighted score with POA&M eligibility — never a guess, never an SI verdict.",
     icon: ClipboardCheck,
     tone: "phthalo" as MoldTone,
   },
@@ -162,7 +162,7 @@ const whyLaunchpad: WhyCard[] = [
     tone: "phthalo",
     pain: (
       <>
-        AI has collapsed the team size needed to build defense-grade technology. It has{" "}
+        SI has collapsed the team size needed to build defense-grade technology. It has{" "}
         <strong className="font-semibold text-foreground/90">not</strong> collapsed the compliance
         surface: a <strong className="font-semibold text-foreground/90">four-person company</strong>{" "}
         answers the same security requirements as a four-hundred-person prime, with the same
@@ -266,7 +266,7 @@ const whyLaunchpad: WhyCard[] = [
     ),
   },
   {
-    title: "AI drafts. You decide.",
+    title: "SI drafts. You decide.",
     icon: ShieldCheck,
     tone: "slateGreen",
     pain: (
@@ -278,7 +278,7 @@ const whyLaunchpad: WhyCard[] = [
     ),
     shift: (
       <>
-        AI drafts, organizes and explains;{" "}
+        SI drafts, organizes and explains;{" "}
         <strong className="font-semibold text-foreground/90">a human marks implementation</strong>, and
         the data model has no way to record otherwise.
       </>
@@ -301,7 +301,7 @@ const isIsNot: Array<[string, string]> = [
   ["A customer-owned self-assessment workspace", "A guarantee of CMMC status or a government finding"],
   ["A contract and grant discovery engine", "A guarantee of eligibility, award, funding, or selection"],
   ["A local-first technical checking system", "A remote administrator with unrestricted credentials"],
-  ["An AI operator that drafts and organizes", "An autonomous signer or submitter of binding representations"],
+  ["An SI operator that drafts and organizes", "An autonomous signer or submitter of binding representations"],
   ["A system of record for non-CUI readiness metadata", "A repository for CUI, classified data, or customer secrets"],
 ]
 
@@ -522,7 +522,7 @@ export default function LaunchpadPage() {
               <h2 className="text-3xl sm:text-4xl font-bold mb-4">What Launchpad is — and is not</h2>
               <p className="text-base sm:text-lg text-muted-foreground max-w-3xl mx-auto">
                 You own every representation, self-assessment, SPRS submission, proposal, signature, and
-                affirmation. Mycosoft supplies software, templates, workflow, cost-aware AI, and optional
+                affirmation. Mycosoft supplies software, templates, workflow, cost-aware SI, and optional
                 advisory time.
               </p>
             </div>
@@ -583,7 +583,7 @@ export default function LaunchpadPage() {
                   <p>
                     Launchpad shows four independent indicators so a founder can never mistake activity
                     for status. Every score comes from a deterministic, test-vectored engine with a full
-                    calculation trace. No AI ever marks a control implemented.
+                    calculation trace. No SI ever marks a control implemented.
                   </p>
                 </div>
               </div>

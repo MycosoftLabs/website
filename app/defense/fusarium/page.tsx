@@ -173,7 +173,7 @@ const operatingDomains: Array<{
         name: "Hyphae 1",
         descriptor:
           "Modular edge data center and field gateway: sensor fusion, local inference, mesh aggregation, and mission communications.",
-        capabilities: ["Edge AI", "Mesh gateway", "Local storage", "Sensor fusion", "Backhaul"],
+        capabilities: ["Edge SI", "Mesh gateway", "Local storage", "Sensor fusion", "Backhaul"],
         href: "/devices/hyphae-1",
         icon: Server,
       },
@@ -439,7 +439,7 @@ export default function FusariumPage() {
                 {
                   audience: "Defense Startups",
                   head: "Become contractor-ready",
-                  copy: "For founders building robotics, AI, hardware, sensing, software, and dual-use technologies.",
+                  copy: "For founders building robotics, SI, hardware, sensing, software, and dual-use technologies.",
                   cta: "Enter Launchpad",
                   href: "/fusarium/launchpad",
                   icon: Rocket,
@@ -946,7 +946,7 @@ export default function FusariumPage() {
               operational intelligence environment merely because a company uses the readiness product.
             </p>
             <div className="flex flex-wrap justify-center gap-2 mb-8">
-              {["Robotics and autonomy", "Environmental sensors", "AI and analytical models", "Data sources and APIs", "Edge compute", "Mission software", "Domestic manufacturing"].map((c) => (
+              {["Robotics and autonomy", "Environmental sensors", "SI and analytical models", "Data sources and APIs", "Edge compute", "Mission software", "Domestic manufacturing"].map((c) => (
                 <span key={c} className="text-sm px-3 py-1.5 rounded-full border border-border bg-muted/40 text-muted-foreground">{c}</span>
               ))}
             </div>

@@ -244,7 +244,7 @@ export default function ModelComparisonPanel({
         <p className="rounded border border-amber-500/25 bg-amber-500/[0.06] px-1.5 py-1 text-[9px] leading-tight text-amber-200/90">
           <span className="font-bold uppercase tracking-wide">No usable model output.</span>{" "}
           Nothing could be counted on this frame — this is a detection-pipeline failure, NOT a clear
-          picture. The water is unobserved by the AI; use the video, radar and lookout.
+          picture. The water is unobserved by the SI; use the video, radar and lookout.
           {failed.length > 0 && " Per-model reasons are in the scoreboard above."}
         </p>
       ) : fusion.totalObjects === 0 ? (

@@ -22,7 +22,7 @@ const CLOUD_PROVIDERS: CloudProvider[] = [
   {
     id: "aws",
     name: "Amazon Web Services",
-    description: "Cloud computing, storage, and AI/ML services",
+    description: "Cloud computing, storage, and SI/ML services",
     icon: "🔶",
     connected: true,
     services: ["EC2", "S3", "Lambda", "SageMaker"],
@@ -48,7 +48,7 @@ const CLOUD_PROVIDERS: CloudProvider[] = [
   {
     id: "palantir",
     name: "Palantir Foundry",
-    description: "Advanced data analytics and AI platform",
+    description: "Advanced data analytics and SI platform",
     icon: "⬛",
     connected: false,
     services: ["Foundry", "Gotham", "Apollo", "AIP"]
@@ -64,7 +64,7 @@ const CLOUD_PROVIDERS: CloudProvider[] = [
   {
     id: "databricks",
     name: "Databricks",
-    description: "Unified analytics and AI platform",
+    description: "Unified analytics and SI platform",
     icon: "🧱",
     connected: false,
     services: ["Delta Lake", "MLflow", "Spark", "SQL Analytics"]

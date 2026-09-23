@@ -181,8 +181,8 @@ const NETWORK_FEATURES = [
   },
   {
     icon: Cpu,
-    title: "Edge AI",
-    description: PSATHYRELLA_DEVICE.specifications["Edge AI"] ?? "Jetson-class inference at the buoy",
+    title: "Edge SI",
+    description: PSATHYRELLA_DEVICE.specifications["Edge SI"] ?? "Jetson-class inference at the buoy",
   },
   {
     icon: Waves,
@@ -198,7 +198,7 @@ const NETWORK_FEATURES = [
 
 const MISSION_STATS = [
   { value: "200 m", label: "Depth target" },
-  { value: "Orin Nano", label: "Edge AI" },
+  { value: "Orin Nano", label: "Edge SI" },
   { value: "Mesh", label: "Mycorrhizae" },
   { value: "NLM", label: "Acoustic core" },
 ] as const
@@ -472,7 +472,7 @@ export function PsathyrellaDetails() {
               Technology
             </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
-              Autonomous AI{" "}
+              Autonomous SI{" "}
               <span className="text-cyan-700 dark:text-cyan-400">Buoy</span>
             </h2>
             <p className="text-xl text-slate-900 dark:text-white/70 max-w-3xl mx-auto leading-relaxed">

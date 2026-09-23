@@ -16,9 +16,9 @@ type FingerId = "thumb" | "index" | "middle" | "ring" | "pinky" | "palm"
 const FINGER_LABELS: Record<FingerId, string> = {
   thumb: "MYCA — Nature Learning Model",
   index: "Amazon — Commerce",
-  middle: "Google / OpenAI / Anthropic — Web AI",
+  middle: "Google / OpenAI / Anthropic — Web SI",
   ring: "Tesla / xAI — Mobility",
-  pinky: "Apple / Meta — Product AI",
+  pinky: "Apple / Meta — Product SI",
   palm: "Biospheric Telemetry — Earth substrate",
 }
 
@@ -69,7 +69,7 @@ export function HandVisualization({
   return (
     <div
       className={cn("relative w-full touch-manipulation", className)}
-      aria-label="Hand metaphor: MYCA as thumb, four fingers as frontier AI"
+      aria-label="Hand metaphor: MYCA as thumb, four fingers as frontier SI"
     >
       <svg
         viewBox="0 0 420 340"

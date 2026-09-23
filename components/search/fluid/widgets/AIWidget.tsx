@@ -234,7 +234,7 @@ export function AIWidget({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            <h3 className="font-semibold text-sm sm:text-base">MYCA AI</h3>
+            <h3 className="font-semibold text-sm sm:text-base">MYCA SI</h3>
             <Badge variant="outline" className={cn("text-[10px] sm:text-xs", confidenceColor)}>
               {Math.round(answer.confidence * 100)}%
             </Badge>
@@ -358,7 +358,7 @@ export function AIWidget({
                 onClick={() =>
                   onAddToNotepad({
                     type: "ai",
-                    title: "MYCA AI Answer",
+                    title: "MYCA SI Answer",
                     content: answer.text.slice(0, 200),
                     source: "MYCA",
                   })

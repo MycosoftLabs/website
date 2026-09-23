@@ -34,9 +34,9 @@ import {
 const dataFlowSteps = [
   { level: "Field Sensors", items: ["Mushroom1", "MycoNode", "SporeBase", "ALARM"], icon: Radar, color: "orange-500" },
   { level: "Mesh Network", items: ["LoRa Gateways", "Tactical Radio", "Satellite Uplink"], icon: Radio, color: "green-500" },
-  { level: "Edge Processing", items: ["Local AI", "Data Compression", "Anomaly Detection"], icon: Cpu, color: "purple-500" },
+  { level: "Edge Processing", items: ["Local SI", "Data Compression", "Anomaly Detection"], icon: Cpu, color: "purple-500" },
   { level: "NatureOS Platform", items: ["Visualization", "Analytics", "Alerting"], icon: Eye, color: "primary" },
-  { level: "AI/ML Layer", items: ["Nature Learning Model", "Pattern Recognition", "Predictions"], icon: Brain, color: "blue-500" },
+  { level: "SI/ML Layer", items: ["Nature Learning Model", "Pattern Recognition", "Predictions"], icon: Brain, color: "blue-500" },
   { level: "Decision Support", items: ["Commander", "Analyst", "Warfighter", "Responders"], icon: Target, color: "destructive" },
 ]
 
@@ -77,7 +77,7 @@ const useCases = [
   },
   { 
     title: "Autonomous Systems",
-    description: "Machine-readable environmental data for AI-driven platforms.",
+    description: "Machine-readable environmental data for SI-driven platforms.",
     icon: Cpu
   },
 ]
@@ -150,7 +150,7 @@ export default function OEIPage() {
                 {[
                   "Persistent biological and environmental sensing networks",
                   "Low-latency mesh communications from field to command",
-                  "AI-driven analysis and pattern recognition",
+                  "SI-driven analysis and pattern recognition",
                   "Standardized intelligence product formats",
                   "Integration with existing C2 and JADC2 systems"
                 ].map((item, i) => (
@@ -240,10 +240,10 @@ export default function OEIPage() {
       <section className="py-24 bg-muted/30">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="info" className="mb-4">AI Foundation</NeuBadge>
+            <NeuBadge variant="info" className="mb-4">SI Foundation</NeuBadge>
             <h2 className="text-4xl font-bold mb-4">Nature Learning Model</h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              The first AI model purpose-built for environmental intelligence - unlike general language models, 
+              The first SI model purpose-built for environmental intelligence - unlike general language models,
               NLM understands the patterns of nature.
             </p>
           </div>
@@ -268,7 +268,7 @@ export default function OEIPage() {
             <p className="text-lg text-muted-foreground">
               NLM is trained on decades of environmental data, biological research, and field observations - 
               creating a unified model that can interpret signals from soil microbes to atmospheric conditions, 
-              providing context that no general-purpose AI can match.
+              providing context that no general-purpose SI can match.
             </p>
           </div>
         </div>
@@ -337,7 +337,7 @@ export default function OEIPage() {
             <NeuCard className="text-center transition-colors">
               <NeuCardContent className="pt-8">
                 <Brain className="h-10 w-10 text-blue-500 mx-auto mb-4" />
-                <h3 className="font-semibold mb-2">NLM AI</h3>
+                <h3 className="font-semibold mb-2">NLM SI</h3>
                 <p className="text-sm text-muted-foreground">Nature Learning Model for analysis</p>
               </NeuCardContent>
             </NeuCard>

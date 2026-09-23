@@ -461,7 +461,7 @@ export function AgentQuery({
             <CardTitle className="text-sm flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-cyan-400" />
               Ask MYCA
-              <Badge variant="outline" className="text-[10px]">AI</Badge>
+              <Badge variant="outline" className="text-[10px]">SI</Badge>
             </CardTitle>
             <Button
               variant="ghost"

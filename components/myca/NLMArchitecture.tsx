@@ -57,7 +57,7 @@ const PALM_NODES = [
     title: "Earth2",
     subtitle: "Climate modeling",
     icon: Wind,
-    details: ["Climate predictions", "Global environmental models", "Weather simulation", "Earth-2 AI integration"],
+    details: ["Climate predictions", "Global environmental models", "Weather simulation", "Earth-2 SI integration"],
     color: "slate",
   },
   {
@@ -124,21 +124,21 @@ const FINGER_NODES = [
   {
     id: "google",
     title: "Google / OpenAI / Anthropic",
-    subtitle: "Web AI",
+    subtitle: "Web SI",
     icon: Search,
     color: "blue",
   },
   {
     id: "tesla",
     title: "Tesla / xAI",
-    subtitle: "Mobility AI",
+    subtitle: "Mobility SI",
     icon: Car,
     color: "blue",
   },
   {
     id: "apple-meta",
     title: "Apple / Meta",
-    subtitle: "Product-based AI",
+    subtitle: "Product-based SI",
     icon: Smartphone,
     color: "blue",
   },
@@ -293,7 +293,7 @@ export function NLMArchitecture({ className }: { className?: string }) {
               <div className="px-4 py-2 rounded-lg bg-blue-900/50 border border-blue-600/50 text-sm font-semibold whitespace-nowrap">
                 Fingers
               </div>
-              <p className="text-xs text-muted-foreground">External AI</p>
+              <p className="text-xs text-muted-foreground">External SI</p>
             </div>
           </div>
         </div>
@@ -305,7 +305,7 @@ export function NLMArchitecture({ className }: { className?: string }) {
             <div className="flex items-center gap-2 mb-4">
               <Zap className="h-4 w-4 text-blue-500" />
               <span className="text-xs font-bold uppercase tracking-widest text-blue-500/90">
-                Fingers: External AI Services
+                Fingers: External SI Services
               </span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
@@ -358,7 +358,7 @@ export function NLMArchitecture({ className }: { className?: string }) {
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-blue-500/60" />
-            <span>External AI (callable)</span>
+            <span>External SI (callable)</span>
           </div>
         </div>
 
@@ -372,7 +372,7 @@ export function NLMArchitecture({ className }: { className?: string }) {
               MYCA is continuously trained on live environmental signals—sensor
               streams, soil chemistry, bioelectric data, climate predictions—not
               static web corpora. The biospheric telemetry stack provides
-              real-time epistemic ground truth that no other frontier AI
+              real-time epistemic ground truth that no other frontier SI
               possesses.
             </p>
           </NeuCardContent>

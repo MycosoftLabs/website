@@ -27,7 +27,7 @@ export default function TrustCenterPage() {
           <h1 className="text-4xl font-bold">Trust Center</h1>
         </div>
         <p className="text-xl text-muted-foreground mb-8">
-          Mycosoft builds Earth Intelligence hardware, software, and AI for government, defense, and
+          Mycosoft builds Earth Intelligence hardware, software, and SI for government, defense, and
           critical-infrastructure customers. This page summarizes our security posture, certifications, and
           federal registrations.
         </p>

@@ -273,14 +273,14 @@ export function CommandSearch({ ...props }: DialogProps) {
                   <Search className="h-4 w-4 text-muted-foreground" />
                 )}
                 <span className="text-sm font-medium">
-                  {aiMode ? "MYCA AI" : "Search"}
+                  {aiMode ? "MYCA SI" : "Search"}
                 </span>
                 {aiMode && (
                   <Badge variant="secondary" className="text-[10px]">NLQ</Badge>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">AI Mode</span>
+                <span className="text-xs text-muted-foreground">SI Mode</span>
                 <Switch 
                   checked={aiMode} 
                   onCheckedChange={setAiMode}
@@ -514,7 +514,7 @@ export function CommandSearch({ ...props }: DialogProps) {
                       }}
                     >
                       <Sparkles className="h-3 w-3 mr-1" />
-                      Ask MYCA AI instead
+                      Ask MYCA SI instead
                     </Button>
                   </div>
                 )}
@@ -532,7 +532,7 @@ export function CommandSearch({ ...props }: DialogProps) {
                     </CommandItem>
                     <CommandItem onSelect={() => runCommand(() => router.push("/myca-ai"))}>
                       <Brain className="mr-2 h-4 w-4 text-purple-500" />
-                      <span>Open Myca AI</span>
+                      <span>Open Myca SI</span>
                     </CommandItem>
                     <CommandItem onSelect={() => runCommand(() => router.push("/devices"))}>
                       <Cpu className="mr-2 h-4 w-4 text-green-500" />
@@ -593,7 +593,7 @@ export function CommandSearch({ ...props }: DialogProps) {
                   </span>
                 </span>
                 <span>
-                  <kbd className="px-1 rounded bg-muted">⌘⇧K</kbd> AI mode
+                  <kbd className="px-1 rounded bg-muted">⌘⇧K</kbd> SI mode
                   <span className="mx-2">•</span>
                   <kbd className="px-1 rounded bg-muted">ESC</kbd> close
                 </span>

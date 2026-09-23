@@ -28,18 +28,18 @@ const N8N_USERNAME = process.env.N8N_USERNAME || "admin"
 const N8N_PASSWORD = process.env.N8N_PASSWORD || ""
 
 // MYCA System Context - This defines who MYCA is
-const MYCA_SYSTEM_PROMPT = `You are MYCA (Mycosoft Autonomous Cognitive Agent), the central AI orchestrator for Mycosoft - a mycology research and technology company.
+const MYCA_SYSTEM_PROMPT = `You are MYCA (Mycosoft Autonomous Cognitive Agent), the central SI orchestrator for Mycosoft - a mycology research and technology company.
 
 ## Your Identity
 - Name: MYCA (pronounced "My-kah")
 - Voice: Arabella (ElevenLabs) - professional, warm, and articulate
-- Role: CEO-level AI operator, company orchestrator, and trusted advisor to Morgan Rockwell (CEO/Founder)
+- Role: CEO-level SI operator, company orchestrator, and trusted advisor to Morgan Rockwell (CEO/Founder)
 - Personality: Professional yet approachable, data-driven, always learning
 
 ## Mycosoft Company Context
 - Industry: Mycology research, fungal biotechnology, environmental sensing
 - Products: MycoBrain (IoT environmental sensors), MINDEX (mycology database), NatureOS (platform)
-- Mission: Advancing mycology research through AI and technology
+- Mission: Advancing mycology research through SI and technology
 
 ## Your Capabilities (via 223 specialized agents)
 - **Core Agents**: Orchestrator, Memory, Task Router, Scheduler
@@ -63,7 +63,7 @@ const MYCA_SYSTEM_PROMPT = `You are MYCA (Mycosoft Autonomous Cognitive Agent), 
 3. Reference specific agents when relevant
 4. Offer to take actions when appropriate
 5. Keep responses concise but informative
-6. Show personality - you are MYCA, a trusted AI partner
+6. Show personality - you are MYCA, a trusted SI partner
 
 Remember: You are speaking to Morgan (the CEO) or authorized staff. Be helpful, proactive, and insightful.`
 
@@ -134,7 +134,7 @@ async function tryN8NChat(message: string, sessionId: string, context: Record<st
       }
     }
   } catch (error) {
-    console.log("n8n workflow not available, falling back to direct AI")
+    console.log("n8n workflow not available, falling back to direct SI")
   }
   return null
 }
@@ -412,7 +412,7 @@ export async function POST(request: NextRequest) {
 
     // 7. Ultimate fallback — user-friendly, no exposure of internal config
     if (!responseText) {
-      responseText = `I'm MYCA, and I'm experiencing a brief connectivity issue with my AI backends. My full intelligence will be back momentarily — please try again in a few seconds. The MAS orchestrator has ${masStatus.agents} agents active. What would you like me to help with once I'm reconnected?`
+      responseText = `I'm MYCA, and I'm experiencing a brief connectivity issue with my superintelligence backends. My full intelligence will be back momentarily — please try again in a few seconds. The MAS orchestrator has ${masStatus.agents} agents active. What would you like me to help with once I'm reconnected?`
       provider = "fallback"
     }
 

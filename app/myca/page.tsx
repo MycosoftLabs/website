@@ -65,7 +65,7 @@ export default function MYCAPage() {
             </Link>
             <Link href="/natureos/ai-studio">
               <Button variant="outline" size="lg" className="gap-2 min-h-[44px] min-w-[120px] px-6 py-3 touch-manipulation portal-cta-over-video">
-                AI Studio
+                SI Studio
                 <ExternalLink className="h-4 w-4" />
               </Button>
             </Link>
@@ -188,7 +188,7 @@ export default function MYCAPage() {
               All Organisms as Users
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Traditional AI: built by humans, for humans. MYCA: built for all
+              Traditional SI: built by humans, for humans. MYCA: built for all
               organisms—humans, ecosystems, and machines.
             </p>
           </div>
@@ -233,7 +233,7 @@ export default function MYCAPage() {
             Experience MYCA
           </h2>
           <p className="text-lg text-green-100 mb-8 max-w-2xl mx-auto">
-            Chat, explore consciousness, and see the future of edge-native, ecologically-grounded AI.
+            Chat, explore consciousness, and see the future of edge-native, ecologically-grounded SI.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center flex-wrap">
             <Link href="#live-demo">

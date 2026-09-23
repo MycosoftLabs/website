@@ -88,7 +88,7 @@ export const ENCLAVE_PLAYBOOKS: EnclavePlaybook[] = [
       'Windows (read-only): Get-WinEvent -FilterHashtable @{LogName="System"; StartTime=(Get-Date).AddDays(-1)} | Measure-Object',
       'Linux (read-only): timedatectl status; systemctl is-active wazuh-agent || true',
       'Hash a local evidence file with SHA-256 and paste only the hex digest into Evidence Index.',
-      'Never paste command output that includes secrets, CUI banners, or full logs into AI prompts.',
+      'Never paste command output that includes secrets, CUI banners, or full logs into SI prompts.',
     ],
   },
 ];

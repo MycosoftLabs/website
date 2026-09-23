@@ -16,12 +16,12 @@ export async function GET() {
     .eq('tenant_id', ctx.tenantId)
     .order('created_at', { ascending: false })
     .limit(200);
-  if (error) return jsonError(500, 'load_failed', 'Could not load AI cost ledger');
+  if (error) return jsonError(500, 'load_failed', 'Could not load SI cost ledger');
   const rows = data ?? [];
   return NextResponse.json({
     entries: rows,
     byoCalls: rows.filter((r) => r.byo_key).length,
     managedCreditsCharged: rows.filter((r) => !r.byo_key).reduce((s, r) => s + (r.credits_charged as number), 0),
-    note: rows.length === 0 ? 'No AI actions recorded yet.' : undefined,
+    note: rows.length === 0 ? 'No SI actions recorded yet.' : undefined,
   });
 }

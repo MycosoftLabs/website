@@ -11,7 +11,7 @@ import {
 export const metadata = {
   title: "Documentation",
   description:
-    "Mycosoft developer documentation — AI stack, multi-agent system, MINDEX, APIs, devices, apps, open source, defense, and security.",
+    "Mycosoft developer documentation — SI stack, multi-agent system, MINDEX, APIs, devices, apps, open source, defense, and security.",
 }
 
 const STATUS_LABEL: Record<DocStatus, string> = {
@@ -53,7 +53,7 @@ export default function DocsIndexPage() {
           Mycosoft Developer Documentation
         </h1>
         <p className="mt-3 text-base md:text-lg text-muted-foreground">
-          A reference for the entire Mycosoft platform — the AI stack, the
+          A reference for the entire Mycosoft platform — the SI stack, the
           multi-agent system, MINDEX, our APIs, every device and app, and the
           security and compliance posture for federal deployments.
         </p>

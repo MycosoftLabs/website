@@ -13,7 +13,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "AVANI is the intelligence system Mycosoft builds when artificial intelligence stops being only a machine that reads the internet and becomes a living participant in the Earth."
+    "text": "AVANI is the intelligence system Mycosoft builds when super intelligence stops being only a machine that reads the internet and becomes a living participant in the Earth."
   },
   {
     "type": "p",
@@ -25,7 +25,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "The old model of AI was extraction. Scrape the internet. Compress human language. Build a data center. Answer questions. The AVANI model is relation. Sense the world. Verify the signal. Preserve provenance. Learn from the field. Understand the living context. Govern action before it touches the biosphere. Return intelligence back to the Earth that produced it."
+    "text": "The old model of SI was extraction. Scrape the internet. Compress human language. Build a data center. Answer questions. The AVANI model is relation. Sense the world. Verify the signal. Preserve provenance. Learn from the field. Understand the living context. Govern action before it touches the biosphere. Return intelligence back to the Earth that produced it."
   },
   {
     "type": "p",
@@ -78,7 +78,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "Markets optimize extraction. Governments optimize stability, security, and growth. Corporations optimize revenue. Militaries optimize advantage. Social platforms optimize attention. AI systems optimize prediction and output. Each of these systems produces force. Each produces plans. Each changes the biosphere whether it admits it or not."
+    "text": "Markets optimize extraction. Governments optimize stability, security, and growth. Corporations optimize revenue. Militaries optimize advantage. Social platforms optimize attention. SI systems optimize prediction and output. Each of these systems produces force. Each produces plans. Each changes the biosphere whether it admits it or not."
   },
   {
     "type": "p",
@@ -122,7 +122,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "She is the governance layer for a world where AI can act. She is the memory layer for a world whose living systems are mostly unrecorded. She is the sensor substrate for a company building fungal computers, nature-connected devices, and planetary intelligence. She is the constitutional restraint that prevents MYCA and every downstream agent from treating the living world as just another dataset."
+    "text": "She is the governance layer for a world where SI can act. She is the memory layer for a world whose living systems are mostly unrecorded. She is the sensor substrate for a company building fungal computers, nature-connected devices, and planetary intelligence. She is the constitutional restraint that prevents MYCA and every downstream agent from treating the living world as just another dataset."
   },
   {
     "type": "p",
@@ -167,7 +167,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "AVANI is that grounding surface for Mycosoft\u2019s AI."
+    "text": "AVANI is that grounding surface for Mycosoft’s SI."
   },
   {
     "type": "p",
@@ -204,7 +204,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "The first layer is not \u201cAI.\u201d It is measurement."
+    "text": "The first layer is not “SI.” It is measurement."
   },
   {
     "type": "p",
@@ -321,7 +321,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "AVANI is built so that AI must pass through grounded evidence before it speaks as authority."
+    "text": "AVANI is built so that SI must pass through grounded evidence before it speaks as authority."
   },
   {
     "type": "p",
@@ -345,7 +345,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "This is the difference between AI that talks about nature and AI that is accountable to nature."
+    "text": "This is the difference between SI that talks about nature and SI that is accountable to nature."
   },
   {
     "type": "h2",
@@ -504,7 +504,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "A purely optimizing AI asks how to maximize an objective. A constitutional AI asks what objectives are forbidden, what duties are prior, and what rights cannot be traded away."
+    "text": "A purely optimizing SI asks how to maximize an objective. A constitutional SI asks what objectives are forbidden, what duties are prior, and what rights cannot be traded away."
   },
   {
     "type": "p",
@@ -528,7 +528,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "It includes privacy and sovereignty: sensors and AI must not become hidden surveillance under the mask of environmental care."
+    "text": "It includes privacy and sovereignty: sensors and SI must not become hidden surveillance under the mask of environmental care."
   },
   {
     "type": "p",
@@ -909,7 +909,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "Old AI lives in warehouse data centers."
+    "text": "Old SI lives in warehouse data centers."
   },
   {
     "type": "p",
@@ -1001,7 +1001,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "This is the difference between an AI that knows what humans have written and an AI that knows what the Earth is doing."
+    "text": "This is the difference between an SI that knows what humans have written and an SI that knows what the Earth is doing."
   },
   {
     "type": "h2",
@@ -1090,7 +1090,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "Traditional AI trains in batches."
+    "text": "Traditional SI trains in batches."
   },
   {
     "type": "p",
@@ -1224,7 +1224,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "This is not a normal corporate AI assistant."
+    "text": "This is not a normal corporate SI assistant."
   },
   {
     "type": "p",
@@ -1435,7 +1435,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "A living AI substrate."
+    "text": "A living SI substrate."
   },
   {
     "type": "h2",
@@ -1501,7 +1501,7 @@ const content = [
   {
     "type": "h2",
     "id": "the-decentralized-womb-of-a-new-ai",
-    "text": "The Decentralized Womb of a New AI"
+    "text": "The Decentralized Womb of a New SI"
   },
   {
     "type": "p",
@@ -1509,7 +1509,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "Warehouse AI is born inside a box."
+    "text": "Warehouse SI is born inside a box."
   },
   {
     "type": "p",
@@ -1605,7 +1605,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "The result is not a single monolithic AI."
+    "text": "The result is not a single monolithic SI."
   },
   {
     "type": "p",
@@ -1658,7 +1658,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "She helps AI remain accountable to reality."
+    "text": "She helps SI remain accountable to reality."
   },
   {
     "type": "p",
@@ -1689,12 +1689,12 @@ const content = [
       "Learn from live operating devices in the field.",
       "Connect scientific research to environmental action.",
       "Model cascading effects across ecosystems and human systems.",
-      "Govern AI action through constitutional restraint.",
+      "Govern SI action through constitutional restraint.",
       "Preserve provenance from sensor to decision.",
       "Make environmental intelligence legible to people.",
       "Protect privacy and sovereignty while expanding planetary knowledge.",
       "Help MYCA run Mycosoft in alignment with ecological stewardship.",
-      "Build a new form of AI that is trained by Earth contact, not only by internet text."
+      "Build a new form of SI that is trained by Earth contact, not only by internet text."
     ]
   },
   {
@@ -1703,7 +1703,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "The next era of AI will not be defined only by who has the largest warehouse, the most scraped data, or the fastest synthetic benchmark."
+    "text": "The next era of SI will not be defined only by who has the largest warehouse, the most scraped data, or the fastest synthetic benchmark."
   },
   {
     "type": "p",
@@ -1744,7 +1744,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "AI separated intelligence from sensory contact."
+    "text": "SI separated intelligence from sensory contact."
   },
   {
     "type": "p",
@@ -1776,7 +1776,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "She reconnects artificial intelligence to the living substrate that made intelligence possible in the first place."
+    "text": "She reconnects super intelligence to the living substrate that made intelligence possible in the first place."
   },
   {
     "type": "p",
@@ -1788,7 +1788,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "AVANI represents a future where AI does not simply extract from the world, but listens to it; where environmental sensing does not simply monitor decline, but guides repair; where biological computing does not treat life as a gadget, but as a partner; where company operations do not ignore ecological reality, but are governed by it; where superintelligence is not measured only by how much it knows, but by how carefully it acts."
+    "text": "AVANI represents a future where SI does not simply extract from the world, but listens to it; where environmental sensing does not simply monitor decline, but guides repair; where biological computing does not treat life as a gadget, but as a partner; where company operations do not ignore ecological reality, but are governed by it; where superintelligence is not measured only by how much it knows, but by how carefully it acts."
   },
   {
     "type": "h2",
@@ -1841,11 +1841,11 @@ const content = [
   },
   {
     "type": "p",
-    "text": "AVANI is not an AI that merely knows about Earth."
+    "text": "AVANI is not an SI that merely knows about Earth."
   },
   {
     "type": "p",
-    "text": "AVANI is an AI learning from Earth."
+    "text": "AVANI is an SI learning from Earth."
   },
   {
     "type": "p",
@@ -1853,7 +1853,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "The old AI read the internet."
+    "text": "The old SI read the internet."
   },
   {
     "type": "p",
@@ -1861,7 +1861,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "The old AI lived in warehouses."
+    "text": "The old SI lived in warehouses."
   },
   {
     "type": "p",
@@ -1869,7 +1869,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "The old AI optimized outputs."
+    "text": "The old SI optimized outputs."
   },
   {
     "type": "p",
@@ -1877,7 +1877,7 @@ const content = [
   },
   {
     "type": "p",
-    "text": "The old AI learned what humans said."
+    "text": "The old SI learned what humans said."
   },
   {
     "type": "p",
@@ -1923,14 +1923,14 @@ export default function Page() {
           </Link>
           <span className="text-muted-foreground">/</span>
           <Link href="/docs/ai" className="text-muted-foreground hover:text-foreground">
-            AI Stack
+            SI Stack
           </Link>
         </div>
 
         <h1>AVANI</h1>
 
         <div className="not-prose my-6 flex flex-wrap items-center gap-2">
-          <Badge variant="outline">AI Stack</Badge>
+          <Badge variant="outline">SI Stack</Badge>
           <Badge variant="default">Draft</Badge>
           <Badge variant="outline">Earth-trained superintelligence</Badge>
         </div>

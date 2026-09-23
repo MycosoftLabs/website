@@ -10,7 +10,7 @@ import {
 } from "@/lib/docs-catalog"
 
 export const metadata: Metadata = {
-  title: "AI Stack",
+  title: "SI Stack",
   description: "MYCA, AVANI, NLM, and the deterministic-vs-stochastic decision framework for field-deployed systems.",
 }
 

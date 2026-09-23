@@ -93,7 +93,7 @@ export default function BillingSuccessPage() {
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-emerald-400" />
-                      Advanced AI features & CREP Dashboard
+                      Advanced SI features & CREP Dashboard
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-emerald-400" />

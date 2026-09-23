@@ -69,9 +69,9 @@ export const INJECTS: TabletopInject[] = [
   },
   {
     id: 'B',
-    title: 'Inject B — Simulated CUI paste to a commercial AI system',
+    title: 'Inject B — Simulated CUI paste to a commercial SI system',
     premise:
-      'A participant hypothetically attempts to paste CUI into a commercial AI session. No CUI is entered into this document, Cursor, or any AI system.',
+      'A participant hypothetically attempts to paste CUI into a commercial SI session. No CUI is entered into this document, Cursor, or any SI system.',
     modeled:
       'Guardian detects the simulated prohibited prompt pattern and blocks further modeled processing. MYCA models session ' +
       'termination/revocation where supported, opens an immutable incident-log entry, and targets notification to Morgan ' +
@@ -88,7 +88,7 @@ export const INJECTS: TabletopInject[] = [
         options: ['Morgan/SAO within one hour', 'Counsel', 'Customer/prime', 'DIBNet assessment'] },
       { k: 'B4', t: 'External reporting: May MYCA send external notifications automatically?', type: 'one', other: 'Other policy decision',
         options: ['No; Morgan/SAO approves each external notice'] },
-      { k: 'B5', t: 'Corrective action: Accept a POA&M for commercial-AI DLP, alerting, and session-kill validation?', type: 'one', other: 'Modify owner/date',
+      { k: 'B5', t: 'Corrective action: Accept a POA&M for commercial-SI DLP, alerting, and session-kill validation?', type: 'one', other: 'Modify owner/date',
         options: ['Yes', 'No'] },
     ],
   },

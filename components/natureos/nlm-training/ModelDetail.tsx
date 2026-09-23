@@ -216,7 +216,7 @@ export function ModelDetail({ model: initialModel, onBack, userId, isAdmin }: { 
       if (mAdvice) setAiAdvice(mAdvice);
       if (gAdvice) setModelAdvice(gAdvice);
     } catch (error) {
-      console.error("Error fetching AI advice:", error);
+      console.error("Error fetching SI advice:", error);
     } finally {
       setIsAnalyzing(false);
     }
@@ -606,7 +606,7 @@ export function ModelDetail({ model: initialModel, onBack, userId, isAdmin }: { 
                         </div>
                         <div>
                           <h3 className="text-xl font-bold text-white">Gemini NLM Assistant</h3>
-                          <p className="text-zinc-500 text-sm">AI-driven architectural insights.</p>
+                          <p className="text-zinc-500 text-sm">SI-driven architectural insights.</p>
                         </div>
                       </div>
                       <Button
@@ -1398,7 +1398,7 @@ export function ModelDetail({ model: initialModel, onBack, userId, isAdmin }: { 
                         <Sparkles className="w-5 h-5 text-amber-500" />
                       </div>
                       <div>
-                        <h3 className="text-xl font-bold text-white">AI Mutation Advice</h3>
+                        <h3 className="text-xl font-bold text-white">SI Mutation Advice</h3>
                         <p className="text-zinc-500 text-sm">Gemini-driven suggestions for architectural evolution.</p>
                       </div>
                     </div>

@@ -137,7 +137,7 @@ export function NatureOSWelcome() {
           <h1 className="text-2xl font-semibold text-white dark:text-white sm:text-3xl lg:text-4xl">
             The world seen through{" "}
             <span className="bg-gradient-to-r from-cyan-300 via-emerald-300 to-amber-300 bg-clip-text text-transparent">
-              devices, sensors &amp; AI.
+              devices, sensors &amp; SI.
             </span>
           </h1>
           <p className="max-w-2xl text-sm text-cyan-100/70 sm:text-base">
@@ -355,7 +355,7 @@ export function NatureOSWelcome() {
           <QuickAction
             href="/natureos/devices/insights"
             title="Insights"
-            subtitle="AI summaries - trends - anomaly search"
+            subtitle="SI summaries - trends - anomaly search"
             icon={<Brain className="h-4 w-4 text-fuchsia-400" />}
           />
           <QuickAction

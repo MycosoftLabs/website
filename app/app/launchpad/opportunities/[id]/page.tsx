@@ -313,7 +313,7 @@ export default function OpportunityDetailPage() {
               <Sparkles className="h-4 w-4 text-emerald-500" /> Research escalation
             </h2>
             <p className="text-xs text-muted-foreground mb-3 pl-1.5 leading-relaxed">
-              Deep research (AI enrichment) is deliberately rationed: it runs centrally and only for
+              Deep research (SI enrichment) is deliberately rationed: it runs centrally and only for
               opportunities whose <span className="font-medium text-foreground">fit score</span> — how well a
               notice matches your company profile — clears the threshold. Credits go to bids you might
               actually win, never a blanket scrape of every notice.

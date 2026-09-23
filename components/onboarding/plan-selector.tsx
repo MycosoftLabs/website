@@ -34,7 +34,7 @@ const PLANS = [
     ],
     limits: [
       'Limited API calls',
-      'No AI assistant',
+      'No SI assistant',
       'No export features'
     ]
   },
@@ -48,7 +48,7 @@ const PLANS = [
     popular: true,
     features: [
       'Unlimited species access',
-      'MYCA AI Assistant',
+      'MYCA SI Assistant',
       'CREP Intelligence Dashboard',
       'Full ancestry explorer',
       'Compound simulations',

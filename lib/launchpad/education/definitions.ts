@@ -73,7 +73,7 @@ export const EDUCATION_TOPICS: EducationTopic[] = [
     body:
       'CUI is unclassified information requiring safeguarding under 32 CFR Part 2002. Examples include certain CTI. This product educates; it does not become a CUI repository. Uploads and prompts that look like CUI banners or secret-shaped strings are blocked and quarantined as metadata-only events.',
     storesInLaunchpad: 'DLP hit kinds (not the blocked payload). Evidence hashes pointing at customer systems.',
-    neverStores: 'CUI files, CUI screenshots, or CUI pasted into AI prompts.',
+    neverStores: 'CUI files, CUI screenshots, or CUI pasted into SI prompts.',
   },
   {
     slug: 'fcl-nisp',

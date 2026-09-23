@@ -162,7 +162,7 @@ export const COMPANY_ROUTES: RouteAccess[] = [
   { path: '/natureos/devices/fleet', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Device Fleet' },
   { path: '/natureos/devices/insights', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Device Insights' },
   { path: '/natureos/devices/network', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Device Network Map' },
-  { path: '/natureos/devices/onsite-ai', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'On-Site AI' },
+  { path: '/natureos/devices/onsite-ai', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'On-Site SI' },
 
 ]
 
@@ -176,7 +176,7 @@ export const PREMIUM_ROUTES: RouteAccess[] = [
       minimumRole: UserRole.PREMIUM,
       subscriptionRequired: SubscriptionTier.PRO
     },
-    description: 'MYCA AI'
+    description: 'MYCA SI'
   },
 
   {
@@ -197,7 +197,7 @@ export const PREMIUM_ROUTES: RouteAccess[] = [
       minimumRole: UserRole.USER,
       features: ['internal-only']
     },
-    description: 'AI Studio (Internal - Mycosoft employees only)'
+    description: 'SI Studio (Internal - Mycosoft employees only)'
   },
   {
     path: '/natureos/live-map',

@@ -557,7 +557,7 @@ export default function ContainersPage() {
                     <Zap className="h-5 w-5 text-yellow-500" />
                     MCP Servers
                   </CardTitle>
-                  <CardDescription>Model Context Protocol servers for AI tool integration</CardDescription>
+                  <CardDescription>Model Context Protocol servers for SI tool integration</CardDescription>
                 </div>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
@@ -570,7 +570,7 @@ export default function ContainersPage() {
                 <div className="text-center py-12 text-muted-foreground">
                   <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No MCP servers detected</p>
-                  <p className="text-sm mt-2">Deploy MCP servers to enable AI tool integrations</p>
+                  <p className="text-sm mt-2">Deploy MCP servers to enable SI tool integrations</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -809,7 +809,7 @@ export default function ContainersPage() {
               <Bot className="h-5 w-5 text-purple-500" />
               MYCA Simulation
             </CardTitle>
-            <CardDescription>AI-powered testing environment</CardDescription>
+            <CardDescription>superintelligence-powered testing environment</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="text-sm text-muted-foreground">

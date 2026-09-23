@@ -137,7 +137,7 @@ const missionCriticalData: MissionModalData[] = [
           { name: "NatureOS", description: "Unified command center for real-time visualization and alerts", link: "/natureos" },
           { name: "Earth Simulator", description: "Live global environment and asset context for planning and review", link: "/natureos/earth-simulator" },
           { name: "CREP Dashboard", description: "Common Relevant Environmental Picture for situational awareness", link: "/defense/crep" },
-          { name: "Nature Learning Model", description: "AI-powered anomaly detection and pattern recognition" }
+          { name: "Nature Learning Model", description: "superintelligence-powered anomaly detection and pattern recognition" }
         ]
       },
       {
@@ -207,7 +207,7 @@ const missionCriticalData: MissionModalData[] = [
         category: "Software & Analytics",
         items: [
           { name: "NatureOS Marine Module", description: "Specialized visualization for coastal operations", link: "/natureos" },
-          { name: "Source Tracking AI", description: "ML-powered contamination source identification" },
+          { name: "Source Tracking SI", description: "ML-powered contamination source identification" },
           { name: "CREP Maritime", description: "Coastal environmental picture integration", link: "/defense/crep" }
         ]
       },
@@ -239,9 +239,9 @@ const missionCriticalData: MissionModalData[] = [
         ]
       },
       {
-        category: "Software & AI",
+        category: "Software & SI",
         items: [
-          { name: "Nature Learning Model", description: "AI trained on normal microbial dynamics to detect anomalies" },
+          { name: "Nature Learning Model", description: "SI trained on normal microbial dynamics to detect anomalies" },
           { name: "Earth Simulator", description: "Environmental simulation, field overlays, and risk visualization", link: "/natureos/earth-simulator" },
           { name: "Fusarium Biodefense", description: "Specialized dashboard for biothreat monitoring", link: "/defense/fusarium" },
           { name: "EEW System", description: "Environmental Early Warning automated alerting" }
@@ -406,7 +406,7 @@ const dodIntegrationItems = [
       ],
       tools: [
         { name: "MINDEX Intel Export", description: "Classified intelligence product generation" },
-        { name: "NLM Analysis", description: "AI-powered pattern recognition" },
+        { name: "NLM Analysis", description: "superintelligence-powered pattern recognition" },
         { name: "CREP Dashboard", description: "Situational awareness display" }
       ],
       compliance: ["ICD 503", "NIST 800-53", "DoD 8140"]
@@ -487,7 +487,7 @@ const dodIntegrationItems = [
       tools: [
         { name: "NatureOS API", description: "RESTful and gRPC integration" },
         { name: "Standard Formats", description: "MIL-STD compliant data exchange" },
-        { name: "NLM AI", description: "Automated environmental assessment" }
+        { name: "NLM SI", description: "Automated environmental assessment" }
       ],
       compliance: ["CJADC2 Strategy", "DoD Data Strategy", "ABMS Compatible"]
     }
@@ -1272,7 +1272,7 @@ export function DefensePortalV2() {
                     {[
                       { label: "Primary Sense", value: "Passive acoustics" },
                       { label: "Environment", value: "Water + air context" },
-                      { label: "AI", value: "Edge classification" },
+                      { label: "SI", value: "Edge classification" },
                       { label: "Mission", value: "Littoral awareness" }
                     ].map((spec) => (
                       <div key={spec.label} className="neu-raised p-4 rounded-xl">

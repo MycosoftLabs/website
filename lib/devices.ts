@@ -158,7 +158,7 @@ export const DEVICES: Device[] = [
         title: "Advanced Analysis Capabilities",
         description: "Real-time spore identification and concentration monitoring.",
         bulletPoints: [
-          "AI-powered spore recognition",
+          "superintelligence-powered spore recognition",
           "Environmental correlation",
           "Seasonal pattern detection",
           "Health impact assessment",
@@ -349,8 +349,8 @@ export const DEVICES: Device[] = [
           "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/ChatGPT%20Image%20Apr%208%2C%202025%2C%2004_16_38%20PM-n9ikxJQXXXXXXXXXXXXXXXXXXXXXXXX.png",
       },
       {
-        title: "Smart AI Onboard",
-        description: "Edge AI module on ESP32-S3 with TinyML inference for pattern recognition.",
+        title: "Smart SI Onboard",
+        description: "Edge SI module on ESP32-S3 with TinyML inference for pattern recognition.",
         bulletPoints: [
           "Recognizes multi-sensor 'danger fingerprints'",
           "Differentiates mold from smoke, or virus from pollen",
@@ -398,7 +398,7 @@ export const DEVICES: Device[] = [
     image: "/assets/psathyrella/hero.png",
     video: "/assets/psathyrella/psathyrella-hero-2026.mp4",
     videoTitle:
-      "A fully autonomous, AI-driven, self-propelled buoy with acoustic and atmospheric sensors processed at the edge, and mesh connectivity to manned and unmanned systems.",
+      "A fully autonomous, SI-driven, self-propelled buoy with acoustic and atmospheric sensors processed at the edge, and mesh connectivity to manned and unmanned systems.",
     videoDescription:
       "Persistent littoral and coastal observation — edge-native passive acoustics, multi-modal context, and mesh survivability with cryptographic provenance from hydrophone to operator displays.",
     features: [
@@ -436,7 +436,7 @@ export const DEVICES: Device[] = [
         icon: Shield,
         title: "AVANI + integrity",
         description:
-          "Governance and auditability over AI outputs; cryptographic provenance (hash chains, Merkle-rooted trails) for observations, classifications, and calibration events via MINDEX patterns.",
+          "Governance and auditability over SI outputs; cryptographic provenance (hash chains, Merkle-rooted trails) for observations, classifications, and calibration events via MINDEX patterns.",
       },
     ],
     detailedFeatures: [
@@ -446,7 +446,7 @@ export const DEVICES: Device[] = [
           "Hardware follows a MIL-STD-810G-oriented, pressure-rated enclosure (target depth rating 200 m) with solar and battery power for sustained autonomous operation.",
         bulletPoints: [
           "Processor: ESP32-S3 dual-core @ 240 MHz, 512 KB SRAM, 8 MB PSRAM",
-          "AI co-processor: NVIDIA Jetson Orin Nano (~40 TOPS INT8) for NLM inference",
+          "SI co-processor: NVIDIA Jetson Orin Nano (~40 TOPS INT8) for NLM inference",
           "Propulsion: four turbopropellers for omnidirectional translation, rotation, and autonomous repositioning",
           "Onboard environmental sensing: temperature, humidity, pressure, VOCs, CO₂ — fused with acoustics for context",
         ],
@@ -458,9 +458,9 @@ export const DEVICES: Device[] = [
           "Edge acquisition and Jetson inference; NLM + AVANI; Mycorrhizae mesh; NatureOS + CREP common operating picture; FUSARIUM for integrated defense and biosecurity workflows alongside civilian operators.",
         bulletPoints: [
           "Layer 1 — MycoBrain nodes + Jetson: ingest, preprocess, classify at the edge",
-          "Layer 2 — NLM + AVANI: acoustic AI with policy, audit, and tamper-evident records",
+          "Layer 2 — NLM + AVANI: acoustic SI with policy, audit, and tamper-evident records",
           "Layer 3 — Mycorrhizae: pub/sub mesh routing and resilient array behavior",
-          "Layer 4 — NatureOS + CREP + AI Studio: fusion, 3D COP, continuous model improvement",
+          "Layer 4 — NatureOS + CREP + SI Studio: fusion, 3D COP, continuous model improvement",
           "Layer 5 — FUSARIUM: defense-grade fusion with OEI correlation and tactical interoperability",
         ],
         image: "/assets/psathyrella/waterline-split.png",
@@ -480,14 +480,14 @@ export const DEVICES: Device[] = [
     specifications: {
       Etymology: "Psathyrella aquatica — underwater mushroom species",
       "Edge MCU": "ESP32-S3 dual-core Xtensa LX7 @ 240 MHz, 512 KB SRAM, 8 MB PSRAM",
-      "Edge AI": "NVIDIA Jetson Orin Nano (~40 TOPS INT8)",
+      "Edge SI": "NVIDIA Jetson Orin Nano (~40 TOPS INT8)",
       Hydrophone: "Broadband 0.10 Hz–250 kHz, 24-bit ADC, configurable gain",
       Propulsion: "Four turbopropellers — omnidirectional buoy mobility",
       Power: "Solar + battery — autonomous sustained operation",
       Enclosure: "Ruggedized (MIL-STD-810G-oriented); pressure-rated to 200 m (design target)",
       "Mesh & backhaul": "Mycorrhizae — LoRa, satellite (Iridium SBD-class), acoustic modem (submerged relay)",
       "CREP device type": "psathyrella",
-      "Platform integration": "NatureOS, CREP, FUSARIUM, MINDEX, OEI, AI Studio, MAS / MYCA",
+      "Platform integration": "NatureOS, CREP, FUSARIUM, MINDEX, OEI, SI Studio, MAS / MYCA",
     },
   },
 ]

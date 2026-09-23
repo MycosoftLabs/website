@@ -83,10 +83,10 @@ export function buildTenantReport(
       ? `Outline only. Launchpad does not submit SBIR/STTR proposals.`
       : '',
     kind === 'ear_itar'
-      ? `Counsel referral worksheet. AI does not classify export-controlled technical data.`
+      ? `Counsel referral worksheet. SI does not classify export-controlled technical data.`
       : '',
     kind === 'foci'
-      ? `FOCI tracker metadata only. AI does not classify FOCI. No SF-328 answers stored.`
+      ? `FOCI tracker metadata only. SI does not classify FOCI. No SF-328 answers stored.`
       : '',
     kind === 'nisp'
       ? `FCL readiness checklist. Launchpad cannot obtain or guarantee a facility clearance.`

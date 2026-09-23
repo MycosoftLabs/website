@@ -158,7 +158,7 @@ export function AutonomousExperimentDashboard() {
                     />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    AI will automatically generate an experiment protocol and execute it with minimal human intervention.
+                    SI will automatically generate an experiment protocol and execute it with minimal human intervention.
                   </p>
                   <Button onClick={handleCreateExperiment} className="w-full" disabled={isCreating}>
                     {isCreating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Brain className="h-4 w-4 mr-2" />}

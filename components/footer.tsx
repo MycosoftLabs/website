@@ -100,12 +100,12 @@ export function Footer() {
           {/* Resources */}
           <div>
             <h3 className="text-lg font-semibold mb-4" suppressHydrationWarning>
-              AI
+              SI
             </h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li>
                 <a href="/ai" className="hover:text-foreground transition-colors" suppressHydrationWarning>
-                  AI Overview
+                  SI Overview
                 </a>
               </li>
               <li>

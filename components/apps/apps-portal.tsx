@@ -47,7 +47,7 @@ const defenseApps = [
   },
   {
     title: "Fusarium",
-    description: "Integrated defense system with CREP dashboard, specialized devices, and AI-driven environmental intelligence",
+    description: "Integrated defense system with CREP dashboard, specialized devices, and SI-driven environmental intelligence",
     icon: Shield,
     href: "/defense/fusarium",
     status: "operational",
@@ -185,7 +185,7 @@ const innovationApps = [
   },
   {
     title: "Alchemy Lab",
-    description: "Virtual compound design with AI-powered property predictions",
+    description: "Virtual compound design with superintelligence-powered property predictions",
     icon: Flask,
     href: "/apps/alchemy-lab",
     status: "active",
@@ -445,7 +445,7 @@ export function AppsPortal() {
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8 portal-hero-subtitle">
               Applications powered by MYCA and AVANI. Environmental intelligence, research, 
-              and defense operations—where governed AI meets real-world data.
+              and defense operations—where governed SI meets real-world data.
             </p>
 
             {/* Quick Stats */}
@@ -618,7 +618,7 @@ export function AppsPortal() {
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               All applications run on our unified Nature Compute platform - 
-              a complete stack from hardware to AI.
+              a complete stack from hardware to SI.
             </p>
           </div>
 
@@ -681,7 +681,7 @@ export function AppsPortal() {
                 {/* Layer 5: AI */}
                 <div className="p-4 bg-primary/10 rounded-xl border border-primary/20">
                   <Cpu className="h-8 w-8 text-primary mx-auto mb-2" />
-                  <p className="text-xs font-semibold">AI</p>
+                  <p className="text-xs font-semibold">SI</p>
                   <p className="text-[10px] text-muted-foreground">NLM</p>
                 </div>
                 

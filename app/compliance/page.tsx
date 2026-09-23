@@ -12,7 +12,7 @@ export default function CompliancePage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
         <h1 className="text-4xl font-bold mb-4">Compliance</h1>
         <p className="text-xl text-muted-foreground mb-8">
-          Mycosoft builds Earth Intelligence hardware, software, and AI for government, defense, and critical-infrastructure
+          Mycosoft builds Earth Intelligence hardware, software, and SI for government, defense, and critical-infrastructure
           customers. This page summarizes the standards, certifications, and supply-chain controls our products and
           programs are aligned to.
         </p>

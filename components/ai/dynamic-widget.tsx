@@ -84,7 +84,7 @@ export function DynamicWidget({
         <Alert variant="destructive">
           <AlertTitle>Invalid Widget</AlertTitle>
           <AlertDescription>
-            The AI-generated widget could not be rendered due to invalid JSON structure.
+            The SI-generated widget could not be rendered due to invalid JSON structure.
           </AlertDescription>
         </Alert>
       )

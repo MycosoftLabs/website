@@ -32,7 +32,7 @@ export async function GET() {
       humanReviewRequired: g.humanReviewRequired,
       version: g.version,
     })),
-    note: 'Managed AI consumes credits. BYO provider calls record byo_key=true and credits_charged=0.',
+    note: 'Managed SI consumes credits. BYO provider calls record byo_key=true and credits_charged=0.',
   });
 }
 

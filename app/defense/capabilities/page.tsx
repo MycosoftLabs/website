@@ -41,7 +41,7 @@ const acronyms = [
   { term: "BAR", full: "Biological Anomaly Report", description: "Alert format for detected biological deviations from baseline." },
   { term: "RER", full: "Remediation Effectiveness Report", description: "Assessment of cleanup and mitigation operation success." },
   { term: "EEW", full: "Environmental Early Warning", description: "Predictive alert for emerging environmental threats." },
-  { term: "NLM", full: "Nature Learning Model", description: "AI model trained on environmental data for pattern recognition and prediction." },
+  { term: "NLM", full: "Nature Learning Model", description: "SI model trained on environmental data for pattern recognition and prediction." },
 ]
 
 const hardware = [
@@ -83,7 +83,7 @@ const hardware = [
     description: "Exterior edge datacenter that fuses sensing, compute, backhaul, and local command at the mission edge.",
     icon: Server,
     color: "primary",
-    specs: ["MycoBrain + Jetson", "Radar/LiDAR/RF", "Mesh gateway", "Edge AI"]
+    specs: ["MycoBrain + Jetson", "Radar/LiDAR/RF", "Mesh gateway", "Edge SI"]
   },
   {
     name: "Psathyrella",

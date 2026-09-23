@@ -186,7 +186,7 @@ const devices = [
     price: "Contact",
     specs: [
       { label: "Primary sense", value: "Passive acoustics (0.1 Hz–250 kHz)" },
-      { label: "Edge AI", value: "Jetson Orin Nano + NLM" },
+      { label: "Edge SI", value: "Jetson Orin Nano + NLM" },
       { label: "MCU", value: "ESP32-S3 MycoBrain" },
       { label: "Depth target", value: "Pressure-rated 200 m" },
       { label: "Mesh", value: "LoRa · sat · acoustic modem" },
@@ -198,7 +198,7 @@ const devices = [
       "Thermal, chemical, mechanical, bioelectric, optical fusion with acoustics",
       "AVANI governance and MINDEX-style provenance on decisions",
       "Self-healing Mycorrhizae mesh — survive node loss",
-      "NatureOS + AI Studio for retraining and fleet workflows",
+      "NatureOS + SI Studio for retraining and fleet workflows",
     ],
     applications: [
       "Littoral and coastal passive acoustic surveillance",
@@ -851,7 +851,7 @@ export function DevicesPortal() {
             <div className="grid sm:grid-cols-2 gap-3 max-w-xl">
               {[
                 "Sensor and camera acquisition",
-                "Edge AI and Jetson coordination",
+                "Edge SI and Jetson coordination",
                 "Mesh telemetry and field sync",
                 "Shared board architecture across devices",
               ].map((item) => (

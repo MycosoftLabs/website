@@ -60,10 +60,10 @@ const EXPORT_CONTENTS: Array<{ group: string; items: string[] }> = [
     ],
   },
   {
-    group: 'AI usage',
+    group: 'SI usage',
     items: [
-      'AI connections (provider, mode, status, key last-4 — never key material)',
-      'AI cost ledger (per-action usage and credit charges)',
+      'SI connections (provider, mode, status, key last-4 — never key material)',
+      'SI cost ledger (per-action usage and credit charges)',
     ],
   },
   {

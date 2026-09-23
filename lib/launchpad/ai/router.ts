@@ -277,7 +277,7 @@ export async function routeCompletion(req: RouterRequest): Promise<RouterResult>
           creditsCharged: 0,
           firewallRedactions: redactions,
           firewallFlags: [],
-          error: mas.error || 'No managed AI provider configured, no verified BYO connection, and MYCA is unavailable.',
+          error: mas.error || 'No managed SI provider configured, no verified BYO connection, and MYCA is unavailable.',
           code: mas.code || 'no_provider',
         };
       }

@@ -308,6 +308,6 @@ export async function GET() {
       },
       patternBased: true,
     },
-    description: "Generates AI-powered implementation plans for agent connections",
+    description: "Generates superintelligence-powered implementation plans for agent connections",
   })
 }

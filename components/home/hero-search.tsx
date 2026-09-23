@@ -549,7 +549,7 @@ export function HeroSearch({
                 transition={{ delay: 0.2, duration: 0.5 }}
               >
                 <Brain className={cn("h-4 w-4 sm:h-5 sm:w-5 shrink-0", embedded ? "text-white" : "text-primary")} />
-                <span>The AI That Sees the World — All of It</span>
+                <span>Operational Environmental Superintelligence</span>
               </motion.p>
               <motion.p
                 className={cn("text-xs sm:text-sm italic text-center max-w-2xl", embedded ? "text-white/74" : "text-foreground/60")}

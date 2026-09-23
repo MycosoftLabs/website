@@ -144,7 +144,7 @@ export default function ReadinessReportsPage() {
       <PageHeader
         title="Readiness reports"
         icon={ScrollText}
-        description={<>Deterministic DRAFT reports assembled from the data you recorded — no AI writes these (the AI document factory lives separately under Documents). <strong>No report here certifies, accredits, or approves anything</strong>; every download is headed DRAFT — CUSTOMER REVIEW REQUIRED.</>}
+        description={<>Deterministic DRAFT reports assembled from the data you recorded — no SI writes these (the SI document factory lives separately under Documents). <strong>No report here certifies, accredits, or approves anything</strong>; every download is headed DRAFT — CUSTOMER REVIEW REQUIRED.</>}
         actions={<TierTag feature="documentFactory" />}
       />
 

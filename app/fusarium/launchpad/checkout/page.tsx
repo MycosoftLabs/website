@@ -102,7 +102,7 @@ function resolveOrder(plan: string | null, billing: string | null, item: string 
       title: isAdvisory
         ? `${product.advisoryMinutes}-minute advisory session`
         : product.kind === "credits"
-          ? `${product.creditQuantity?.toLocaleString()} AI credits`
+          ? `${product.creditQuantity?.toLocaleString()} SI credits`
           : product.name,
       cadence: "one time",
       planKey: null as PlanKey | null,
@@ -344,7 +344,7 @@ function CheckoutFlow() {
                   {order.planKey && (
                     <p className="text-sm text-muted-foreground mt-1">
                       {PLAN_ENTITLEMENTS[order.planKey].users} users ·{" "}
-                      {PLAN_ENTITLEMENTS[order.planKey].aiCreditsMonthly.toLocaleString()} AI credits per month
+                      {PLAN_ENTITLEMENTS[order.planKey].aiCreditsMonthly.toLocaleString()} SI credits per month
                     </p>
                   )}
                 </div>

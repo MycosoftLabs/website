@@ -473,7 +473,7 @@ export default function TargetView({
         <button type="button" onClick={(e) => { e.stopPropagation(); setShowAi((v) => !v); }}
           className={cn(chip, showAi && ai.enabled ? chipOn : chipOff)}
           title={ai.enabled ? "Object recognition overlay" : "Set NEXT_PUBLIC_PSATHYRELLA_CAM_AI=1 to enable"}>
-          <ScanSearch className="h-3 w-3" />AI{!ai.enabled && " off"}
+          <ScanSearch className="h-3 w-3" />SI{!ai.enabled && " off"}
         </button>
         {ai.enabled && showAi && (
           <span className="font-mono text-[9px] text-slate-500">

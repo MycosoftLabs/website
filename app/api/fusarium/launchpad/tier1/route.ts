@@ -41,7 +41,7 @@ export async function GET() {
     officialLinks: LINKS_BY_SURFACE.tier1,
     note:
       records.length === 0
-        ? 'No Tier-1 records yet. These are customer-recorded operator facts (AT/PS/IR). AI cannot mark them implemented.'
+        ? 'No Tier-1 records yet. These are customer-recorded operator facts (AT/PS/IR). SI cannot mark them implemented.'
         : 'State changes are customer-recorded only.',
   });
 }

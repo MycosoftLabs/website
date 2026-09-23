@@ -72,7 +72,7 @@ export async function GET() {
       model: provider?.model ?? null,
       note: provider
         ? `MYCA reports agent will author narrative with ${provider.provider} (${provider.model}).`
-        : 'No report LLM configured. Reports still generate from real data (deterministic narrative). Set PERPLEXITY_API_KEY (preferred), NVIDIA_NIM_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY to enable AI-authored prose.',
+        : 'No report LLM configured. Reports still generate from real data (deterministic narrative). Set PERPLEXITY_API_KEY (preferred), NVIDIA_NIM_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY to enable SI-authored prose.',
     },
   });
 }
