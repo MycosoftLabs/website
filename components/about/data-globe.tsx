@@ -12,8 +12,9 @@ type GlobeDataset = [string, number[]]
 
 function colorFromMagnitude(value: number) {
   const color = new THREE.Color()
-  color.setHSL(0.441 + value / 2, 0.6, 0.75)
-  color.lerp(new THREE.Color(0xffffff), 0.22)
+  // Monochrome glass aesthetic — white points scaled by magnitude
+  const lightness = 0.45 + Math.min(Math.max(value, 0), 1) * 0.45
+  color.setRGB(lightness, lightness, lightness)
   return color
 }
 
@@ -290,9 +291,9 @@ export function DataGlobe({ className = "" }: DataGlobeProps) {
       aria-hidden="true"
     >
       {fallback || tabletBackdrop ? (
-        <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_50%_45%,rgba(34,211,238,0.26),transparent_24%),radial-gradient(circle_at_52%_45%,rgba(15,23,42,0.65),rgba(2,6,23,0.95)_46%,transparent_47%),linear-gradient(120deg,rgba(34,211,238,0.12),transparent_42%,rgba(16,185,129,0.14))]">
-          <div className="about-tablet-globe absolute left-1/2 top-1/2 h-[min(72vw,640px)] w-[min(72vw,640px)] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200/25 shadow-[0_0_90px_rgba(34,211,238,0.25),inset_0_0_65px_rgba(34,211,238,0.12)]" />
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_49%,rgba(34,211,238,0.16)_50%,transparent_51%),linear-gradient(0deg,transparent_49%,rgba(34,211,238,0.12)_50%,transparent_51%)] bg-[size:96px_96px] opacity-40" />
+        <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.22),transparent_24%),radial-gradient(circle_at_52%_45%,rgba(0,0,0,0.55),rgba(0,0,0,0.92)_46%,transparent_47%),linear-gradient(120deg,rgba(255,255,255,0.08),transparent_42%,rgba(255,255,255,0.06))]">
+          <div className="about-tablet-globe absolute left-1/2 top-1/2 h-[min(72vw,640px)] w-[min(72vw,640px)] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/25 shadow-[0_0_90px_rgba(255,255,255,0.18),inset_0_0_65px_rgba(255,255,255,0.08)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_49%,rgba(255,255,255,0.14)_50%,transparent_51%),linear-gradient(0deg,transparent_49%,rgba(255,255,255,0.10)_50%,transparent_51%)] bg-[size:96px_96px] opacity-40" />
         </div>
       ) : null}
       <style jsx>{`

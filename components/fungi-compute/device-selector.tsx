@@ -28,7 +28,7 @@ const STATUS_ICONS = {
 
 const STATUS_COLORS = {
   online: "text-emerald-400",
-  offline: "text-gray-400",
+  offline: "text-white",
   connecting: "text-amber-400",
   error: "text-red-400",
 }
@@ -73,10 +73,10 @@ export function DeviceSelector({ devices, selectedId, onSelect, loading }: Devic
 
   if (devices.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <Radio className="h-8 w-8 text-cyan-500/30 mb-2" />
-        <p className="text-sm text-cyan-400/50">No FCI devices found</p>
-        <p className="text-xs text-cyan-400/30 mt-1">
+      <div className="fungi-empty-banner flex flex-col items-center justify-center gap-1 rounded-xl px-4 py-3 text-center min-h-[44px]">
+        <Radio className="h-6 w-6 text-amber-300 mb-0.5 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+        <p className="text-sm font-semibold text-white tracking-wide">No FCI devices found</p>
+        <p className="text-xs font-medium text-amber-100">
           Connect a MycoBrain or MycoNode device
         </p>
       </div>
@@ -100,7 +100,7 @@ export function DeviceSelector({ devices, selectedId, onSelect, loading }: Devic
               <div 
                 className={cn(
                   "h-8 w-8 rounded-lg flex items-center justify-center",
-                  device.status === "online" ? "bg-emerald-500/20" : "bg-gray-500/20"
+                  device.status === "online" ? "bg-emerald-500/20" : "bg-white/15"
                 )}
               >
                 <StatusIcon 
@@ -118,7 +118,7 @@ export function DeviceSelector({ devices, selectedId, onSelect, loading }: Devic
                   <span 
                     className={cn(
                       "text-sm font-medium truncate",
-                      isSelected ? "text-cyan-300" : "text-cyan-400/80"
+                      isSelected ? "text-cyan-300" : "text-cyan-100"
                     )}
                   >
                     {device.name}
@@ -128,22 +128,22 @@ export function DeviceSelector({ devices, selectedId, onSelect, loading }: Devic
                       "text-[10px] px-1.5 py-0.5 rounded",
                       device.status === "online" 
                         ? "bg-emerald-500/20 text-emerald-400" 
-                        : "bg-gray-500/20 text-gray-400"
+                        : "bg-white/15 text-white"
                     )}
                   >
                     {device.status}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[10px] text-cyan-400/50">
+                  <span className="text-[10px] text-cyan-200">
                     {safeLabel(device.type, DEVICE_TYPE_LABELS)}
                   </span>
-                  <span className="text-cyan-500/30">•</span>
-                  <span className="text-[10px] text-cyan-400/50">
+                  <span className="text-cyan-200">•</span>
+                  <span className="text-[10px] text-cyan-200">
                     {safeLabel(device.probeType, PROBE_TYPE_LABELS)}
                   </span>
-                  <span className="text-cyan-500/30">•</span>
-                  <span className="text-[10px] text-cyan-400/50">
+                  <span className="text-cyan-200">•</span>
+                  <span className="text-[10px] text-cyan-200">
                     {typeof device.channels === "number" ? device.channels : "-"}ch
                   </span>
                 </div>
@@ -160,7 +160,7 @@ export function DeviceSelector({ devices, selectedId, onSelect, loading }: Devic
                 >
                   {safeSampleRate(device.sampleRate)}
                 </span>
-                <span className="text-[10px] text-cyan-400/40 ml-0.5">Hz</span>
+                <span className="text-[10px] text-cyan-200 ml-0.5">Hz</span>
               </div>
             </div>
           </GlassCard>

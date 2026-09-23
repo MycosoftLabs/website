@@ -54,45 +54,22 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
     if (!userId) return;
     setIsSeedingVariant(true);
 
-    const baseVariant = {
-      name: 'Base-NLM-v1',
-      id: 'v1-standard', // Explicitly set ID to match model expectations
-      streams: {
-        spectral: { enabled: true, resolution: 'high', weight: 1.0 },
-        acoustic: { enabled: true, resolution: 'medium', weight: 0.8 },
-        bioelectric: { enabled: true, resolution: 'low', weight: 0.5 },
-        chemical: { enabled: false, resolution: 'low', weight: 0.2 },
-        thermal: { enabled: true, resolution: 'medium', weight: 0.6 },
-        mechanical: { enabled: true, resolution: 'high', weight: 0.9 }
-      },
-      core: {
-        type: 'mamba-graph-hybrid',
-        layers: 12,
-        d_model: 512,
-        n_heads: 8,
-        state_dim: 128,
-        graph_recursion_depth: 4,
-        backprop_threshold: 0.01
-      },
-      preconditioners: ['spectral-norm', 'batch-norm'],
-      metrics: {
-        target_accuracy: 0.95,
-        max_latency_ms: 50
-      },
-      timestamp: new Date().toISOString()
-    };
-
     try {
-      const response = await fetch('/api/natureos/nlm-training/variants', {
+      const response = await fetch('/api/natureos/nlm-training/seed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...baseVariant,
-          ownerId: userId,
-        }),
+        body: JSON.stringify({ variants: true, models: false }),
       });
-      if (!response.ok) throw new Error(`Variant seed failed (${response.status})`);
-      alert('Architecture Variant "Base-NLM-v1" seeded successfully!');
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || `Variant seed failed (${response.status})`);
+      }
+      if (data.errors?.length) {
+        throw new Error(data.errors.join('; '));
+      }
+      alert(
+        `Architecture variant(s) ensured: ${(data.variantIds || []).join(', ') || 'Base-NLM-v1'}`
+      );
     } catch (error) {
       console.error('Error seeding architecture variant:', error);
       alert('Error seeding variant. Check console for details.');
@@ -101,22 +78,36 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
     }
   }, [userId]);
 
-  // Automatically seed the base variant if it doesn't exist
+  // Server-side idempotent ensure of the AI Studio base variant (no localStorage gate)
   useEffect(() => {
-    const checkAndSeed = async () => {
-      if (!userId) return;
+    if (!userId) return;
+    let cancelled = false;
 
-      // We'll just check if we've already seeded it in this session to avoid spamming
-      // In a real app, we'd query Firestore to see if it exists
-      const hasSeeded = localStorage.getItem('base_variant_seeded');
-      if (!hasSeeded) {
-        await seedArchitectureVariant();
-        localStorage.setItem('base_variant_seeded', 'true');
+    const ensureBaseVariant = async () => {
+      try {
+        const statusRes = await fetch('/api/natureos/nlm-training/seed', { cache: 'no-store' });
+        if (!statusRes.ok || cancelled) return;
+        const status = await statusRes.json();
+        if ((status.missingVariantIds || []).length === 0) return;
+
+        const response = await fetch('/api/natureos/nlm-training/seed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ variants: true, models: false }),
+        });
+        if (!response.ok) {
+          console.error('Auto-ensure base variant failed:', response.status);
+        }
+      } catch (error) {
+        console.error('Error ensuring base architecture variant:', error);
       }
     };
 
-    checkAndSeed();
-  }, [userId, seedArchitectureVariant]);
+    ensureBaseVariant();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -176,48 +167,29 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
     if (!user?.id) return;
     setIsSeeding(true);
 
-    const baseModels = [
-      { name: 'Flora-Base-NLM', description: 'Base model for plant life, photosynthesis, and botanical growth patterns.' },
-      { name: 'Fauna-Base-NLM', description: 'Base model for animal behavior, movement, and ecological interactions.' },
-      { name: 'Funga-Base-NLM', description: 'Base model for fungal diversity, decomposition, and symbiotic networks.' },
-      { name: 'Spores-Micro-NLM', description: 'Micro-scale model for fungal dispersal and reproductive strategies.' },
-      { name: 'Pollen-Micro-NLM', description: 'Micro-scale model for plant reproduction and pollinator dynamics.' },
-      { name: 'Mycelium-Net-NLM', description: 'Network-scale model for underground fungal communication and nutrient transport.' },
-      { name: 'Soil-Microbiome-NLM', description: 'Base model for soil health, microbial diversity, and nutrient cycling.' },
-      { name: 'Aerosol-Atmo-NLM', description: 'Environmental model for air particles, seed dispersal, and light scattering.' },
-      { name: 'Hydro-Cycle-NLM', description: 'Systemic model for water movement, precipitation, and aquatic life support.' },
-      { name: 'Pheno-Sync-NLM', description: 'Temporal model for biological timing and climate-driven event alignment.' }
-    ];
-
     try {
-      for (const modelData of baseModels) {
-        const response = await fetch('/api/natureos/nlm-training/models', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-          ...modelData,
-          status: 'idle',
-          ownerId: user?.id,
-          config: {
-            architecture: 'v3.1-mamba-graph',
-            variantId: 'v1-standard',
-            layers: 12,
-            heads: 8,
-            embeddingDim: 512,
-            recursionDepth: 4,
-            training: {
-              learningRate: 0.001,
-              batchSize: 32,
-              epochs: 10
-            }
-          }
-          }),
-        });
-        if (!response.ok) throw new Error(`Seed model failed (${response.status})`);
+      const response = await fetch('/api/natureos/nlm-training/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variants: true, models: true }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || `Seed models failed (${response.status})`);
       }
-      // Seeding complete, real-time listener will update the list
+      if (data.errors?.length) {
+        throw new Error(data.errors.join('; '));
+      }
+      alert(
+        `Seeded ${data.modelsCreated || 0} new base model(s); ` +
+          `${data.modelsSkipped || 0} already present. ` +
+          `Variants: ${(data.variantIds || []).join(', ') || 'ok'}`
+      );
+      // Force model list refresh via hook interval / soft reload of models
+      window.dispatchEvent(new Event('nlm-models-refresh'));
     } catch (error) {
       console.error('Error seeding models:', error);
+      alert('Error seeding models. Check console for details.');
     } finally {
       setIsSeeding(false);
     }
@@ -468,14 +440,26 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
                   <Brain className="w-8 h-8 text-zinc-700" />
                 </div>
                 <h3 className="text-xl font-semibold text-zinc-300">No models found</h3>
-                <p className="text-zinc-500 mt-2 max-w-xs">Start by creating your first Nature Learning Model to begin training.</p>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowCreate(true)}
-                  className="mt-6 border-zinc-800 hover:bg-zinc-800 text-zinc-300"
-                >
-                  Create Model
-                </Button>
+                <p className="text-zinc-500 mt-2 max-w-xs">
+                  Seed the 10 AI Studio base models, or create a new Nature Learning Model to begin training.
+                </p>
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                  <Button
+                    onClick={seedBaseModels}
+                    disabled={isSeeding || !userId}
+                    className="bg-white text-black hover:bg-zinc-200"
+                  >
+                    <Database className={`w-4 h-4 mr-2 ${isSeeding ? 'animate-spin' : ''}`} />
+                    {isSeeding ? 'Seeding...' : 'Seed Base Models'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowCreate(true)}
+                    className="border-zinc-800 hover:bg-zinc-800 text-zinc-300"
+                  >
+                    Create Model
+                  </Button>
+                </div>
               </motion.div>
             ) : (
               <motion.div

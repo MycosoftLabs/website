@@ -59,7 +59,7 @@ export function PetriDishLink() {
         <Link2 className="h-2 w-2 mr-1" />
         {label}
       </Badge>
-      <span className="text-[8px] text-cyan-400/50">Petri v2</span>
+      <span className="text-[8px] text-cyan-200">Petri v2</span>
     </div>
   )
 }

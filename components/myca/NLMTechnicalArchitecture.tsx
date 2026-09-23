@@ -3,10 +3,17 @@
 /**
  * NLM Technical Architecture - MDP, MMP, HPL, FCI, CREP, MINDEX foundations.
  * Focused on NLM-specific protocols and systems, not MYCA Palm/Thumb/Fingers.
- * Created: Mar 02, 2026
+ * Cards: monochrome glass matching NLM training app.
+ * Created: Mar 02, 2026 | Glass restyle: Sep 22, 2026
  */
 
-import { NeuCard, NeuCardContent } from "@/components/ui/neuromorphic"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  NLM_GLASS_CARD,
+  NLM_GLASS_ICON_WELL,
+  NLM_GLASS_INSET,
+} from "@/components/myca/nlm-glass"
+import { cn } from "@/lib/utils"
 import {
   Radio,
   Database,
@@ -30,7 +37,6 @@ const NLM_FOUNDATIONS = [
       "JSON payload in MDP_TELEMETRY",
       "UART / BLE transport",
     ],
-    color: "slate",
   },
   {
     id: "mmp",
@@ -43,7 +49,6 @@ const NLM_FOUNDATIONS = [
       "Payload types: TELEMETRY, COMMAND, ACK, EVENT",
       "Integrity verification for NLM data provenance",
     ],
-    color: "blue",
   },
   {
     id: "hpl",
@@ -56,7 +61,6 @@ const NLM_FOUNDATIONS = [
       "Pattern matching over bioelectric streams",
       "Bridge between FCI hardware and NLM ingestion",
     ],
-    color: "green",
   },
   {
     id: "fci",
@@ -72,7 +76,6 @@ const NLM_FOUNDATIONS = [
       "Substrate-agnostic electrode arrays",
       "Real-time impedance monitoring",
     ],
-    color: "emerald",
   },
   {
     id: "crep",
@@ -85,7 +88,6 @@ const NLM_FOUNDATIONS = [
       "Environmental context for NLM",
       "Real-time world state",
     ],
-    color: "cyan",
   },
   {
     id: "mindex",
@@ -100,8 +102,14 @@ const NLM_FOUNDATIONS = [
       "NMF v0.2 native ingestion",
       "Cross-species linkage graph",
     ],
-    color: "purple",
   },
+]
+
+const FLOW_STEPS = [
+  { label: "FCI + MDP", caption: "Sensing & Device Transport" },
+  { label: "MMP + HPL", caption: "Protocol & Pattern Layer" },
+  { label: "MINDEX + CREP", caption: "Knowledge & Context" },
+  { label: "NLM-Funga", caption: "Foundation Model" },
 ]
 
 export function NLMTechnicalArchitecture() {
@@ -109,7 +117,7 @@ export function NLMTechnicalArchitecture() {
     <section className="py-16 md:py-24">
       <div className="container max-w-6xl mx-auto px-4 md:px-6">
         <div className="text-center mb-12">
-          <p className="text-sm font-medium text-green-600 dark:text-green-500 mb-2">
+          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
             Nature Learning Model
           </p>
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
@@ -121,80 +129,64 @@ export function NLMTechnicalArchitecture() {
           </p>
         </div>
 
-        {/* Flow: Sensing → Transport → Knowledge → Model */}
-        <div className="mb-10 rounded-xl border border-border bg-muted/30 p-6 overflow-x-auto">
+        <div className={cn(NLM_GLASS_CARD, "mb-10 p-6 overflow-x-auto")}>
           <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-6 min-w-[320px]">
-            <div className="flex flex-col items-center gap-2">
-              <span className="px-4 py-2 rounded-lg bg-emerald-600/30 border border-emerald-500/50 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-                FCI + MDP
-              </span>
-              <p className="text-xs text-muted-foreground">Sensing &amp; Device Transport</p>
-            </div>
-            <ArrowDown className="h-5 w-5 text-green-600 dark:text-green-500 md:hidden" />
-            <ArrowDown className="h-5 w-5 text-green-600 dark:text-green-500 hidden md:block rotate-[-90deg]" />
-            <div className="flex flex-col items-center gap-2">
-              <span className="px-4 py-2 rounded-lg bg-blue-600/30 border border-blue-500/50 text-sm font-semibold text-blue-800 dark:text-blue-200">
-                MMP + HPL
-              </span>
-              <p className="text-xs text-muted-foreground">Protocol &amp; Pattern Layer</p>
-            </div>
-            <ArrowDown className="h-5 w-5 text-green-600 dark:text-green-500 md:hidden" />
-            <ArrowDown className="h-5 w-5 text-green-600 dark:text-green-500 hidden md:block rotate-[-90deg]" />
-            <div className="flex flex-col items-center gap-2">
-              <span className="px-4 py-2 rounded-lg bg-purple-600/30 border border-purple-500/50 text-sm font-semibold text-purple-800 dark:text-purple-200">
-                MINDEX + CREP
-              </span>
-              <p className="text-xs text-muted-foreground">Knowledge &amp; Context</p>
-            </div>
-            <ArrowDown className="h-5 w-5 text-green-600 dark:text-green-500 md:hidden" />
-            <ArrowDown className="h-5 w-5 text-green-600 dark:text-green-500 hidden md:block rotate-[-90deg]" />
-            <div className="flex flex-col items-center gap-2">
-              <span className="px-4 py-2 rounded-lg bg-amber-600/30 border border-amber-500/50 text-sm font-semibold text-amber-800 dark:text-amber-200">
-                NLM-Funga
-              </span>
-              <p className="text-xs text-muted-foreground">Foundation Model</p>
-            </div>
+            {FLOW_STEPS.map((step, i) => (
+              <div key={step.label} className="contents">
+                <div className="flex flex-col items-center gap-2">
+                  <span className={cn(NLM_GLASS_INSET, "px-4 py-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200")}>
+                    {step.label}
+                  </span>
+                  <p className="text-xs text-muted-foreground">{step.caption}</p>
+                </div>
+                {i < FLOW_STEPS.length - 1 ? (
+                  <>
+                    <ArrowDown className="h-5 w-5 text-zinc-500 md:hidden" />
+                    <ArrowDown className="h-5 w-5 text-zinc-500 hidden md:block rotate-[-90deg]" />
+                  </>
+                ) : null}
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Foundation cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {NLM_FOUNDATIONS.map((foundation) => {
             const Icon = foundation.icon
             return (
-              <NeuCard
+              <Card
                 key={foundation.id}
-                className="border border-border hover:border-green-500/30 transition-colors"
+                className={cn(NLM_GLASS_CARD, "hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors")}
               >
-                <NeuCardContent className="pt-6">
+                <CardContent className="pt-6">
                   <div className="flex items-start gap-3">
-                    <div className="shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                      <Icon className="h-5 w-5 text-green-600 dark:text-green-500" />
+                    <div className={cn(NLM_GLASS_ICON_WELL, "shrink-0 w-10 h-10 flex items-center justify-center")}>
+                      <Icon className="h-5 w-5" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-green-700 dark:text-green-400">
+                      <h3 className="font-bold text-zinc-900 dark:text-zinc-50">
                         {foundation.title}
                       </h3>
                       <p className="text-xs text-muted-foreground mb-3">{foundation.subtitle}</p>
                       <ul className="space-y-1 text-sm text-muted-foreground">
                         {foundation.details.map((d, i) => (
                           <li key={i} className="flex items-start gap-1">
-                            <span className="text-green-600 dark:text-green-500">•</span>
+                            <span className="text-zinc-500">•</span>
                             {d}
                           </li>
                         ))}
                       </ul>
                     </div>
                   </div>
-                </NeuCardContent>
-              </NeuCard>
+                </CardContent>
+              </Card>
             )
           })}
         </div>
 
-        <NeuCard className="mt-10 border-green-500/30 bg-green-500/5 neu-raised">
-          <NeuCardContent className="pt-6">
-            <h3 className="font-bold mb-2 text-green-700 dark:text-green-400">
+        <Card className={cn(NLM_GLASS_CARD, "mt-10")}>
+          <CardContent className="pt-6">
+            <h3 className="font-bold mb-2 text-zinc-900 dark:text-zinc-50">
               How These Feed NLM
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -204,8 +196,8 @@ export function NLMTechnicalArchitecture() {
               they form the data pipeline that trains NLM-Funga—nature signals from device to
               model, with full traceability.
             </p>
-          </NeuCardContent>
-        </NeuCard>
+          </CardContent>
+        </Card>
       </div>
     </section>
   )

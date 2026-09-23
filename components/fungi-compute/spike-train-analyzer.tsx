@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SignalBuffer, DetectedPattern as StreamPattern } from "@/lib/fungi-compute"
+import { drawCanvasLabel } from "./canvas-label"
 
 interface SpikeEvent {
   time: number
@@ -280,7 +281,7 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
         ctx.font = "bold 10px monospace"
         ctx.textAlign = "center"
         ctx.fillText(patternType.label, (startX + endX) / 2, 15)
-        ctx.font = "9px monospace"
+        ctx.font = "bold 10px monospace"
         ctx.fillStyle = `${patternType.color}80`
         ctx.fillText(`${(pattern.confidence * 100).toFixed(0)}%`, (startX + endX) / 2, 26)
       }
@@ -386,23 +387,24 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
   }, [])
 
   const drawScaleLabels = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, currentView: ViewState) => {
-    ctx.fillStyle = "#06b6d4"
-    ctx.font = "10px monospace"
-    ctx.textAlign = "center"
-    
     const timeStep = currentView.timeScale / 5
     for (let i = 0; i <= 5; i++) {
       const time = currentView.timeOffset + i * timeStep
       const x = (i / 5) * w
-      ctx.fillText(formatTime(time), x, h - 5)
+      drawCanvasLabel(ctx, formatTime(time), x, h - 5, {
+        align: "center",
+        font: "bold 12px monospace",
+      })
     }
     
-    ctx.textAlign = "right"
     const voltStep = currentView.voltageScale / 4
     for (let i = 0; i <= 4; i++) {
       const voltage = (currentView.voltageScale / 2) - i * voltStep
       const y = (i / 4) * h
-      ctx.fillText(`${voltage.toFixed(0)}µV`, w - 5, y + 4)
+      drawCanvasLabel(ctx, `${voltage.toFixed(0)}µV`, w - 5, y + 4, {
+        align: "right",
+        font: "bold 12px monospace",
+      })
     }
   }, [formatTime])
 
@@ -453,7 +455,7 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
       }
 
       // Clear
-      ctx.fillStyle = "#050810"
+      ctx.fillStyle = "#000000"
       ctx.fillRect(0, 0, w, h)
 
       drawGrid(ctx, w, h)
@@ -597,10 +599,10 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
         </div>
         
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => setShowPatterns(!showPatterns)} className={cn("h-5 w-5 p-0", showPatterns ? "text-purple-400" : "text-gray-500")} title="Toggle Pattern Overlay">
+          <Button variant="ghost" size="icon" onClick={() => setShowPatterns(!showPatterns)} className={cn("h-5 w-5 p-0", showPatterns ? "text-purple-400" : "text-white")} title="Toggle Pattern Overlay">
             <Layers className="h-3 w-3" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setShowWordOverlay(!showWordOverlay)} className={cn("h-5 w-5 p-0", showWordOverlay ? "text-amber-400" : "text-gray-500")} title="Toggle Word Detection">
+          <Button variant="ghost" size="icon" onClick={() => setShowWordOverlay(!showWordOverlay)} className={cn("h-5 w-5 p-0", showWordOverlay ? "text-amber-400" : "text-white")} title="Toggle Word Detection">
             <Zap className="h-3 w-3" />
           </Button>
           <Button variant="ghost" size="icon" onClick={exportData} className="h-5 w-5 p-0 text-cyan-400 hover:bg-cyan-500/10" title="Export Data">
@@ -612,29 +614,29 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
         </div>
       </div>
       
-      <div ref={containerRef} className="flex-1 relative rounded-lg overflow-hidden bg-[#050810] border border-emerald-500/20 min-h-0 min-w-0">
+      <div ref={containerRef} className="flex-1 relative rounded-lg overflow-hidden bg-black/95 border border-emerald-500/20 min-h-0 min-w-0">
         <div className="absolute inset-0 pointer-events-none z-10" style={{ backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)` }} />
         
         <canvas ref={canvasRef} width={dimensions.width} height={dimensions.height} className="block" />
         
-        <div className="absolute top-2 left-2 backdrop-blur-xl bg-black/60 border border-emerald-500/20 rounded-lg p-2 space-y-1">
-          <div className="text-[9px] text-emerald-400 font-semibold">Statistics</div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[8px]">
-            <span className="text-gray-400">Spike Rate:</span>
-            <span className="text-emerald-400 font-mono">{stats.spikeRate.toFixed(2)}/min</span>
-            <span className="text-gray-400">Avg Amplitude:</span>
-            <span className="text-emerald-400 font-mono">{stats.avgAmplitude.toFixed(1)}µV</span>
-            <span className="text-gray-400">Words Detected:</span>
-            <span className="text-purple-400 font-mono">{stats.detectedWords}</span>
+        <div className="absolute top-2 left-2 backdrop-blur-xl bg-black/80 border border-white/35 rounded-lg p-2 space-y-1 shadow-[0_0_16px_rgba(255,255,255,0.12)]">
+          <div className="fungi-stat-label text-[10px] font-bold text-white">Statistics</div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[9px]">
+            <span className="fungi-stat-label text-white">Spike Rate:</span>
+            <span className="fungi-metric-value font-mono text-white">{stats.spikeRate.toFixed(2)}/min</span>
+            <span className="fungi-stat-label text-white">Avg Amplitude:</span>
+            <span className="fungi-metric-value font-mono text-white">{stats.avgAmplitude.toFixed(1)}µV</span>
+            <span className="fungi-stat-label text-white">Words Detected:</span>
+            <span className="fungi-metric-value font-mono text-white">{stats.detectedWords}</span>
           </div>
         </div>
         
         <div className="absolute top-2 right-2 flex flex-col items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => handleZoomVoltage(-1)} className="h-4 w-4 p-0 text-emerald-400/60 hover:text-emerald-400" title="Zoom In (Voltage)">
+          <Button variant="ghost" size="icon" onClick={() => handleZoomVoltage(-1)} className="h-4 w-4 p-0 text-emerald-200 hover:text-emerald-400" title="Zoom In (Voltage)">
             <ChevronUp className="h-2.5 w-2.5" />
           </Button>
           <span className="text-[8px] text-emerald-400 font-mono">{voltScaleLabel}</span>
-          <Button variant="ghost" size="icon" onClick={() => handleZoomVoltage(1)} className="h-4 w-4 p-0 text-emerald-400/60 hover:text-emerald-400" title="Zoom Out (Voltage)">
+          <Button variant="ghost" size="icon" onClick={() => handleZoomVoltage(1)} className="h-4 w-4 p-0 text-emerald-200 hover:text-emerald-400" title="Zoom Out (Voltage)">
             <ChevronDown className="h-2.5 w-2.5" />
           </Button>
         </div>
@@ -651,7 +653,7 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
           ))}
         </div>
         
-        <a href="https://doi.org/10.1098/rsos.211926" target="_blank" rel="noopener noreferrer" className="text-[8px] text-emerald-400/50 hover:text-emerald-400">
+        <a href="https://doi.org/10.1098/rsos.211926" target="_blank" rel="noopener noreferrer" className="text-[8px] text-emerald-200 hover:text-emerald-400">
           Adamatzky (2022) R. Soc. Open Sci.
         </a>
       </div>

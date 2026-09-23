@@ -2,10 +2,13 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Brain, Sparkles, Zap, Shield } from 'lucide-react';
+import { X, Brain, Shield } from 'lucide-react';
 import { Button } from './ui/button';
+import { useVariants } from '@/lib/nlm/firebase-hooks';
+import { CANONICAL_ARCHITECTURE_VARIANTS } from '@/lib/nlm/canonical-seeds';
 
 export function CreateModel({ userId, onClose }: { userId: string, onClose: () => void }) {
+  const { variants } = useVariants(userId, true);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,6 +17,11 @@ export function CreateModel({ userId, onClose }: { userId: string, onClose: () =
   const [learningRate, setLearningRate] = useState(0.001);
   const [batchSize, setBatchSize] = useState(32);
   const [epochs, setEpochs] = useState(10);
+
+  const variantOptions =
+    variants.length > 0
+      ? variants.map((v: { id: string; name: string }) => ({ id: v.id, name: v.name }))
+      : CANONICAL_ARCHITECTURE_VARIANTS.map((v) => ({ id: v.id, name: v.name }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +56,7 @@ export function CreateModel({ userId, onClose }: { userId: string, onClose: () =
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error || `Create model failed (${response.status})`);
       }
+      window.dispatchEvent(new Event('nlm-models-refresh'));
       onClose();
     } catch (error) {
       console.error("Error creating model:", error);
@@ -83,7 +92,7 @@ export function CreateModel({ userId, onClose }: { userId: string, onClose: () =
                 <p className="text-zinc-500 text-sm">Configure your new sensory world model.</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-full transition-colors">
+            <button type="button" onClick={onClose} className="p-2 min-h-[44px] min-w-[44px] hover:bg-zinc-800 rounded-full transition-colors">
               <X className="w-5 h-5 text-zinc-500" />
             </button>
           </div>
@@ -97,7 +106,7 @@ export function CreateModel({ userId, onClose }: { userId: string, onClose: () =
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Forest-Temporal-Alpha"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-700 transition-all"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-base text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-700 transition-all"
                 />
               </div>
 
@@ -108,17 +117,17 @@ export function CreateModel({ userId, onClose }: { userId: string, onClose: () =
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Describe the sensory scope and purpose..."
                   rows={3}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-700 transition-all resize-none"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-base text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-700 transition-all resize-none"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">Architecture</label>
                   <select
                     value={architecture}
                     onChange={(e) => setArchitecture(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-700 transition-all appearance-none"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-base text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-700 transition-all appearance-none"
                   >
                     <option value="transformer">Transformer (Attention)</option>
                     <option value="recursive">Recursive Neural Network</option>
@@ -127,13 +136,18 @@ export function CreateModel({ userId, onClose }: { userId: string, onClose: () =
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">Variant ID</label>
-                  <input
+                  <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">Architecture Variant</label>
+                  <select
                     value={variantId}
                     onChange={(e) => setVariantId(e.target.value)}
-                    placeholder="e.g. v1-alpha"
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-700 transition-all"
-                  />
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-base text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-700 transition-all appearance-none"
+                  >
+                    {variantOptions.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name} ({v.id})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -147,7 +161,7 @@ export function CreateModel({ userId, onClose }: { userId: string, onClose: () =
                       step="0.0001"
                       value={learningRate}
                       onChange={(e) => setLearningRate(parseFloat(e.target.value))}
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-white/10"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-base text-white focus:outline-none focus:ring-1 focus:ring-white/10"
                     />
                   </div>
                   <div className="space-y-1">
@@ -156,7 +170,7 @@ export function CreateModel({ userId, onClose }: { userId: string, onClose: () =
                       type="number"
                       value={batchSize}
                       onChange={(e) => setBatchSize(parseInt(e.target.value))}
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-white/10"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-base text-white focus:outline-none focus:ring-1 focus:ring-white/10"
                     />
                   </div>
                   <div className="space-y-1">
@@ -165,26 +179,26 @@ export function CreateModel({ userId, onClose }: { userId: string, onClose: () =
                       type="number"
                       value={epochs}
                       onChange={(e) => setEpochs(parseInt(e.target.value))}
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-white/10"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-base text-white focus:outline-none focus:ring-1 focus:ring-white/10"
                     />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="pt-4 flex gap-3">
+            <div className="pt-4 flex flex-col sm:flex-row gap-3">
               <Button
                 type="button"
                 variant="ghost"
                 onClick={onClose}
-                className="flex-1 h-12 rounded-2xl border border-zinc-800 text-zinc-400 hover:text-white"
+                className="flex-1 h-12 min-h-[44px] rounded-2xl border border-zinc-800 text-zinc-400 hover:text-white"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={!name || loading}
-                className="flex-[2] h-12 bg-white text-black hover:bg-zinc-200 rounded-2xl font-bold text-lg shadow-xl shadow-white/5"
+                className="flex-[2] h-12 min-h-[44px] bg-white text-black hover:bg-zinc-200 rounded-2xl font-bold text-lg shadow-xl shadow-white/5"
               >
                 {loading ? "Initializing..." : "Create Model"}
               </Button>

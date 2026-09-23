@@ -77,7 +77,7 @@ export function SDRFilterPanel({ deviceId, onConfigChange, onPresetApply }: SDRF
       <div>
         <div className="flex items-center gap-1 mb-2">
           <Radio className="h-3 w-3 text-cyan-400" />
-          <span className="text-[10px] text-cyan-400/70 uppercase font-semibold">Presets</span>
+          <span className="text-[10px] text-cyan-100 uppercase font-semibold">Presets</span>
         </div>
         <div className="grid grid-cols-2 gap-1.5">
           {PRESETS.map(p => (
@@ -90,7 +90,7 @@ export function SDRFilterPanel({ deviceId, onConfigChange, onPresetApply }: SDRF
               className={`h-9 text-xs px-2 justify-start ${
                 active === p.id 
                   ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-[0_0_12px_rgba(6,182,212,0.3)]" 
-                  : "border border-cyan-500/10 text-cyan-400/60 hover:bg-cyan-500/10"
+                  : "border border-cyan-500/10 text-cyan-100 hover:bg-cyan-500/10"
               }`}
             >
               <span className="mr-1.5">{p.icon}</span>
@@ -105,11 +105,11 @@ export function SDRFilterPanel({ deviceId, onConfigChange, onPresetApply }: SDRF
       {/* Filter Display (Sliders removed to fix crash) */}
       <div className="grid grid-cols-2 gap-1.5">
         <div className="p-2 rounded bg-black/30 border border-cyan-500/10">
-          <div className="text-[8px] text-cyan-400/60">Highpass</div>
+          <div className="text-[8px] text-cyan-100">Highpass</div>
           <div className="text-[11px] font-bold text-cyan-400">{highpass.toFixed(2)} Hz</div>
         </div>
         <div className="p-2 rounded bg-black/30 border border-cyan-500/10">
-          <div className="text-[8px] text-cyan-400/60">Lowpass</div>
+          <div className="text-[8px] text-cyan-100">Lowpass</div>
           <div className="text-[11px] font-bold text-cyan-400">{lowpass} Hz</div>
         </div>
       </div>
@@ -119,7 +119,7 @@ export function SDRFilterPanel({ deviceId, onConfigChange, onPresetApply }: SDRF
       {/* Notch Filters */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-[10px] text-cyan-400/70 flex items-center gap-1">
+          <Label className="text-[10px] text-cyan-100 flex items-center gap-1">
             <Zap className="h-3 w-3" />
             60Hz Notch (US Power)
           </Label>
@@ -127,7 +127,7 @@ export function SDRFilterPanel({ deviceId, onConfigChange, onPresetApply }: SDRF
         </div>
         
         <div className="flex items-center justify-between">
-          <Label className="text-[10px] text-cyan-400/70 flex items-center gap-1">
+          <Label className="text-[10px] text-cyan-100 flex items-center gap-1">
             <Zap className="h-3 w-3" />
             50Hz Notch (EU Power)
           </Label>
@@ -140,7 +140,7 @@ export function SDRFilterPanel({ deviceId, onConfigChange, onPresetApply }: SDRF
       {/* EMF Rejection */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-[10px] text-cyan-400/70 flex items-center gap-1">
+          <Label className="text-[10px] text-cyan-100 flex items-center gap-1">
             <Wifi className="h-3 w-3" />
             RF Rejection
           </Label>
@@ -148,7 +148,7 @@ export function SDRFilterPanel({ deviceId, onConfigChange, onPresetApply }: SDRF
         </div>
         
         <div className="flex items-center justify-between">
-          <Label className="text-[10px] text-cyan-400/70 flex items-center gap-1">
+          <Label className="text-[10px] text-cyan-100 flex items-center gap-1">
             <Volume2 className="h-3 w-3" />
             Auto Gain (AGC)
           </Label>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="16.24 24.24 219.52 219.52" class="nlm" role="img" aria-labelledby="title">
+<title id="title">Nature Learning Model — Mycosoft</title>
+<desc>An N-shaped current passes between two sensing forms: observation becomes a continuous learning flow.</desc>
+
+
+<g class="mark" fill="currentColor"><path class="part current" data-part="current" d="M 28 133 C 36 92 54 67 80 69 C 109 72 120 106 143 133 C 166 161 189 174 216 153 C 206 186 187 197 165 191 C 139 184 122 156 102 130 C 82 104 56 91 28 133 Z"/><path class="part input" data-part="input" d="M 33 144 C 44 117 60 116 77 131 C 92 145 107 174 102 188 C 97 203 78 205 62 198 C 42 190 28 166 33 144 Z"/><path class="part output" data-part="output" d="M 157 83 C 166 64 188 63 202 77 C 218 93 224 127 216 141 C 209 155 191 145 177 130 C 162 114 152 97 157 83 Z"/></g>
+</svg>

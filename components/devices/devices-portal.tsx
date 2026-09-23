@@ -9,11 +9,6 @@ import { CircuitLinesBackground } from "@/components/devices/circuit-lines-backg
 import { assetMp4Sources, mergeVideoSources } from "@/lib/asset-video-sources"
 import {
   Microscope,
-  Wind,
-  AlertTriangle,
-  Radar,
-  Cpu,
-  Radio,
   Shield,
   Zap,
   ArrowRight,
@@ -22,15 +17,15 @@ import {
   Truck,
   Settings,
   Play,
-  Waves,
-  Brain,
   Layers,
   Factory,
   RefreshCw,
   Puzzle,
-  Plane,
+  Radio,
+  Wind,
   Bot,
 } from "lucide-react"
+import { ProductIcon, productMarkIcon } from "@/components/brand/product-icon"
 import {
   NeuButton,
   NeuCard,
@@ -46,7 +41,7 @@ const devices = [
     name: "Mushroom 1",
     tagline: "Walking Ground Droid",
     description: "Our flagship autonomous environmental drone that monitors underground fungal networks, soil conditions, and environmental data in real-time with unmatched precision.",
-    icon: Radar,
+    icon: productMarkIcon("mushroom-1"),
     color: "emerald-500",
     image: "/assets/mushroom1/Main A.jpg",
     status: "Development",
@@ -79,7 +74,7 @@ const devices = [
     name: "SporeBase",
     tagline: "Breathing Aerosol Collector",
     description: "Time-indexed bioaerosol collection with sealed adhesive tape cassettes for lab-grade analysis and long-term environmental monitoring.",
-    icon: Wind,
+    icon: productMarkIcon("sporebase"),
     color: "orange-500",
     image: "/assets/sporebase/sporebase%20main2.jpg",
     status: "In Stock",
@@ -112,7 +107,7 @@ const devices = [
     name: "Hyphae 1",
     tagline: "Modular Data Center",
     description: "Industrial-grade modular I/O for building automation, agriculture, and industrial monitoring. Three sizes to fit any deployment.",
-    icon: Microscope,
+    icon: productMarkIcon("hyphae-1"),
     color: "slate-500",
     image: "/assets/hyphae1/hyphae1-lab-prototype.png",
     status: "In Stock",
@@ -145,7 +140,7 @@ const devices = [
     name: "MycoNode",
     tagline: "Mesh Network Probe",
     description: "Buried sensor nodes that detect bioelectric signals from mycelial networks and monitor soil conditions at the microvolt level.",
-    icon: Radar,
+    icon: productMarkIcon("myconode"),
     color: "purple-500",
     image: "/assets/myconode/myconode-main.png",
     status: "Contact Sales",
@@ -179,7 +174,7 @@ const devices = [
     tagline: "Swimming Sensor Buoy",
     description:
       "Biologically inspired buoy named for Psathyrella aquatica — passive acoustic classification with NLM (SSM/Mamba-class) on Jetson, MycoBrain ESP32-S3 acquisition, six-sense multimodal fusion, four turbopropellers for autonomous repositioning, and Mycorrhizae mesh backhaul into CREP and FUSARIUM.",
-    icon: Waves,
+    icon: productMarkIcon("psathyrella"),
     color: "sky-500",
     image: "/assets/psathyrella/hero.png",
     status: "Program",
@@ -213,7 +208,7 @@ const devices = [
     tagline: "Flying Myco Drone",
     description:
       "MycoBrain-powered flying hub that deploys, retrieves, and data-mules for every Mycosoft device. Three variants: Mini, Standard, Heavy-Lift.",
-    icon: Plane,
+    icon: productMarkIcon("agaric"),
     color: "violet-500",
     image: "/assets/agaric/hero.jpg",
     status: "Development",
@@ -246,7 +241,7 @@ const devices = [
     name: "ALARM",
     tagline: "Biological Home Alarm",
     description: "Next-generation indoor safety monitor. Detects smoke, mold, pathogens, and air quality threats before they become problems.",
-    icon: AlertTriangle,
+    icon: productMarkIcon("alarm"),
     color: "red-500",
     image: "/assets/alarm/alarm-device.jpg",
     status: "Coming Soon",
@@ -396,7 +391,7 @@ export function DevicesPortal() {
               </a>
               <Link href="/devices/mycobrain">
                 <NeuButton variant="default" className="w-full sm:w-auto gap-2 min-h-[44px] devices-hero-mycobrain-btn">
-                  <Brain className="h-5 w-5" />
+                  <ProductIcon product="mycobrain" variant="current" className="h-5 w-5" />
                   MycoBrain
                 </NeuButton>
               </Link>
@@ -773,7 +768,8 @@ export function DevicesPortal() {
         />
         <div className="container relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-12 md:mb-16 max-w-3xl mx-auto">
-            <NeuBadge variant="default" className="mb-4">
+            <NeuBadge variant="default" className="mb-4 inline-flex items-center gap-2">
+              <ProductIcon product="mycobrain" variant="current" className="h-3.5 w-3.5" />
               MycoBrain
             </NeuBadge>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 tracking-tight">
@@ -803,6 +799,7 @@ export function DevicesPortal() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">
             <Link href="/devices/mycobrain">
               <NeuButton variant="primary" className="w-full sm:w-auto gap-2 min-h-[44px]">
+                <ProductIcon product="mycobrain" variant="current" className="h-5 w-5" />
                 MycoBrain deep dive
                 <ChevronRight className="h-5 w-5" />
               </NeuButton>

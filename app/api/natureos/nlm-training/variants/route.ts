@@ -5,15 +5,37 @@ import { requireOwnerOrSuperuserIdentity, resolveVerifiedIdentity } from "@/lib/
 export const dynamic = "force-dynamic"
 
 function normalizeVariant(row: any) {
+  const created = row.created_at || row.updated_at
+  const createdMs = created ? new Date(created).getTime() : Date.now()
   return {
     id: row.id,
     name: row.name,
     ownerId: row.owner_id,
     streams: row.streams || {},
-    core: row.core || {},
+    core: {
+      ...(row.core || {}),
+      // VariantLab reads backbone/attention/temporal; map from AI Studio core.type
+      backbone: row.core?.backbone || row.core?.type || "mamba-graph-hybrid",
+      attention: row.core?.attention || "Sparse-Merkle",
+      temporal: row.core?.temporal || "SSM/Mamba",
+    },
     preconditioners: row.preconditioners || [],
-    metrics: row.metrics || {},
-    timestamp: row.created_at || row.updated_at,
+    metrics: {
+      ...(row.metrics || {}),
+      // VariantLab expects accuracy/latency/avaniScore; map seed targets when live metrics absent
+      accuracy:
+        row.metrics?.accuracy ?? row.metrics?.target_accuracy ?? null,
+      latency:
+        row.metrics?.latency ??
+        (row.metrics?.max_latency_ms != null
+          ? `${row.metrics.max_latency_ms}ms`
+          : null),
+      avaniScore: row.metrics?.avaniScore ?? null,
+    },
+    timestamp: {
+      seconds: Math.floor(createdMs / 1000),
+      iso: created || null,
+    },
   }
 }
 

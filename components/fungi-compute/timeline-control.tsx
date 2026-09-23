@@ -196,7 +196,7 @@ export function TimelineControl({ patterns = [], onSeek, onSnapshot }: TimelineC
         <div className="p-3 space-y-2">
           {/* Zoom Control */}
           <div className="flex items-center gap-3">
-            <span className="text-[10px] text-cyan-400/50 w-12">Zoom</span>
+            <span className="text-[10px] text-cyan-200 w-12">Zoom</span>
             <Button
               variant="ghost"
               size="icon"

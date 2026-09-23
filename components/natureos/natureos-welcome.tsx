@@ -24,6 +24,7 @@ import {
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { ProductIcon } from "@/components/brand/product-icon"
 
 interface FleetHealthResponse {
   total_devices: number
@@ -130,8 +131,8 @@ export function NatureOSWelcome() {
           <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-emerald-500/15 blur-3xl" />
         </div>
         <div className="relative space-y-4">
-          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-cyan-300/80">
-            <Sparkles className="h-3.5 w-3.5" />
+          <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-widest text-cyan-300/80">
+            <ProductIcon product="natureos" variant="white" className="h-5 w-5 shrink-0" title="NatureOS" />
             NatureOS - Earth Simulator - MINDEX - Fleet
           </div>
           <h1 className="text-2xl font-semibold text-white dark:text-white sm:text-3xl lg:text-4xl">
@@ -152,7 +153,7 @@ export function NatureOSWelcome() {
               className="h-11 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white hover:from-cyan-400 hover:to-emerald-400 hover:text-white dark:text-white"
             >
               <Link href="/natureos/earth-simulator">
-                <Globe2 className="mr-2 h-4 w-4" />
+                <ProductIcon product="earth-simulator" variant="white" className="mr-2 h-4 w-4 shrink-0" />
                 Open Earth Simulator
               </Link>
             </Button>
@@ -320,7 +321,7 @@ export function NatureOSWelcome() {
             href="/natureos/earth-simulator"
             title="Earth Simulator"
             subtitle="Live MINDEX, telemetry, and worldview layers"
-            icon={<Globe2 className="h-4 w-4 text-cyan-400" />}
+            icon={<ProductIcon product="earth-simulator" variant="current" className="h-4 w-4 text-cyan-400" />}
           />
           <QuickAction
             href="/natureos/devices/registry"

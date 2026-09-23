@@ -2,7 +2,6 @@
 title: FormSpace
 subtitle: A mathematical framework for learning organization and emergent behavior
 author: Mycosoft
-date: 22 September 2026
 version: 1.1 public review draft
 lang: en-US
 ---

@@ -18,7 +18,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/terms`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
 
     // AI — public product pages
-    { url: `${baseUrl}/ai`, lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
+    { url: `${baseUrl}/si`, lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
     { url: `${baseUrl}/myca`, lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
     { url: `${baseUrl}/ai/avani`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${baseUrl}/myca/nlm`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
@@ -57,21 +57,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/defense/technical-docs`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${baseUrl}/defense/request-briefing`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
 
-    // Apps (owner wants these kept)
-    { url: `${baseUrl}/apps`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
-    { url: `${baseUrl}/apps/earth-simulator`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${baseUrl}/apps/alchemy-lab`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${baseUrl}/apps/compound-sim`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${baseUrl}/apps/digital-twin`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${baseUrl}/apps/genetic-circuit`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${baseUrl}/apps/growth-analytics`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${baseUrl}/apps/lifecycle-sim`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${baseUrl}/apps/mushroom-sim`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    // NatureOS science & lab tools (canonical — App suite removed Sep 22, 2026)
+    { url: `${baseUrl}/natureos/tools`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${baseUrl}/natureos/tools/alchemy-lab`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/compound-analyser`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/tools/digital-twin`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/tools/genetic-circuit`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/growth-analytics`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/tools/lifecycle-sim`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/biology-simulator`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${baseUrl}/natureos/virtual-petri-dish`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${baseUrl}/apps/physics-sim`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${baseUrl}/apps/retrosynthesis`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${baseUrl}/apps/spore-tracker`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${baseUrl}/apps/symbiosis`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/tools/physics-sim`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/tools/retrosynthesis`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/aerosol`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/tools/symbiosis`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
 
     // Ancestry & Research
     { url: `${baseUrl}/natureos/ancestry`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },

@@ -6,8 +6,9 @@ import { createPortal } from "react-dom"
 import Image from "next/image"
 import Link from "next/link"
 // useRouter removed; all navigation uses <Link> directly
-import { Search, Cloud, Bot, AppWindowIcon as Apps, X, Menu, User2, Shield, Cpu, ChevronDown, Lock, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Waves, Plane, Users, Key, Rocket } from "lucide-react"
+import { Search, X, Menu, User2, Cpu, ChevronDown, Lock, Target, FileText, Network, Database, FlaskConical, TreeDeciduous, Users, Key, Rocket, Wrench } from "lucide-react"
 import { AI_NAV_ITEMS } from "@/lib/nav-ai"
+import { productMarkIcon } from "@/components/brand/product-icon"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { Chat } from "@/components/chat/chat"
@@ -20,38 +21,34 @@ import { AccessGate } from "@/lib/access/types"
 
 // Navigation items configuration (same as header.tsx)
 const defenseItems = [
-  { title: "FUSARIUM", href: "/defense/fusarium", icon: Bug },
+  { title: "FUSARIUM", href: "/defense/fusarium", icon: productMarkIcon("fusarium") },
   { title: "Launchpad", href: "/fusarium/launchpad", icon: Rocket },
   { title: "OEI Capabilities", href: "/defense/oei", icon: Target },
   { title: "Technical Documentation", href: "/defense/technical-docs", icon: FileText },
 ]
 
 const natureOSItems = [
-  { title: "Earth Simulator", href: "/natureos/earth-simulator", icon: Globe },
+  { title: "NatureOS", href: "/natureos", icon: productMarkIcon("natureos") },
+  { title: "Earth Simulator", href: "/natureos/earth-simulator", icon: productMarkIcon("earth-simulator") },
   { title: "Fungi Compute", href: "/natureos/fungi-compute", icon: Cpu },
   { title: "Virtual Petri Dish", href: "/natureos/virtual-petri-dish", icon: FlaskConical },
   { title: "Ancestry Database", href: "/natureos/ancestry", icon: TreeDeciduous },
+  { title: "Tools Hub", href: "/natureos/tools", icon: Wrench },
   { title: "Device Network", href: "/natureos/devices", icon: Network },
   { title: "MINDEX", href: "/mindex", icon: Database, companyOnly: true },
 ]
 
+// Droids first (href /devices) — match desktop Droids dropdown; do not change route
 const devicesItems = [
-  { title: "Mushroom 1", href: "/devices/mushroom-1", icon: Antenna },
-  { title: "SporeBase", href: "/devices/sporebase", icon: Wind },
-  { title: "Hyphae 1", href: "/devices/hyphae-1", icon: Box },
-  { title: "MycoNode", href: "/devices/myconode", icon: Radio },
-  { title: "ALARM", href: "/devices/alarm", icon: AlertTriangle },
-  { title: "Psathyrella", href: "/devices/psathyrella", icon: Waves },
-  { title: "Agaric", href: "/devices/agaric", icon: Plane },
-]
-
-const appsItems = [
-  { title: "Petri Dish Simulator", href: "/natureos/virtual-petri-dish", icon: FlaskConical },
-  { title: "Mushroom Simulator", href: "/apps/mushroom-sim", icon: Microscope, companyOnly: true },
-  { title: "Compound Analyzer", href: "/apps/compound-sim", icon: FlaskConical },
-  { title: "Spore Tracker", href: "/apps/spore-tracker", icon: Compass, companyOnly: true },
-  { title: "Ancestry Database", href: "/ancestry", icon: TreeDeciduous },
-  { title: "Growth Analytics", href: "/apps/growth-analytics", icon: BarChart3, companyOnly: true },
+  { title: "Droids", href: "/devices", icon: Cpu },
+  { title: "MycoBrain", href: "/devices/mycobrain", icon: productMarkIcon("mycobrain") },
+  { title: "Mushroom 1", href: "/devices/mushroom-1", icon: productMarkIcon("mushroom-1") },
+  { title: "SporeBase", href: "/devices/sporebase", icon: productMarkIcon("sporebase") },
+  { title: "Hyphae 1", href: "/devices/hyphae-1", icon: productMarkIcon("hyphae-1") },
+  { title: "MycoNode", href: "/devices/myconode", icon: productMarkIcon("myconode") },
+  { title: "ALARM", href: "/devices/alarm", icon: productMarkIcon("alarm") },
+  { title: "Psathyrella", href: "/devices/psathyrella", icon: productMarkIcon("psathyrella") },
+  { title: "Agaric", href: "/devices/agaric", icon: productMarkIcon("agaric") },
 ]
 
 interface ExpandableSectionProps {
@@ -75,7 +72,9 @@ function ExpandableSection({ title, href, icon: Icon, items, closeMenu, isOpen, 
           onClick={closeMenu}
           className="flex items-center gap-2 text-lg font-medium hover:text-primary transition-colors flex-1"
         >
-          <Icon className="h-5 w-5" />
+          <span className="relative inline-flex size-5 shrink-0 items-center justify-center overflow-hidden" aria-hidden>
+            <Icon className="absolute inset-0 size-full" />
+          </span>
           {title}
         </Link>
         {/* Expand/collapse button - separate from the link */}
@@ -104,7 +103,9 @@ function ExpandableSection({ title, href, icon: Icon, items, closeMenu, isOpen, 
                     onClick={closeMenu}
                     className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors py-1"
                   >
-                    <ItemIcon className="h-4 w-4" />
+                    <span className="relative inline-flex size-4 shrink-0 items-center justify-center overflow-hidden" aria-hidden>
+                      <ItemIcon className="absolute inset-0 size-full" />
+                    </span>
                     <span className="text-sm">{item.title}</span>
                   </Link>
                 )
@@ -122,7 +123,9 @@ export function MobileNav() {
   const [mounted, setMounted] = useState(false)
   const { user, signOut } = useAuth()
   const { hasAccess: isCompanyUser } = useGateAccess(AccessGate.COMPANY)
+  // EVINT first (href /defense) — match desktop Defense dropdown; do not change route
   const visibleDefenseItems = [
+    { title: "EVINT", href: "/defense", icon: productMarkIcon("fusarium") },
     defenseItems[0],
     user
       ? { title: "Launchpad workspace", href: "/app/launchpad/dashboard", icon: Rocket }
@@ -226,22 +229,22 @@ export function MobileNav() {
                   Agent Access
                 </Link>
 
-                {/* SI - Expandable (Overview, MYCA, AVANI, NLM) */}
+                {/* SI - Expandable — MYCA mark */}
                 <ExpandableSection
                   title="SI"
-                  href="/ai"
-                  icon={Bot}
+                  href="/si"
+                  icon={productMarkIcon("myca")}
                   items={AI_NAV_ITEMS.map(({ title, href, icon }) => ({ title, href, icon }))}
                   closeMenu={closeMenuAfterNavigation}
                   isOpen={expandedSections.ai || false}
                   onToggle={() => toggleSection("ai")}
                 />
 
-                {/* Defense - Expandable */}
+                {/* Defense - Expandable — Fusarium mark */}
                 <ExpandableSection
                   title="Defense"
                   href="/defense"
-                  icon={Shield}
+                  icon={productMarkIcon("fusarium")}
                   items={visibleDefenseItems}
                   closeMenu={closeMenuAfterNavigation}
                   isOpen={expandedSections.defense || false}
@@ -252,33 +255,22 @@ export function MobileNav() {
                 <ExpandableSection
                   title="NatureOS"
                   href="/natureos"
-                  icon={Cloud}
+                  icon={productMarkIcon("natureos")}
                   items={natureOSItems.filter(item => !item.companyOnly || isCompanyUser)}
                   closeMenu={closeMenuAfterNavigation}
                   isOpen={expandedSections.natureos || false}
                   onToggle={() => toggleSection("natureos")}
                 />
                 
-                {/* Devices - Expandable */}
+                {/* Droids - Expandable (routes stay under /devices*) */}
                 <ExpandableSection
-                  title="Devices"
+                  title="Droids"
                   href="/devices"
                   icon={Cpu}
                   items={devicesItems}
                   closeMenu={closeMenuAfterNavigation}
                   isOpen={expandedSections.devices || false}
                   onToggle={() => toggleSection("devices")}
-                />
-                
-                {/* Apps - Expandable */}
-                <ExpandableSection
-                  title="Apps"
-                  href="/apps"
-                  icon={Apps}
-                  items={appsItems.filter(item => !item.companyOnly || isCompanyUser)}
-                  closeMenu={closeMenuAfterNavigation}
-                  isOpen={expandedSections.apps || false}
-                  onToggle={() => toggleSection("apps")}
                 />
                 
                 {/* Security - Direct Link (only for logged in users) */}
@@ -294,7 +286,14 @@ export function MobileNav() {
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button variant="outline" className="w-full justify-start" onClick={closeMenu}>
-                      <Bot className="h-5 w-5 mr-2" />
+                      {(() => {
+                        const MycaMark = productMarkIcon("myca")
+                        return (
+                          <span className="relative mr-2 inline-flex size-5 shrink-0 overflow-hidden" aria-hidden>
+                            <MycaMark className="absolute inset-0 size-full" />
+                          </span>
+                        )
+                      })()}
                       Myca SI Assistant
                     </Button>
                   </DialogTrigger>

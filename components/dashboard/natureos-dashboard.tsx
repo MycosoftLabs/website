@@ -1315,7 +1315,7 @@ export function NatureOSDashboard() {
               </Link>
             </Button>
             <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-              <Link href="/apps/earth-simulator">
+              <Link href="/natureos/earth-simulator">
                 <Globe className="h-5 w-5" />
                 <span className="text-xs">Earth Sim</span>
               </Link>
@@ -1335,7 +1335,7 @@ export function NatureOSDashboard() {
           </div>
         </TabsContent>
 
-        {/* Earth Simulator and Petri Dish tabs removed - access via /apps/ routes */}
+        {/* Earth Simulator and Petri Dish — access via NatureOS routes */}
 
         {/* ============ MYCELIUM NETWORK TAB (DEPRECATED - KEEP FOR REFERENCE) ============ */}
         <TabsContent value="mycelium" className="space-y-5" style={{ display: 'none' }}>

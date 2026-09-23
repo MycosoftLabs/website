@@ -16,6 +16,7 @@ import {
   ZoomIn, ZoomOut, Download,
   Activity, Target
 } from "lucide-react"
+import { drawCanvasLabel } from "./canvas-label"
 
 interface SpectrumAnalyzerProps {
   className?: string
@@ -23,7 +24,7 @@ interface SpectrumAnalyzerProps {
 }
 
 const GFST_BANDS = [
-  { name: "Ultra-Low", range: [0, 0.1], color: "#94a3b8", description: "Week-long rhythms" },
+  { name: "Ultra-Low", range: [0, 0.1], color: "#e2e8f0", description: "Week-long rhythms" },
   { name: "Baseline", range: [0.1, 1], color: "#22c55e", description: "Circadian/baseline" },
   { name: "Bio-Active", range: [1, 5], color: "#3b82f6", description: "Biological activity" },
   { name: "Spike", range: [5, 10], color: "#f59e0b", description: "Fast spiking" },
@@ -228,24 +229,24 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
       ctx.closePath()
       ctx.fill()
       
-      ctx.font = "9px monospace"
+      ctx.font = "bold 10px monospace"
       ctx.textAlign = "center"
       ctx.fillText(`${peak.freq.toFixed(2)}Hz`, x, y - 12)
     })
   }, [freqRange.max])
   
   const drawFrequencyAxis = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number) => {
-    ctx.fillStyle = "#06b6d4"
-    ctx.font = "10px monospace"
-    ctx.textAlign = "center"
-    
     const maxFreq = freqRange.max
     const numLabels = 5
     
     for (let i = 0; i <= numLabels; i++) {
       const freq = (i / numLabels) * maxFreq
       const x = (i / numLabels) * w
-      ctx.fillText(`${freq.toFixed(0)}Hz`, x, h - 5)
+      drawCanvasLabel(ctx, `${freq.toFixed(0)}Hz`, x, h - 5, {
+        align: "center",
+        baseline: "alphabetic",
+        font: "bold 12px monospace",
+      })
     }
   }, [freqRange.max])
 
@@ -274,7 +275,7 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
       }
 
       // Clear
-      ctx.fillStyle = "#050810"
+      ctx.fillStyle = "#000000"
       ctx.fillRect(0, 0, w, h)
 
       const primaryBuffer = signalBuffer[0]
@@ -369,10 +370,10 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
         </div>
         
         <div className="flex items-center gap-1">
-          <button onClick={() => setMode("bars")} className={cn("px-2 h-5 rounded text-[9px] font-medium transition-all", mode === "bars" ? "bg-cyan-500/30 text-cyan-400 border border-cyan-500/60" : "text-cyan-400/50 hover:text-cyan-400")}>
+          <button onClick={() => setMode("bars")} className={cn("px-2 h-5 rounded text-[9px] font-medium transition-all", mode === "bars" ? "bg-cyan-500/30 text-cyan-400 border border-cyan-500/60" : "text-cyan-200 hover:text-cyan-400")}>
             <BarChart3 className="h-2.5 w-2.5 inline mr-1" />Bars
           </button>
-          <button onClick={() => setMode("waterfall")} className={cn("px-2 h-5 rounded text-[9px] font-medium transition-all", mode === "waterfall" ? "bg-cyan-500/30 text-cyan-400 border border-cyan-500/60" : "text-cyan-400/50 hover:text-cyan-400")}>
+          <button onClick={() => setMode("waterfall")} className={cn("px-2 h-5 rounded text-[9px] font-medium transition-all", mode === "waterfall" ? "bg-cyan-500/30 text-cyan-400 border border-cyan-500/60" : "text-cyan-200 hover:text-cyan-400")}>
             <Waves className="h-2.5 w-2.5 inline mr-1" />Fall
           </button>
         </div>
@@ -388,10 +389,10 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
         </div>
         
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => setShowPeaks(!showPeaks)} className={cn("h-5 w-5 p-0", showPeaks ? "text-amber-400" : "text-gray-500")} title="Peak Detection">
+          <Button variant="ghost" size="icon" onClick={() => setShowPeaks(!showPeaks)} className={cn("h-5 w-5 p-0", showPeaks ? "text-amber-400" : "text-white")} title="Peak Detection">
             <Target className="h-3 w-3" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setUseLogScale(!useLogScale)} className={cn("h-5 w-5 p-0", useLogScale ? "text-purple-400" : "text-gray-500")} title="Log Scale">
+          <Button variant="ghost" size="icon" onClick={() => setUseLogScale(!useLogScale)} className={cn("h-5 w-5 p-0", useLogScale ? "text-purple-400" : "text-white")} title="Log Scale">
             <Activity className="h-3 w-3" />
           </Button>
           <Button variant="ghost" size="icon" onClick={exportData} className="h-5 w-5 p-0 text-cyan-400" title="Export">
@@ -400,20 +401,20 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
         </div>
       </div>
       
-      <div ref={containerRef} className="flex-1 relative rounded overflow-hidden bg-[#050810] border border-cyan-500/20 min-h-0 min-w-0">
+      <div ref={containerRef} className="flex-1 relative rounded overflow-hidden bg-black/95 border border-cyan-500/20 min-h-0 min-w-0">
         <canvas ref={canvasRef} width={dimensions.width} height={dimensions.height} className="block" />
         
-        <div className="absolute top-2 right-2 backdrop-blur-xl bg-black/60 border border-cyan-500/20 rounded-lg p-1.5 space-y-0.5">
-          <div className="text-[8px] text-cyan-400 font-mono">Peak: {stats.dominantFreq.toFixed(2)} Hz</div>
-          <div className="text-[8px] text-emerald-400 font-mono">Power: {stats.totalPower.toFixed(1)} µV²</div>
-          <div className="text-[8px] text-amber-400 font-mono">SNR: {stats.snr.toFixed(1)} dB</div>
+        <div className="absolute top-2 right-2 backdrop-blur-xl bg-black/85 border border-white/40 rounded-lg p-2 space-y-1 shadow-[0_0_16px_rgba(255,255,255,0.15)]">
+          <div className="fungi-metric-value text-[10px] font-mono text-white">Peak: {stats.dominantFreq.toFixed(2)} Hz</div>
+          <div className="fungi-metric-value text-[10px] font-mono text-white">Power: {stats.totalPower.toFixed(1)} µV²</div>
+          <div className="fungi-metric-value text-[10px] font-mono text-white">SNR: {stats.snr.toFixed(1)} dB</div>
         </div>
         
         <div className="absolute bottom-8 left-2 flex flex-wrap gap-1.5">
           {GFST_BANDS.filter(b => b.range[0] < freqRange.max).map(band => (
-            <div key={band.name} className="flex items-center gap-1">
+            <div key={band.name} className="flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 border border-white/25">
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: band.color }} />
-              <span className="text-[8px] text-gray-400">{band.name}</span>
+              <span className="fungi-stat-label text-[9px] font-semibold text-white">{band.name}</span>
             </div>
           ))}
         </div>

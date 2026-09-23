@@ -8,6 +8,7 @@ import {
   Brain,
   Database,
   GitBranch,
+  Layers,
   LayoutDashboard,
   Settings,
   Share2,
@@ -23,6 +24,7 @@ interface NlmTrainingApplicationProps {
 
 const TRAINING_TABS = [
   { id: "overview", label: "Models", icon: LayoutDashboard },
+  { id: "variants", label: "Variants", icon: Layers },
   { id: "ingestion", label: "Ingest", icon: Zap },
   { id: "mindex", label: "Mindex", icon: Database },
   { id: "lineage", label: "Merkle", icon: GitBranch },

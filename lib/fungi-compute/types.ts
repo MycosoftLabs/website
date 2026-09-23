@@ -430,11 +430,15 @@ export interface Earth2Correlation {
 // ============================================================================
 
 export const FUNGI_COLORS = {
-  // Background
-  bg: "#050810",
-  panel: "rgba(10, 25, 50, 0.8)",
-  border: "rgba(0, 200, 255, 0.3)",
-  glow: "rgba(0, 255, 200, 0.5)",
+  // Background — pure black glass (no blue-slate)
+  bg: "#000000",
+  panel: "rgba(0, 0, 0, 0.55)",
+  border: "rgba(165, 243, 252, 0.55)",
+  glow: "rgba(0, 255, 200, 0.65)",
+  // High-luminance UI lettering for dense panels
+  label: "#e0f2fe",
+  axis: "#cffafe",
+  muted: "#f8fafc",
   
   // Signal channels
   ch1: "#00ffcc", // cyan-green

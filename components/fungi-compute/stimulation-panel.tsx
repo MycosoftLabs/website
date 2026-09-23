@@ -34,7 +34,7 @@ export function StimulationPanel({ deviceId, onSend, disabled = false }: Stimula
   return (
     <div className="h-full flex flex-col justify-center gap-2">
       <div className="flex items-center justify-between">
-        <Label className="text-[10px] text-cyan-400/70 uppercase font-semibold flex items-center gap-1">
+        <Label className="text-[10px] text-cyan-100 uppercase font-semibold flex items-center gap-1">
           <Zap className="h-3 w-3" />
           Stimulus
         </Label>
@@ -44,7 +44,7 @@ export function StimulationPanel({ deviceId, onSend, disabled = false }: Stimula
       {isActive && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-[9px] text-cyan-400/50">Freq</span>
+            <span className="text-[9px] text-cyan-200">Freq</span>
             <span className="text-[9px] text-cyan-400 font-mono">{freq.toFixed(1)} Hz</span>
           </div>
           <Slider
@@ -58,7 +58,7 @@ export function StimulationPanel({ deviceId, onSend, disabled = false }: Stimula
           />
           
           <div className="flex items-center justify-between">
-            <span className="text-[9px] text-cyan-400/50">Amp</span>
+            <span className="text-[9px] text-cyan-200">Amp</span>
             <span className="text-[9px] text-cyan-400 font-mono">{amp} µV</span>
           </div>
           <Slider

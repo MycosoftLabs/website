@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 const markdownPath = path.join(process.cwd(), "docs", "ai", "nlm.md")
 const sourceMarkdown = fs.readFileSync(markdownPath, "utf8")
 const articleMarkdown = sourceMarkdown.replace(
-  /^# Nature Learning Model \(NLM\)\r?\n## Signal-native SI for physical reality\r?\n\r?\n\*\*Public technical article draft\*\*\s*\r?\n\*\*Prepared for Mycosoft\*\*\s*\r?\n\*\*Version:\*\* v0\.1, May 2026\r?\n\r?\n---\r?\n\r?\n/,
+  /^# Nature Learning Model \(NLM\)\r?\n## Signal-native SI for physical reality\r?\n\r?\n\*\*Public technical article draft\*\*\s*\r?\n\*\*Prepared for Mycosoft\*\*\s*\r?\n\*\*Version:\*\* v0\.1\r?\n\r?\n---\r?\n\r?\n/,
   "",
 )
 
@@ -100,7 +100,7 @@ export default function Page() {
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">SI Stack</Badge>
             <Badge variant="default">Public technical article</Badge>
-            <Badge variant="outline">v0.1 · May 2026</Badge>
+            <Badge variant="outline">v0.1</Badge>
           </div>
           <h1 className="mt-5 text-4xl font-bold tracking-tight md:text-5xl">
             Nature Learning Model (NLM)

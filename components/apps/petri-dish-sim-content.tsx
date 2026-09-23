@@ -31,9 +31,9 @@ export function PetriDishSimContent({ showBackLink = true, variant = "app" }: Pe
         </div>
         {showBackLink ? (
           <Button asChild variant="outline" className="min-h-[44px] min-w-[44px]">
-            <Link href="/apps">
+            <Link href="/natureos/tools">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Apps
+              Back to NatureOS Tools
             </Link>
           </Button>
         ) : null}

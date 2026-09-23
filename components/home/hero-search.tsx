@@ -42,9 +42,8 @@ import {
   X,
   Command,
   Brain,
-  Bot,
-  Globe2,
 } from "lucide-react"
+import { ProductIcon } from "@/components/brand/product-icon"
 
 /**
  * Homepage hero video only. Keep this on the canonical homepage media path so the
@@ -680,7 +679,7 @@ export function HeroSearch({
                   title="Earth Simulator — live 3D globe"
                   demoClassName="petri-codepen-button-demo-reset myco-hero-petri-icon myco-hero-petri-earth"
                 >
-                  <Globe2 className="h-4 w-4 animate-[spin_24s_linear_infinite] sm:h-5 sm:w-5" />
+                  <ProductIcon product="earth-simulator" size={20} variant="white" className="sm:h-5 sm:w-5" />
                 </PetriGlassLink>
 
                 {/* MYCA Robot — swaps the homepage hero into the live MYCA demo. */}
@@ -699,7 +698,7 @@ export function HeroSearch({
                     }}
                     demoClassName="petri-codepen-button-demo-reset myco-hero-petri-icon myco-hero-petri-myca"
                   >
-                    <Bot className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <ProductIcon product="myca" size={20} variant="white" className="sm:h-5 sm:w-5" />
                   </PetriGlassButton>
                 ) : null}
 

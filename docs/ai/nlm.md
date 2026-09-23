@@ -3,7 +3,7 @@
 
 **Public technical article draft**  
 **Prepared for Mycosoft**  
-**Version:** v0.1, May 2026
+**Version:** v0.1
 
 ---
 
@@ -422,7 +422,7 @@ signals:
 inputs:
   datasets:
     - nlm_funga_lab_alpha
-    - field_probe_calibration_may_2026
+    - field_probe_calibration
   calibration_required: true
   provenance_required: true
 
@@ -1205,7 +1205,7 @@ If yes, it is a Nature Learning Model.
 ## References and source foundation
 
 1. Mycosoft NLM README: internal NLM definition, multi-modal modalities, architecture, data flow, integration, and usage examples.
-2. Mycosoft NLM Manual and Gap Map, May 14 2026: current intended role, runtime surfaces, NMF translation path, training API, integration points, and remaining production work.
+2. Mycosoft NLM Manual and Gap Map: current intended role, runtime surfaces, NMF translation path, training API, integration points, and remaining production work.
 3. Mycosoft NLM Database Schema: model registry, training runs, knowledge entities, relations, observations, prediction history, and integrations.
 4. Mycosoft NLM Implementation Plan: multi-modal encoders, cross-modal/temporal/spatial attention, decoders, knowledge graph, prediction engine, integrations, and tests.
 5. Mycosoft FUSARIUM Architecture and Prime Capability materials: six-sense NLM, SSM/Mamba backbone, graph/hypergraph fusion, sparse attention, RootedNatureFrame, Merkle provenance, and operational environmental intelligence framing.

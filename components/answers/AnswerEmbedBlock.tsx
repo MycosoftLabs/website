@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { ExternalLink, Grid3x3, Radar } from "lucide-react"
+import { ProductIcon } from "@/components/brand/product-icon"
 
 export type AnswerEmbedType = "crep" | "earth2" | "telemetry"
 
@@ -47,7 +48,11 @@ export function AnswerEmbedBlock({ embed, onFocusWidget }: AnswerEmbedBlockProps
   return (
     <div className="my-2 rounded-lg border border-border/60 bg-card/60 p-3">
       <div className="mb-2 flex items-center gap-2">
-        <Radar className="h-4 w-4 text-violet-400" />
+        {embed.type === "telemetry" ? (
+          <ProductIcon product="mycobrain" variant="current" className="h-4 w-4 text-violet-400" />
+        ) : (
+          <Radar className="h-4 w-4 text-violet-400" />
+        )}
         <Badge variant="outline" className="h-5 text-[10px] uppercase tracking-wide">
           Live Embed
         </Badge>

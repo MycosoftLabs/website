@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation"
 import { Activity, ArrowLeft, Brain, Grid3X3, Maximize2, Minimize2, Radio, Upload, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import "@/components/fungi-compute/fungi-compute-contrast.css"
 import {
   ConnectionStatus,
   DeviceSelector,
@@ -39,7 +40,7 @@ function EvidenceBadge({ mode }: { mode: EvidenceMode }) {
       ? "border-emerald-500/40 text-emerald-300 bg-emerald-500/10"
       : mode === "demo" || mode === "imported" || mode === "stale"
         ? "border-amber-500/40 text-amber-300 bg-amber-500/10"
-        : "border-slate-500/40 text-slate-300 bg-slate-500/10"
+        : "border-white/40 text-white bg-white/15"
   return <Badge className={`${color} text-[9px] font-mono`}>{label}</Badge>
 }
 
@@ -52,9 +53,9 @@ function TruthState({ mode, children }: { mode: EvidenceMode; children?: string 
       ? "Explicit simulation mode. No values in this panel are live evidence."
       : "No verified device stream is bound. This panel is intentionally empty.")
   return (
-    <div className="flex h-full min-h-20 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-600/50 bg-black/30 p-3 text-center">
+    <div className="flex h-full min-h-20 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/40 bg-black/60 p-3 text-center">
       <EvidenceBadge mode={mode} />
-      <p className="max-w-xs text-[10px] leading-relaxed text-slate-400">{message}</p>
+      <p className="max-w-xs text-[11px] leading-relaxed font-semibold text-white">{message}</p>
     </div>
   )
 }
@@ -65,14 +66,14 @@ function VerifiedEventLog({ events, mode = "live" }: { events: FCIEvent[]; mode?
   }
   return (
     <div className="h-full overflow-auto space-y-1" data-fusarium-event-source="verified-stream">
-      <div className="sticky top-0 flex justify-end bg-[#050810]/90 pb-1"><EvidenceBadge mode={mode} /></div>
+      <div className="sticky top-0 flex justify-end bg-black/95/90 pb-1"><EvidenceBadge mode={mode} /></div>
       {events.slice(0, 30).map((event, index) => (
         <div key={event.id || `${event.timestamp}-${index}`} className="rounded border border-cyan-500/20 bg-black/40 px-2 py-1">
           <div className="flex items-center justify-between gap-2 text-[9px]">
             <span className="font-mono text-cyan-300">{event.type}</span>
-            <time className="text-slate-500">{new Date(event.timestamp).toLocaleTimeString()}</time>
+            <time className="text-white/85">{new Date(event.timestamp).toLocaleTimeString()}</time>
           </div>
-          <div className="mt-0.5 text-[8px] text-slate-400">
+          <div className="mt-0.5 text-[8px] text-white">
             Confidence {Number.isFinite(event.confidence) ? `${Math.round(event.confidence * 100)}%` : "not supplied"}
           </div>
         </div>
@@ -134,14 +135,14 @@ function NlmEvidencePanel({ deviceId, mode }: { deviceId: string | null; mode: E
   return (
     <div className="h-full overflow-auto rounded-lg border border-purple-500/25 bg-black/35 p-2 text-[9px]" data-fusarium-nlm-source="verified-contract">
       <div className="mb-2 flex justify-end"><EvidenceBadge mode="live" /></div>
-      <p className="text-slate-400">Growth phase</p>
+      <p className="text-white">Growth phase</p>
       <p className="font-mono text-purple-300">{growthPhase}</p>
-      <p className="mt-2 text-slate-400">Recommendations</p>
+      <p className="mt-2 text-white">Recommendations</p>
       {recommendations.length > 0 ? (
-        <ul className="mt-1 list-disc space-y-1 pl-4 text-slate-300">
+        <ul className="mt-1 list-disc space-y-1 pl-4 text-white">
           {recommendations.slice(0, 3).map((item, index) => <li key={index}>{String(item)}</li>)}
         </ul>
-      ) : <p className="mt-1 text-slate-500">None supplied.</p>}
+      ) : <p className="mt-1 text-white/85">None supplied.</p>}
     </div>
   )
 }
@@ -254,31 +255,27 @@ export function FusariumFungiComputeDashboard() {
 
   return (
     <div
-      className="relative w-full h-full overflow-hidden"
+      className="fungi-compute-console relative w-full h-full overflow-hidden bg-black text-white"
       data-fusarium-fungi-evidence-mode={evidenceMode}
       data-fusarium-fungi-evidence-state={liveEvidence.state}
       data-fusarium-fungi-transport-state={connectionStatus}
       data-fusarium-fungi-selected-device={selectedDeviceId ?? "unbound"}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a0e1a] via-[#0d1321] to-[#08090d]" />
-      <div className="absolute inset-0 overflow-hidden opacity-40 pointer-events-none">
-        <div className="absolute top-1/4 -left-24 w-96 h-96 bg-cyan-500/30 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-1/3 right-0 w-80 h-80 bg-emerald-500/25 rounded-full blur-[100px] animate-pulse" />
-      </div>
+      <div className="absolute inset-0 bg-black" />
       <div className="relative h-full flex flex-col p-2 gap-2 overflow-hidden">
-        <header className="flex-none flex items-center justify-between px-4 py-2 rounded-2xl backdrop-blur-2xl bg-black/40 border border-cyan-500/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15),inset_0_1px_0_0_rgba(255,255,255,0.05)]">
+        <header className="flex-none flex items-center justify-between px-4 py-2 rounded-2xl backdrop-blur-2xl bg-black/70 border border-white/30 shadow-[0_8px_32px_0_rgba(0,0,0,0.7),inset_0_1px_0_0_rgba(255,255,255,0.16)]">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center"><Brain className="h-5 w-5 text-white" /></div>
-            <div><h1 className="text-lg font-bold text-cyan-300 leading-none">FUNGI COMPUTE</h1><p className="text-[10px] text-cyan-400/50 font-mono mt-0.5">Bio-Electric Interface v1.0</p></div>
+            <div><h1 className="text-lg font-bold text-white leading-none drop-shadow-[0_0_8px_rgba(165,243,252,0.7)]">FUNGI COMPUTE</h1><p className="text-[10px] text-white font-mono mt-0.5">Bio-Electric Interface v1.0</p></div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className="border border-slate-500/40 bg-slate-500/10 text-[9px] font-mono text-slate-300">READ ONLY</Badge>
+            <Badge className="border border-white/40 bg-white/10 text-[9px] font-mono text-white">READ ONLY</Badge>
             <EvidenceBadge mode={evidenceMode} />
             <input ref={importInputRef} type="file" accept="application/json,.json" className="hidden" onChange={(event) => void importEvidence(event)} />
             <Button variant="ghost" size="sm" className="h-8 px-2 text-amber-300" onClick={() => importInputRef.current?.click()}><Upload className="mr-1 h-4 w-4" />Import evidence</Button>
-            {importedEvidence ? <Button variant="ghost" size="sm" className="h-8 px-2 text-slate-400" onClick={() => setImportedEvidence(null)}><X className="mr-1 h-4 w-4" />End replay</Button> : null}
+            {importedEvidence ? <Button variant="ghost" size="sm" className="h-8 px-2 text-white" onClick={() => setImportedEvidence(null)}><X className="mr-1 h-4 w-4" />End replay</Button> : null}
             <Link href="/fusarium"><Button variant="ghost" size="sm" className="h-8 px-2 text-cyan-400"><ArrowLeft className="h-4 w-4 mr-1" />Fusarium</Button></Link>
-            <div className="flex items-center gap-1" aria-label={`Transport ${connectionStatus}`}><span className="text-[9px] uppercase tracking-wide text-slate-500">Transport</span><ConnectionStatus status={connectionStatus} /></div>
+            <div className="flex items-center gap-1" aria-label={`Transport ${connectionStatus}`}><span className="text-[9px] uppercase tracking-wide text-white/85">Transport</span><ConnectionStatus status={connectionStatus} /></div>
             {selectedDevice && <Badge variant="outline" className="border-cyan-500/30 text-cyan-400 text-xs"><Activity className="h-3 w-3 mr-1" />Declared {String(selectedDevice.sampleRate)} Hz</Badge>}
             <DeviceSelector devices={devices} selectedId={selectedDeviceId} onSelect={selectRegisteredDevice} loading={devicesLoading} />
             <Button variant="ghost" size="icon" className="h-8 w-8 text-cyan-400" onClick={toggleFullscreen} aria-label="Toggle full screen">

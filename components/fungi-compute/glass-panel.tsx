@@ -23,32 +23,32 @@ interface GlassPanelProps {
 
 const variantStyles = {
   default: {
-    border: "border-cyan-500/20",
-    glow: "shadow-[0_0_30px_rgba(0,200,255,0.1)]",
-    iconBg: "bg-cyan-500/10",
-    iconColor: "text-cyan-400",
-    titleColor: "text-cyan-100",
+    border: "border-cyan-300/45",
+    glow: "shadow-[0_0_30px_rgba(0,200,255,0.18)]",
+    iconBg: "bg-cyan-400/20",
+    iconColor: "text-cyan-200",
+    titleColor: "text-white drop-shadow-[0_0_6px_rgba(165,243,252,0.85)]",
   },
   accent: {
-    border: "border-emerald-500/20",
-    glow: "shadow-[0_0_30px_rgba(0,255,200,0.1)]",
-    iconBg: "bg-emerald-500/10",
-    iconColor: "text-emerald-400",
-    titleColor: "text-emerald-100",
+    border: "border-emerald-300/45",
+    glow: "shadow-[0_0_30px_rgba(0,255,200,0.18)]",
+    iconBg: "bg-emerald-400/20",
+    iconColor: "text-emerald-200",
+    titleColor: "text-white drop-shadow-[0_0_6px_rgba(167,243,208,0.85)]",
   },
   warning: {
-    border: "border-amber-500/20",
-    glow: "shadow-[0_0_30px_rgba(255,170,0,0.1)]",
-    iconBg: "bg-amber-500/10",
-    iconColor: "text-amber-400",
-    titleColor: "text-amber-100",
+    border: "border-amber-300/45",
+    glow: "shadow-[0_0_30px_rgba(255,170,0,0.18)]",
+    iconBg: "bg-amber-400/20",
+    iconColor: "text-amber-200",
+    titleColor: "text-white drop-shadow-[0_0_6px_rgba(253,230,138,0.85)]",
   },
   error: {
-    border: "border-red-500/20",
-    glow: "shadow-[0_0_30px_rgba(255,70,70,0.1)]",
-    iconBg: "bg-red-500/10",
-    iconColor: "text-red-400",
-    titleColor: "text-red-100",
+    border: "border-red-300/45",
+    glow: "shadow-[0_0_30px_rgba(255,70,70,0.18)]",
+    iconBg: "bg-red-400/20",
+    iconColor: "text-red-200",
+    titleColor: "text-white drop-shadow-[0_0_6px_rgba(254,202,202,0.85)]",
   },
 }
 
@@ -68,28 +68,28 @@ export function GlassPanel({
       className={cn(
         "relative overflow-hidden group h-full flex flex-col",
         "rounded-2xl backdrop-blur-2xl",
-        "bg-gradient-to-br from-black/60 via-black/40 to-black/60",
+        "bg-black/45",
         "border",
         styles.border,
-        glow && "shadow-[0_8px_32px_0_rgba(6,182,212,0.15),0_0_0_1px_rgba(6,182,212,0.05),inset_0_1px_0_0_rgba(255,255,255,0.05)]",
-        "hover:border-cyan-400/30 hover:shadow-[0_8px_48px_0_rgba(6,182,212,0.25),0_0_0_1px_rgba(6,182,212,0.1)]",
+        glow && "shadow-[0_8px_32px_0_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.12),inset_0_1px_0_0_rgba(255,255,255,0.14)]",
+        "hover:border-cyan-200/60 hover:shadow-[0_8px_48px_0_rgba(6,182,212,0.28),0_0_0_1px_rgba(255,255,255,0.18)]",
         "transition-all duration-500",
         className
       )}
     >
       {/* Animated gradient background */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-transparent to-emerald-500/10" />
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/10 via-transparent to-emerald-400/10" />
       </div>
       
       {/* Glass refraction edge highlight */}
-      <div className="absolute -inset-px rounded-2xl bg-gradient-to-br from-white/[0.08] via-transparent to-transparent pointer-events-none" />
+      <div className="absolute -inset-px rounded-2xl bg-gradient-to-br from-white/[0.14] via-transparent to-transparent pointer-events-none" />
       
       {/* Micro pixel grid overlay */}
       <div 
-        className="absolute inset-0 opacity-[0.015] pointer-events-none"
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
         style={{
-          backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(6,182,212,0.3) 1px, rgba(6,182,212,0.3) 2px), repeating-linear-gradient(90deg, transparent, transparent 1px, rgba(6,182,212,0.3) 1px, rgba(6,182,212,0.3) 2px)",
+          backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(165,243,252,0.35) 1px, rgba(165,243,252,0.35) 2px), repeating-linear-gradient(90deg, transparent, transparent 1px, rgba(165,243,252,0.35) 1px, rgba(165,243,252,0.35) 2px)",
           backgroundSize: "2px 2px",
         }}
       />
@@ -98,23 +98,23 @@ export function GlassPanel({
       {title && (
         <div className={cn(
           "relative flex-none flex items-center justify-between px-3 py-2",
-          "border-b bg-black/20",
+          "border-b bg-black/50",
           styles.border
         )}>
           <div className="flex items-center gap-2">
             {Icon && (
               <div className="relative">
-                <div className={cn("absolute inset-0 rounded-lg blur-sm opacity-50", styles.iconBg)} />
+                <div className={cn("absolute inset-0 rounded-lg blur-sm opacity-70", styles.iconBg)} />
                 <div className={cn(
-                  "relative p-1 rounded-lg border shadow-inner",
+                  "relative p-1 rounded-lg border shadow-inner min-h-[28px] min-w-[28px] flex items-center justify-center",
                   styles.iconBg,
                   styles.border
                 )}>
-                  <Icon className={cn("h-3 w-3", styles.iconColor)} />
+                  <Icon className={cn("h-3.5 w-3.5", styles.iconColor)} />
                 </div>
               </div>
             )}
-            <h3 className={cn("text-[11px] font-semibold uppercase tracking-wider", styles.titleColor)}>
+            <h3 className={cn("text-[11px] font-bold uppercase tracking-wider", styles.titleColor)}>
               {title}
             </h3>
           </div>

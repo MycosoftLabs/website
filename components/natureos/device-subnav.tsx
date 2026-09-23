@@ -7,7 +7,6 @@ import {
   Boxes,
   Brain,
   ClipboardList,
-  Globe2,
   LineChart,
   MapIcon,
   Network,
@@ -17,11 +16,12 @@ import {
 import type { ComponentType, SVGProps } from "react"
 
 import { cn } from "@/lib/utils"
+import { productMarkIcon } from "@/components/brand/product-icon"
 
 type NavItem = {
   href: string
   label: string
-  icon: ComponentType<SVGProps<SVGSVGElement>>
+  icon: ComponentType<{ className?: string }> | ComponentType<SVGProps<SVGSVGElement>>
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -34,7 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/natureos/devices/fleet", label: "Fleet", icon: Boxes },
   { href: "/natureos/devices/onsite-ai", label: "On-Site SI", icon: Radio },
   { href: "/natureos/meshtastic", label: "Mesh", icon: Network },
-  { href: "/natureos/earth-simulator", label: "Earth Sim", icon: Globe2 },
+  { href: "/natureos/earth-simulator", label: "Earth Sim", icon: productMarkIcon("earth-simulator") },
 ]
 
 export function DeviceSubnav() {
@@ -62,7 +62,7 @@ export function DeviceSubnav() {
                 : "hover:bg-muted"
             )}
           >
-            <Icon className="h-3.5 w-3.5" aria-hidden />
+            <Icon className="h-3.5 w-3.5 shrink-0 aspect-square" aria-hidden />
             {item.label}
           </Link>
         )

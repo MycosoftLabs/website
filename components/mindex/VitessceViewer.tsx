@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils"
 /*  Types                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/** Vitessce view configuration — see https://vitessce.io */
+/** Vitessce view configuration â€” see https://vitessce.io */
 interface VitessceConfig {
   version?: string
   name?: string
@@ -47,7 +47,7 @@ function VitessceLoadingSkeleton({ height }: { height: number }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3" style={{ height }}>
       <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
-      <span className="text-sm text-muted-foreground">Loading Vitessce spatial viewer…</span>
+      <span className="text-sm text-muted-foreground">Loading Vitessce spatial viewerâ€¦</span>
     </div>
   )
 }
@@ -208,7 +208,7 @@ export function VitessceViewer({
       </CardHeader>
 
       <CardContent>
-        <div className="rounded-lg overflow-hidden bg-slate-900">
+        <div className="rounded-lg overflow-hidden bg-black">
           <DynamicVitessce
             config={config}
             height={height}
@@ -218,7 +218,7 @@ export function VitessceViewer({
         </div>
 
         <div className="flex items-center justify-between mt-4 pt-4 border-t text-xs text-muted-foreground">
-          <span>Powered by Vitessce — multi-modal biological visualization</span>
+          <span>Powered by Vitessce â€” multi-modal biological visualization</span>
           {config.name && <span>{config.name}</span>}
         </div>
       </CardContent>

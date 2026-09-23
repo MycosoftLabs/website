@@ -60,7 +60,7 @@ function JBrowseLoadingSkeleton({ height }: { height: number }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3" style={{ height }}>
       <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
-      <span className="text-sm text-muted-foreground">Loading JBrowse2 genome browser…</span>
+      <span className="text-sm text-muted-foreground">Loading JBrowse2 genome browserâ€¦</span>
     </div>
   )
 }
@@ -219,7 +219,7 @@ export function JBrowse2Viewer({
                 )}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                {assembly.name} — interactive genome browser
+                {assembly.name} â€” interactive genome browser
               </p>
             </div>
           </div>
@@ -261,7 +261,7 @@ export function JBrowse2Viewer({
       </CardHeader>
 
       <CardContent>
-        <div className="rounded-lg overflow-hidden bg-white dark:bg-slate-900">
+        <div className="rounded-lg overflow-hidden bg-white dark:bg-black">
           <DynamicJBrowse
             assembly={assembly}
             tracks={tracks}
@@ -272,7 +272,7 @@ export function JBrowse2Viewer({
         </div>
 
         <div className="flex items-center justify-between mt-4 pt-4 border-t text-xs text-muted-foreground">
-          <span>Powered by JBrowse2 — GMOD consortium</span>
+          <span>Powered by JBrowse2 â€” GMOD consortium</span>
           <span>{assembly.name}</span>
         </div>
       </CardContent>

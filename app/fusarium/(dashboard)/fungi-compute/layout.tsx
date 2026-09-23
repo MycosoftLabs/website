@@ -48,7 +48,7 @@ export default function FusariumFungiComputeLayout({ children }: { children: Rea
 
           <div>
             <h2 className="text-xl font-bold text-green-400 mb-2">Fungi Compute</h2>
-            <p className="text-sm text-gray-300 leading-relaxed">
+            <p className="text-sm text-white leading-relaxed">
               Real-time oscilloscopes, spectrum analyzers, SDR filters, and bioelectric signal visualization are
               designed for desktop screens.
             </p>
@@ -67,13 +67,13 @@ export default function FusariumFungiComputeLayout({ children }: { children: Rea
             </Link>
             <button
               onClick={() => window.history.back()}
-              className="flex items-center justify-center h-11 px-6 rounded-lg border border-gray-700 text-gray-400 text-sm"
+              className="flex items-center justify-center h-11 px-6 rounded-lg border border-white/40 text-white text-sm"
             >
               Go Back
             </button>
           </div>
 
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-white/70">
             Open on a laptop or desktop to access the full research interface
           </p>
         </div>

@@ -27,7 +27,7 @@ interface GoslingTrackSpec {
 }
 
 interface GoslingViewerProps {
-  /** Gosling track specification — see https://gosling-lang.org */
+  /** Gosling track specification â€” see https://gosling-lang.org */
   spec: GoslingTrackSpec | GoslingTrackSpec[]
   /** Viewer width in pixels */
   width?: number
@@ -47,7 +47,7 @@ function GoslingLoadingSkeleton({ height }: { height: number }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3" style={{ height }}>
       <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-      <span className="text-sm text-muted-foreground">Loading Gosling genome viewer…</span>
+      <span className="text-sm text-muted-foreground">Loading Gosling genome viewerâ€¦</span>
     </div>
   )
 }
@@ -72,7 +72,7 @@ function GoslingErrorState({ error, onRetry }: { error: string; onRetry: () => v
 
 /**
  * The actual Gosling component is loaded via `next/dynamic` because it relies
- * on browser‑only APIs (Canvas, WebGL).  If the library isn't installed the
+ * on browserâ€‘only APIs (Canvas, WebGL).  If the library isn't installed the
  * import will fail and we show an informative error rather than crashing.
  */
 
@@ -223,7 +223,7 @@ export function GoslingViewer({
       </CardHeader>
 
       <CardContent>
-        <div className="rounded-lg overflow-hidden bg-slate-900">
+        <div className="rounded-lg overflow-hidden bg-black">
           <DynamicGosling
             spec={spec}
             width={width}

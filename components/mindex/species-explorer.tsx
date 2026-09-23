@@ -100,7 +100,7 @@ function SpatialHeatmap({
   const maxCount = Math.max(...grid.map(c => c.count), 1)
   
   return (
-    <div className="relative w-full aspect-[2/1] bg-slate-900 rounded-lg overflow-hidden">
+    <div className="relative w-full aspect-[2/1] bg-black rounded-lg overflow-hidden">
       {/* World map background grid */}
       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 360 180">
         {/* Grid lines */}

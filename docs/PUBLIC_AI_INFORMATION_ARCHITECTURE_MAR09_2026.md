@@ -13,7 +13,7 @@ The public site uses a new `/ai` entry point with three public AI product surfac
 | Route | Purpose | Role |
 |-------|---------|------|
 | `/ai` | AI overview | Paired system intro: MYCA + AVANI; where NLM fits |
-| `/myca` | MYCA deep-dive | Active operating intelligence layer |
+| `/myca` | MYCA deep-dive | Agentic operating intelligence layer |
 | `/ai/avani` | AVANI public page | Stewardship and governance layer |
 | `/myca/nlm` | NLM page | Nature Learning Model, ecological intelligence foundation |
 

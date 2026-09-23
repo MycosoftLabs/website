@@ -24,7 +24,7 @@ export function PatternTimeline({ patterns = [] }: PatternTimelineProps) {
   if (!patterns || patterns.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
-        <Clock className="h-3 w-3 text-cyan-400/20" />
+        <Clock className="h-3 w-3 text-cyan-200" />
       </div>
     )
   }

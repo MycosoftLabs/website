@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="16.00 7.50 224.00 224.00" class="myca" role="img" aria-labelledby="title">
+<title id="title">MYCA — Mycosoft</title>
+<desc>Paired cognitive lobes gather around a central seed: coordinated intelligence grounded in life.</desc>
+
+
+<g class="mark" fill="#000000"><path class="part left-lobe" data-part="left-lobe" d="M 118 82 C 118 60 96 48 76 55 C 53 63 28 94 28 125 C 28 159 44 183 70 187 C 76 188 77 186 76 180 C 70 147 87 129 103 116 C 113 107 118 98 118 82 Z"/><path class="part right-lobe" data-part="right-lobe" d="M 138 82 C 138 60 160 48 180 55 C 203 63 228 94 228 125 C 228 159 212 183 186 187 C 180 188 179 186 180 180 C 186 147 169 129 153 116 C 143 107 138 98 138 82 Z"/><path class="part seed" data-part="seed" d="M 128 111 C 120 129 104 151 104 165 C 104 180 114 191 128 191 C 142 191 152 180 152 165 C 152 151 136 129 128 111 Z"/></g>
+</svg>

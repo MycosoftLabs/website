@@ -5,10 +5,10 @@ import Link from "next/link"
 import {
   NeuCard,
   NeuCardContent,
-  NeuButton,
   NeuBadge,
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
+import { GlassButton, GlassChip } from "@/components/ui/glass-button"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-sources"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
@@ -18,6 +18,7 @@ import { PUBLIC_TOOL_HREFS } from "@/lib/nav-public-tools"
 import { DEVICES } from "@/lib/devices"
 import { COMPANY_TAGLINE_LINES } from "@/lib/company-tagline"
 import { DataGlobe } from "@/components/about/data-globe"
+import { EarthComputerNarrative } from "@/components/about/earth-computer-narrative"
 import {
   ArrowRight,
   Bot,
@@ -42,6 +43,7 @@ import {
   Network,
   Database,
 } from "lucide-react"
+import { productMarkIcon, ProductIcon, PRODUCT_MARKS, type ProductMarkId } from "@/components/brand/product-icon"
 
 const ABOUT_HERO_VIDEO_SRC = "/assets/about us/mycosoft-commercial-hero-2026.mp4"
 const ABOUT_HERO_VIDEO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(ABOUT_HERO_VIDEO_SRC))
@@ -57,7 +59,7 @@ const SENSING_VIDEO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(SENSING_VIDE
 const architectureLayers = [
   {
     id: "hardware",
-    icon: Cpu,
+    icon: productMarkIcon("mycobrain"),
     title: "Sensing",
     subtitle: "Data sensors + Fungi Compute",
     description:
@@ -110,7 +112,7 @@ const architectureLayers = [
     title: "Platform",
     subtitle: "NatureOS & FUSARIUM",
     description:
-      "NatureOS delivers civilian environmental intelligence — real-time global monitoring and sensor plus SI orchestration. FUSARIUM is defense-grade environmental intelligence for multi-domain sensing and classified operational deployment.",
+      "NatureOS is Mycosoft's nature operating system for environmental intelligence — Earth Simulator, nature statistics, device fleets, lab and simulation tools, and MINDEX-backed search. FUSARIUM is Mycosoft's defense environmental-intelligence console for multi-domain sensing and operational deployment.",
     links: [
       { label: "NatureOS", href: "/natureos" },
       { label: "FUSARIUM", href: "/defense/fusarium" },
@@ -190,10 +192,10 @@ const organizationAudiences = [
   {
     id: "civil",
     icon: Globe,
-    title: "Civil & enterprise platforms",
+    title: "Science & environmental platforms",
     backgroundImage: "/assets/about/serve-society.jpg",
     description:
-      "NatureOS operators, fleets, NGOs, and enterprise environmental programs — dashboards, APIs, and governed automation at civilian scale.",
+      "NatureOS operators, research fleets, NGOs, and enterprise environmental programs — dashboards, APIs, sensing, simulation, and governed automation on live data.",
     href: "/natureos",
   },
 ]
@@ -333,44 +335,50 @@ export default function AboutPage() {
           </h1>
 
           <p className="text-lg md:text-xl text-white/90 max-w-3xl mx-auto mb-8">
-            We deploy a global network of intelligent data sensors — compute, sensing, SI inference, and mesh networking in one deployable node. Together they form a distributed, living data center outside.
+            Mycosoft builds environmental intelligence — from DirtNet field devices and MycoBrain / FCI sensing, through
+            MINDEX memory and Nature Learning Models, to NatureOS, Earth Simulator, FormSpace, and MYCA orchestration —
+            so the planet can be sensed, mapped, and simulated as a living computer.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <NeuButton asChild variant="default" className="gap-2 min-h-[44px] px-6 py-3 border border-white/30 bg-white/10 !text-white backdrop-blur-xl hover:bg-white/20 dark:border-emerald-200/20 dark:bg-emerald-200/10 dark:text-emerald-50 dark:hover:bg-emerald-200/15">
-              <Link href="/devices" className="inline-flex touch-manipulation">
-                Explore Devices
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </NeuButton>
-            <NeuButton asChild variant="default" className="gap-2 min-h-[44px] px-6 py-3 border border-white/30 !text-white bg-white/5 hover:bg-white/15 about-hero-learn-more">
-              <Link href="#about" className="inline-flex touch-manipulation">
-                Learn More
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </NeuButton>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <GlassButton href="/devices" dataAnalytics="about_hero_explore_devices">
+              Explore Devices
+              <ArrowRight className="ml-2 h-4 w-4 text-current" />
+            </GlassButton>
+            <GlassButton href="#about" dataAnalytics="about_hero_learn_more" className="about-hero-learn-more">
+              Learn More
+              <ArrowRight className="ml-2 h-4 w-4 text-current" />
+            </GlassButton>
           </div>
         </div>
       </section>
 
-      {/* The data sensor replaces the data center */}
+      {/* What Mycosoft is — company philosophy */}
       <section className="relative overflow-hidden py-16 md:py-24 border-b border-border/60">
         <div className="absolute inset-0 z-0 bg-[url('/assets/about/mycobrainjetson-white.jpg')] bg-cover bg-center opacity-60 dark:bg-[url('/assets/about/mycobrainjetson-black.jpg')] dark:opacity-80" aria-hidden="true" />
         <div className="absolute inset-0 z-0 bg-white/58 backdrop-blur-[1px] dark:bg-black/58" aria-hidden="true" />
         <div className="relative z-10 container max-w-6xl mx-auto px-4 md:px-6">
           <div className="text-center mb-10">
-            <NeuBadge variant="default" className="mb-4">Strategy</NeuBadge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">The Data Sensor Replaces the Data Center</h2>
+            <NeuBadge variant="default" className="mb-4">Company</NeuBadge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">What Mycosoft Is</h2>
           </div>
           <div className="mx-auto max-w-4xl space-y-6 rounded-3xl border border-white/35 bg-white/14 p-6 text-base leading-relaxed text-foreground/82 shadow-2xl shadow-black/20 backdrop-blur-xl dark:bg-black/22 dark:text-white/84 sm:text-lg md:p-8">
             <p>
-              Data centers were built to store and process information; they are centralized, power-intensive facilities optimized to refine what already exists. They do not generate new truth — they refine old information.
+              <span className="text-foreground font-medium">Mycosoft</span> is an environmental intelligence company.
+              We design hardware, networking, data memory, learning models, and operating surfaces so the living world
+              can be observed continuously and turned into actionable intelligence — not scraped corpora alone.
             </p>
             <p>
-              Mycosoft is building systems that <span className="text-foreground font-medium">discover</span> information. Instead of a centralized data center, we deploy a global network of intelligent data sensors embedded in the real world. Each node is compute, sensing, SI inference, and network participation in one — with embedded GPUs, CPUs, TPUs, biological interfaces (including fungal signal systems), environmental sensing, and mesh networking. Collectively they form a <span className="text-foreground font-medium">distributed, living data center outside</span>.
+              <span className="text-foreground font-medium">What we do:</span> ship DirtNet / MycoBrain field systems
+              (including Fungal Computer Interfaces), store and index nature data in MINDEX, train Nature Learning Models
+              on live signals, run Earth Simulator and FormSpace workflows, and operate NatureOS with MYCA (our
+              multi-agent system) coordinating research and operations.
             </p>
             <p>
-              Mobile, deployable edge nodes replace warehouse-scale infrastructure; solar-powered compute replaces centralized power; mesh-connected intelligence replaces cloud-only platforms. We do not only move compute closer to data — we place compute <span className="text-foreground font-medium">into the environment itself</span>, creating a resilient and sustainable data fabric.
+              <span className="text-foreground font-medium">Why we exist:</span> ground truth for ecosystems, climate,
+              and biological networks should come from the field. Mycosoft exists to turn the Earth into a computer —
+              mycelium and physical sensors as inputs, mesh and memory as fabric, models and simulation as cognition —
+              so science and operators work from living data.
             </p>
           </div>
         </div>
@@ -382,33 +390,24 @@ export default function AboutPage() {
         className="relative py-16 md:py-24 overflow-hidden bg-black border-y border-white/10"
         data-over-video
       >
-        <DataGlobe className="absolute inset-0 z-0 h-full w-full opacity-100" />
-        {/* Particle animation — tuned for dark bg; subtle on light */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(0,255,190,0.10),transparent_38%),linear-gradient(180deg,rgba(0,0,0,0.28),rgba(0,0,0,0.22))]" />
+        <DataGlobe className="absolute inset-0 z-0 h-full w-full opacity-[0.18] md:opacity-[0.22]" />
+        {/* Dark scrim — Earth stays present; headline and body stay clearly readable */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-[1]" aria-hidden="true">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.02),transparent_42%),linear-gradient(180deg,rgba(0,0,0,0.78),rgba(0,0,0,0.84))]" />
         </div>
 
         <div className="relative z-10 container max-w-6xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
-            <NeuBadge variant="default" className="mb-4 border-white/20 bg-black/45 text-white shadow-2xl shadow-cyan-400/10 about-mycosoft-badge">
+            <NeuBadge variant="default" className="mb-4 border-white/20 bg-black/45 text-white shadow-2xl shadow-white/10 about-mycosoft-badge">
               About Mycosoft
             </NeuBadge>
             <h2 className="text-3xl md:text-4xl font-bold mb-2 !text-white">Building the Earth Computer</h2>
-            <p className="!text-cyan-100/90 font-medium text-lg">
-              Turn reality into data — then data into intelligence
+            <p className="!text-white/80 font-medium text-lg">
+              Turning the Earth into a Computer
             </p>
           </div>
 
-          {/* Opening */}
-          <div className="max-w-3xl mx-auto mb-16 text-center space-y-5">
-            <p className="text-lg !text-white/86 leading-relaxed">
-              Mycosoft is building systems that discover information in the world, not only refine what already exists on the internet. Our data sensors observe reality independently; when networked, they produce new ground truth for science, infrastructure, and defense.
-            </p>
-            <p className="text-lg !text-white/86 leading-relaxed">
-              We integrate physical sensing, edge compute, mesh protocols, cryptographic data layers, and governed SI so that environmental and biological signals become durable intelligence — not one-off telemetry, but a living data fabric.
-            </p>
-          </div>
-
+          <EarthComputerNarrative />
         </div>
       </section>
 
@@ -427,16 +426,18 @@ export default function AboutPage() {
             <div className="p-6 rounded-2xl border border-border bg-card/80 backdrop-blur-md dark:border-white/10 dark:bg-white/5">
               <h3 className="text-2xl font-bold mb-3 text-foreground">What We Build</h3>
               <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
-                Mycosoft develops a fully integrated system spanning physical sensing hardware, edge compute infrastructure, distributed networking protocols, environmental and biological SI, and autonomous multi-agent orchestration — designed to turn reality into data, then that data into intelligence.
+                Mycosoft builds one stack: field sensing (DirtNet devices, MycoBrain, FCI), mesh networking, MINDEX
+                nature memory, Nature Learning Models, Earth Simulator and FormSpace tooling, NatureOS for operators,
+                and MYCA / MAS for multi-agent orchestration — so environmental signals become durable intelligence.
               </p>
               <div className="space-y-2">
                 {[
-                  { icon: Cpu, label: "Physical sensing hardware", desc: "Data sensors: Mushroom 1, SporeBase, MycoNode, Hyphae 1, Psathyrella" },
-                  { icon: Zap, label: "Edge compute infrastructure", desc: "On-node inference, resilient power, deployable where data is born" },
-                  { icon: Network, label: "Distributed networking", desc: "Mycorrhizae Protocol — LoRa, LTE, device-to-device mesh" },
-                  { icon: Brain, label: "Environmental & biological SI", desc: "NLM world models plus domain models trained on live signals" },
-                  { icon: Bot, label: "Autonomous orchestration", desc: "MYCA — agents, tools, APIs, and continuous operation" },
-                  { icon: Shield, label: "Governance & integrity", desc: "AVANI — admissibility, safety, auditability, system policy" },
+                  { icon: Cpu, label: "Sensing & edge hardware", desc: "MycoBrain, FCI, Mushroom 1, SporeBase, MycoNode, and DirtNet field nodes" },
+                  { icon: Network, label: "DirtNet & protocols", desc: "Mesh routing for environmental data — LoRa, LTE, and device-to-device paths" },
+                  { icon: Database, label: "MINDEX memory", desc: "Nature data catalog and knowledge graph for searchable Earth-scale context" },
+                  { icon: Brain, label: "NLM & MYCA", desc: "Models trained on live signals; agents that run research and operations" },
+                  { icon: Globe, label: "Simulation & FormSpace", desc: "Earth Simulator and spatial/form tooling for planetary process models" },
+                  { icon: Server, label: "NatureOS", desc: "Operating surface for fleets, science tools, sensing, and MINDEX-backed search" },
                 ].map(({ icon: Icon, label, desc }) => (
                   <div
                     key={label}
@@ -453,10 +454,11 @@ export default function AboutPage() {
                 ))}
               </div>
               <p className="text-sm text-muted-foreground mt-4 pt-4 border-t border-border dark:border-white/10">
-                Platforms surface this stack to operators and researchers —{" "}
-                <span className="text-emerald-950/80 dark:text-emerald-200/85 font-medium">NatureOS</span> for civilian environmental intelligence and{" "}
-                <span className="text-emerald-950/80 dark:text-emerald-200/85 font-medium">FUSARIUM</span> for defense-grade deployment, alongside{" "}
-                <span className="text-emerald-950/80 dark:text-emerald-200/85 font-medium">OEI</span> where live CREP and edge sensing meet mission workflows.
+                Operators work this stack through{" "}
+                <span className="text-foreground font-medium">NatureOS</span>,{" "}
+                <span className="text-foreground font-medium">MYCA</span>, and science tools such as{" "}
+                <span className="text-foreground font-medium">Earth Simulator</span> — always on live catalogs and
+                field programs, never mock metrics.
               </p>
             </div>
 
@@ -526,11 +528,11 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Full-stack architecture */}
-      <section className="py-16 md:py-24">
+      {/* Full-stack architecture — black/white clear glass panels */}
+      <section className="about-bw-glass-section py-16 md:py-24">
         <div className="container max-w-7xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
-            <NeuBadge variant="default" className="mb-4">Architecture</NeuBadge>
+            <GlassChip className="mb-4">Architecture</GlassChip>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Our Full-Stack Architecture</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               From hardware in the field to platforms in the browser — one coherent stack for Earth-scale sensing and intelligence.
@@ -539,10 +541,10 @@ export default function AboutPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
             {architectureLayers.map((layer) => (
-              <NeuCard key={layer.id} className="p-6 transition-all h-full flex flex-col">
+              <NeuCard key={layer.id} className="about-bw-glass-card p-6 transition-all h-full flex flex-col">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-3 rounded-xl bg-emerald-950/[0.06] dark:bg-emerald-200/10">
-                    <layer.icon className="h-6 w-6 text-emerald-950/70 dark:text-emerald-200/80" />
+                  <div className="myco-glass-tile p-3 shrink-0">
+                    <layer.icon className="h-6 w-6 text-foreground" />
                   </div>
                   <div>
                     <h3 className="font-bold text-lg leading-tight">{layer.title}</h3>
@@ -558,11 +560,9 @@ export default function AboutPage() {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {layer.links.map((link) => (
-                    <Link key={link.href} href={link.href}>
-                      <NeuButton variant="default" className="p-0 h-auto text-emerald-950/70 dark:text-emerald-200/80 hover:text-emerald-950 dark:hover:text-emerald-100 bg-transparent shadow-none">
-                        {link.label}
-                      </NeuButton>
-                    </Link>
+                    <GlassButton key={link.href} href={link.href} dataAnalytics={`about_arch_${layer.id}_${link.label.toLowerCase()}`}>
+                      {link.label}
+                    </GlassButton>
                   ))}
                 </div>
               </NeuCard>
@@ -599,13 +599,11 @@ export default function AboutPage() {
               <span className="text-foreground font-medium">temperature and humidity</span>, plus acoustic, optical, thermal, and mechanical channels — and{" "}
               <span className="text-foreground font-semibold">fungal biological interfaces (FCI)</span> as an extra layer. Fungi are not the product or limitation; they expand what sensing can be.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-wrap gap-3 justify-center">
               {sensingPackages.map((item) => (
-                <Link key={item.name} href={item.href}>
-                  <NeuButton variant="default" className="min-h-[44px] border border-white/25 bg-white/12 !text-white backdrop-blur-xl hover:bg-white/18 dark:border-white/25 dark:bg-white/12 dark:!text-white dark:hover:bg-white/18">
-                    {item.name}
-                  </NeuButton>
-                </Link>
+                <GlassButton key={item.name} href={item.href} dataAnalytics={`about_sensing_${item.name.toLowerCase().replace(/\s+/g, "_")}`}>
+                  {item.name}
+                </GlassButton>
               ))}
             </div>
           </NeuCard>
@@ -641,7 +639,16 @@ export default function AboutPage() {
                     />
                   </div>
                   <NeuCardContent className="p-4">
-                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">{device.name}</h3>
+                    <h3 className="font-bold text-gray-900 dark:text-white mb-2 inline-flex items-center gap-2">
+                      {(PRODUCT_MARKS as readonly string[]).includes(device.id) ? (
+                        <ProductIcon
+                          product={device.id as ProductMarkId}
+                          variant="current"
+                          className="h-4 w-4 shrink-0"
+                        />
+                      ) : null}
+                      {device.name}
+                    </h3>
                     <p className="text-xs text-gray-600 dark:text-white/60 line-clamp-2">{device.tagline}</p>
                   </NeuCardContent>
                 </NeuCard>
@@ -650,21 +657,19 @@ export default function AboutPage() {
           </div>
 
           <div className="text-center mt-8">
-            <NeuButton asChild variant="default" className="gap-2 min-h-[44px] border-white/20 about-devices-view-all">
-              <Link href="/devices" className="touch-manipulation">
-                View All Devices
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </NeuButton>
+            <GlassButton href="/devices" dataAnalytics="about_devices_view_all" className="about-devices-view-all">
+              View All Devices
+              <ArrowRight className="ml-2 h-4 w-4 text-current" />
+            </GlassButton>
           </div>
         </div>
       </section>
 
-      {/* Applications by Category */}
-      <section className="py-16 md:py-24">
+      {/* Applications by Category — black/white clear glass */}
+      <section className="about-bw-glass-section py-16 md:py-24">
         <div className="container max-w-7xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
-            <NeuBadge variant="default" className="mb-4">Software</NeuBadge>
+            <GlassChip className="mb-4">Software</GlassChip>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Applications</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Where the stack meets operators: platforms, live intelligence, and scientific tooling on one website — wired to real sensors and governed agents.
@@ -673,22 +678,22 @@ export default function AboutPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {applicationCategories.map((category) => (
-              <NeuCard key={category.title} className="p-6">
+              <NeuCard key={category.title} className="about-bw-glass-card p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 rounded-lg bg-emerald-950/10 dark:bg-emerald-200/10">
-                    <category.icon className="h-5 w-5 text-emerald-950/70 dark:text-emerald-200/80" />
+                  <div className="myco-glass-tile p-2 shrink-0">
+                    <category.icon className="h-5 w-5 text-foreground" />
                   </div>
                   <h3 className="font-bold text-lg">{category.title}</h3>
                 </div>
                 <div className="space-y-3">
                   {category.apps.map((app) => (
-                    <Link key={app.href} href={app.href} className="block group">
-                      <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                    <Link key={app.href} href={app.href} className="block group touch-manipulation">
+                      <div className="flex items-center justify-between p-3 rounded-lg border border-white/20 bg-white/5 hover:bg-white/12 hover:border-white/35 dark:border-white/15 dark:bg-white/[0.04] dark:hover:bg-white/10 transition-colors">
                         <div>
-                          <p className="font-medium text-sm group-hover:text-emerald-950 dark:group-hover:text-emerald-100 transition-colors">{app.name}</p>
+                          <p className="font-medium text-sm text-foreground group-hover:text-foreground transition-colors">{app.name}</p>
                           <p className="text-xs text-muted-foreground">{app.description}</p>
                         </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-emerald-950 dark:group-hover:text-emerald-100 transition-colors" />
+                        <ChevronRight className="h-4 w-4 text-foreground/50 group-hover:text-foreground transition-colors" />
                       </div>
                     </Link>
                   ))}
@@ -700,10 +705,13 @@ export default function AboutPage() {
       </section>
 
       {/* Organization — Inc, LLC, MycoDAO, audiences, MYCA orchestration (above The Future) */}
-      <section className="py-16 md:py-24 bg-muted/25 border-y border-border/60" aria-labelledby="about-organization-heading">
+      <section
+        className="about-bw-glass-section py-16 md:py-24 border-y border-white/20 dark:border-white/10"
+        aria-labelledby="about-organization-heading"
+      >
         <div className="container max-w-7xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12 md:mb-14">
-            <NeuBadge variant="default" className="mb-4">Organization</NeuBadge>
+            <GlassChip className="mb-4">Organization</GlassChip>
             <h2 id="about-organization-heading" className="text-3xl md:text-4xl font-bold mb-4">
               One Mission, Multiple Rails
             </h2>
@@ -719,14 +727,14 @@ export default function AboutPage() {
                 href="https://mycosoft.org"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-emerald-700 dark:text-emerald-300 underline underline-offset-4 hover:text-emerald-800 dark:hover:text-emerald-200"
+                className="text-foreground underline underline-offset-4 hover:text-foreground/80"
               >
                 Read about our story here
               </a>
             </p>
           </div>
 
-          <div className="about-serve-section mb-14 md:mb-16">
+          <div className="about-org-entities mb-14 md:mb-16">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
               <div>
                 <h3 className="text-xl font-bold text-foreground">Legal &amp; commercial structure</h3>
@@ -739,23 +747,23 @@ export default function AboutPage() {
               {organizationEntities.map((entity) => {
                 const card = (
                   <NeuCard
-                    className={`relative overflow-hidden p-6 h-full flex flex-col transition-all ${entity.href ? "hover:border-emerald-950/20 dark:hover:border-emerald-200/20" : ""}`}
+                    className={`about-bw-glass-card relative overflow-hidden p-6 h-full flex flex-col transition-all ${entity.href ? "hover:border-white/45 dark:hover:border-white/30" : ""}`}
                   >
                     <div
-                      className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.16] mix-blend-multiply dark:opacity-[0.24] dark:mix-blend-screen"
+                      className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.12] mix-blend-multiply dark:opacity-[0.2] dark:mix-blend-screen"
                       style={{ backgroundImage: `url('${entity.backgroundImage}')` }}
                       aria-hidden="true"
                     />
-                    <div className="pointer-events-none absolute inset-0 bg-white/10 dark:bg-black/10" aria-hidden="true" />
+                    <div className="pointer-events-none absolute inset-0 bg-white/10 dark:bg-black/20" aria-hidden="true" />
                     <div className="relative z-10 flex items-start gap-3 mb-4">
-                      <div className="p-3 rounded-xl bg-emerald-950/[0.06] dark:bg-emerald-200/10 shrink-0">
-                        <entity.icon className="h-6 w-6 text-emerald-950/70 dark:text-emerald-200/85" />
+                      <div className="myco-glass-tile p-3 shrink-0">
+                        <entity.icon className="h-6 w-6 text-foreground" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-bold text-lg leading-tight">{entity.name}</h4>
+                          <h4 className="font-bold text-lg leading-tight text-foreground">{entity.name}</h4>
                           {entity.external ? (
-                            <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
+                            <ExternalLink className="h-4 w-4 text-foreground/55 shrink-0" aria-hidden />
                           ) : null}
                         </div>
                       </div>
@@ -770,7 +778,7 @@ export default function AboutPage() {
                       href={entity.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-950/35 dark:focus-visible:ring-emerald-200/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
                       {card}
                     </a>
@@ -781,7 +789,7 @@ export default function AboutPage() {
                     <Link
                       key={entity.id}
                       href={entity.href}
-                      className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-950/35 dark:focus-visible:ring-emerald-200/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
                       {card}
                     </Link>
@@ -806,16 +814,16 @@ export default function AboutPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {organizationAudiences.map((audience) => (
                 <Link key={audience.id} href={audience.href} className="block h-full group">
-                  <NeuCard className="about-serve-card relative min-h-[260px] overflow-hidden p-6 h-full flex flex-col justify-end !text-white transition-all hover:border-emerald-950/20 dark:hover:border-emerald-200/20 [&_*]:!text-white">
+                  <NeuCard className="about-serve-card relative min-h-[260px] overflow-hidden p-6 h-full flex flex-col justify-end !text-white transition-all hover:border-white/40 [&_*]:!text-white">
                     <div
                       className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
                       style={{ backgroundImage: `url('${audience.backgroundImage}')` }}
                       aria-hidden="true"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/42 to-black/18 dark:from-black/88 dark:via-black/50 dark:to-black/18" aria-hidden="true" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/42 to-black/18" aria-hidden="true" />
                     <div className="absolute inset-0 bg-white/8 backdrop-blur-[1px] dark:bg-black/6" aria-hidden="true" />
                     <div className="relative z-10 flex items-start gap-3 mb-3">
-                      <div className="p-3 rounded-xl border border-white/25 bg-white/16 backdrop-blur-md shrink-0">
+                      <div className="myco-glass-tile p-3 shrink-0">
                         <audience.icon className="h-6 w-6 !text-white" />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -841,12 +849,12 @@ export default function AboutPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               {organizationMycaStreams.map((stream) => (
-                <NeuCard key={stream.id} className="p-6 h-full flex flex-col border-emerald-950/10 dark:border-emerald-200/10">
+                <NeuCard key={stream.id} className="about-bw-glass-card p-6 h-full flex flex-col">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="p-3 rounded-xl bg-emerald-950/[0.06] dark:bg-emerald-200/10">
-                      <stream.icon className="h-6 w-6 text-emerald-950/70 dark:text-emerald-200/85" />
+                    <div className="myco-glass-tile p-3 shrink-0">
+                      <stream.icon className="h-6 w-6 text-foreground" />
                     </div>
-                    <h4 className="font-bold text-base leading-tight">{stream.title}</h4>
+                    <h4 className="font-bold text-base leading-tight text-foreground">{stream.title}</h4>
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed flex-grow">{stream.description}</p>
                 </NeuCard>
@@ -854,19 +862,15 @@ export default function AboutPage() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-stretch sm:items-center">
-            <Link href="/myca">
-              <NeuButton variant="default" className="gap-2 min-h-[44px] w-full sm:w-auto border border-emerald-950/20 bg-emerald-950/10 text-emerald-950 backdrop-blur-xl hover:bg-emerald-950/15 dark:border-emerald-200/20 dark:bg-emerald-200/10 dark:text-emerald-50 dark:hover:bg-emerald-200/15">
-                Explore MYCA orchestration
-                <ArrowRight className="h-4 w-4" />
-              </NeuButton>
-            </Link>
-            <Link href="/ai/avani">
-              <NeuButton variant="default" className="gap-2 min-h-[44px] w-full sm:w-auto">
-                AVANI governance
-                <ChevronRight className="h-4 w-4" />
-              </NeuButton>
-            </Link>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <GlassButton href="/myca" dataAnalytics="about_org_myca">
+              Explore MYCA orchestration
+              <ArrowRight className="ml-2 h-4 w-4 text-current" />
+            </GlassButton>
+            <GlassButton href="/ai/avani" dataAnalytics="about_org_avani">
+              AVANI governance
+              <ChevronRight className="ml-2 h-4 w-4 text-current" />
+            </GlassButton>
           </div>
         </div>
       </section>
@@ -917,18 +921,14 @@ export default function AboutPage() {
             Researchers, developers, defense operators, and builders — deploy sensors, open the stack, and train on the planet, not only the crawl.
           </p>
           <div>
-            <Link href="/devices">
-              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 border border-emerald-200/20 bg-emerald-200/10 text-emerald-50 backdrop-blur-xl hover:bg-emerald-200/15">
-                Get a Device
-                <ArrowRight className="h-4 w-4" />
-              </NeuButton>
-            </Link>
-            <Link href="/science">
-              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 bg-white/20 dark:bg-transparent border-gray-900 dark:border-white about-cta-read-research">
-                Read Research
-                <ExternalLink className="h-4 w-4" />
-              </NeuButton>
-            </Link>
+            <GlassButton href="/devices" dataAnalytics="about_cta_get_device">
+              Get a Device
+              <ArrowRight className="ml-2 h-4 w-4 text-current" />
+            </GlassButton>
+            <GlassButton href="/science" dataAnalytics="about_cta_read_research" className="about-cta-read-research">
+              Read Research
+              <ExternalLink className="ml-2 h-4 w-4 text-current" />
+            </GlassButton>
           </div>
         </div>
         </div></>
@@ -984,6 +984,43 @@ export default function AboutPage() {
             inset 0 -22px 38px rgba(255, 255, 255, 0.09) !important;
         }
 
+        /* Architecture / Software / Organization — force B&W clear glass, no slate */
+        .about-bw-glass-section {
+          background: transparent !important;
+        }
+        .about-bw-glass-section .about-bw-glass-card.neu-raised,
+        .about-bw-glass-section .about-bw-glass-card {
+          border-color: rgba(255, 255, 255, 0.38) !important;
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.08) 44%, rgba(255, 255, 255, 0.03)) !important;
+          box-shadow:
+            0 18px 52px rgba(0, 0, 0, 0.26),
+            inset 0 1px 0 rgba(255, 255, 255, 0.65),
+            inset 0 -22px 38px rgba(255, 255, 255, 0.06) !important;
+        }
+        html.dark .about-bw-glass-section .about-bw-glass-card.neu-raised,
+        html.dark .about-bw-glass-section .about-bw-glass-card {
+          border-color: rgba(255, 255, 255, 0.22) !important;
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04) 44%, rgba(0, 0, 0, 0.35)) !important;
+        }
+        .about-bw-glass-section .myco-glass-tile {
+          background: linear-gradient(
+            -75deg,
+            rgba(255, 255, 255, 0.08),
+            rgba(255, 255, 255, 0.28),
+            rgba(255, 255, 255, 0.08)
+          ) !important;
+        }
+        html.dark .about-bw-glass-section .myco-glass-tile {
+          background: linear-gradient(
+            -75deg,
+            rgba(0, 0, 0, 0.72),
+            rgba(255, 255, 255, 0.1),
+            rgba(0, 0, 0, 0.72)
+          ) !important;
+        }
+
         .about-sensing-section,
         .about-sensing-section *,
         .about-sensing-section .neu-btn,
@@ -1003,13 +1040,12 @@ export default function AboutPage() {
             linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.07) 44%, rgba(255, 255, 255, 0.035)) !important;
         }
 
-        .about-serve-section .neu-raised,
-        .about-serve-section .neu-raised *,
-        .about-serve-section .neu-raised-sm,
-        .about-serve-section .neu-raised-sm *,
-        .about-serve-section h4,
-        .about-serve-section p,
-        .about-serve-section svg {
+        /* Only photo audience cards force white type — not legal entity glass cards */
+        .about-serve-section .about-serve-card.neu-raised,
+        .about-serve-section .about-serve-card.neu-raised *,
+        .about-serve-section .about-serve-card h4,
+        .about-serve-section .about-serve-card p,
+        .about-serve-section .about-serve-card svg {
           color: #ffffff !important;
           stroke: #ffffff !important;
         }

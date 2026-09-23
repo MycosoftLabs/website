@@ -46,11 +46,12 @@ import { useSidebar } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
 import { useGateAccess } from "@/components/access/gate-wrapper"
 import { AccessGate } from "@/lib/access/types"
+import { productMarkIcon } from "@/components/brand/product-icon"
 
 interface NavItem {
   title: string
   href: string
-  icon: LucideIcon
+  icon: LucideIcon | ReturnType<typeof productMarkIcon>
   companyOnly?: boolean
 }
 
@@ -64,8 +65,8 @@ interface NavSection {
 
 const navSections: NavSection[] = [
   {
-    title: "Apps",
-    key: "apps",
+    title: "Science",
+    key: "science",
     defaultOpen: true,
     items: [
       { title: "Nature Statistics", href: "/natureos/nature-statistics", icon: Leaf },
@@ -116,10 +117,10 @@ const navSections: NavSection[] = [
     defaultOpen: false,
     items: [
       { title: "Device Network", href: "/natureos/devices", icon: Network },
-      { title: "MycoBrain Console", href: "/natureos/mycobrain", icon: Cpu, companyOnly: true },
-      { title: "SporeBase Monitor", href: "/natureos/sporebase", icon: Droplets, companyOnly: true },
+      { title: "MycoBrain Console", href: "/natureos/mycobrain", icon: productMarkIcon("mycobrain"), companyOnly: true },
+      { title: "SporeBase Monitor", href: "/natureos/sporebase", icon: productMarkIcon("sporebase"), companyOnly: true },
       { title: "FCI Monitor", href: "/natureos/fci", icon: Brain, companyOnly: true },
-      // Earth Simulator is listed under Apps (/natureos/earth-simulator). Legacy /natureos/tools/earth-simulator redirects.
+      // Earth Simulator is listed under Science (/natureos/earth-simulator). Legacy /natureos/tools/earth-simulator redirects.
       { title: "FUSARIUM", href: "/natureos/fusarium", icon: Shield, companyOnly: true },
       { title: "MINDEX", href: "/natureos/mindex", icon: Database, companyOnly: true },
       { title: "Storage", href: "/natureos/storage", icon: Layers, companyOnly: true },

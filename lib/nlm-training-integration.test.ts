@@ -24,4 +24,10 @@ describe("NLM training application placement", () => {
       "<NlmTrainingApplication",
     )
   })
+
+  it("mounts the FormSpace application shell on the FormSpace product page", () => {
+    const page = read("app/ai/formspace/page.tsx")
+    expect(page).toContain("FormSpaceApplication")
+    expect(page).toContain("extractFormSpacePanelSections")
+  })
 })

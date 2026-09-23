@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="20.24 17.24 219.52 219.52" class="earth-simulator" role="img" aria-labelledby="title">
+<title id="title">Earth Simulator — Mycosoft</title>
+<desc>Three sweeping planetary bands imply environmental layers and a world evolving through time.</desc>
+
+
+<g class="mark" fill="#000000"><path class="part upper-band" data-part="upper-band" d="M 115 37 C 159 29 204 63 217 97 C 219 102 211 103 201 102 C 169 100 125 87 111 67 C 101 53 103 41 115 37 Z"/><path class="part middle-band" data-part="middle-band" d="M 92 41 C 78 67 122 94 159 105 C 182 112 203 116 222 114 C 227 132 227 147 220 152 C 202 165 140 151 99 133 C 64 118 42 100 47 86 C 57 65 73 50 92 41 Z"/><path class="part lower-band" data-part="lower-band" d="M 36 111 C 45 140 85 159 126 169 C 167 180 203 180 219 169 C 205 202 170 225 132 225 C 79 225 36 183 34 134 C 33 126 34 118 36 111 Z"/></g>
+</svg>

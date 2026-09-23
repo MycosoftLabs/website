@@ -159,7 +159,7 @@ function NodeCard({ node, layer }: NodeCardProps) {
   const hasDetails = "details" in node && Array.isArray(node.details)
 
   const layerStyles = {
-    palm: "bg-slate-700/60 border-slate-500/50 hover:border-slate-400/60",
+    palm: "bg-black/50 border-white/40 hover:border-white/50",
     thumb: "bg-green-600/40 border-green-500/50 hover:border-green-400/70 text-green-100",
     finger: "bg-blue-900/50 border-blue-600/50 hover:border-blue-500/60",
   }
@@ -180,7 +180,7 @@ function NodeCard({ node, layer }: NodeCardProps) {
         <div
           className={cn(
             "shrink-0 w-10 h-10 rounded-lg flex items-center justify-center",
-            layer === "palm" && "bg-slate-600/50 text-slate-300",
+            layer === "palm" && "bg-black/40 text-white/70",
             layer === "thumb" && "bg-green-500/30 text-green-200",
             layer === "finger" && "bg-blue-700/50 text-blue-200"
           )}
@@ -270,7 +270,7 @@ export function NLMArchitecture({ className }: { className?: string }) {
         <div className="mb-10 rounded-xl border border-border bg-muted/30 p-6 overflow-x-auto">
           <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 min-w-[320px]">
             <div className="flex flex-col items-center gap-2">
-              <div className="px-4 py-2 rounded-lg bg-slate-700/60 border border-slate-500/50 text-sm font-semibold whitespace-nowrap">
+              <div className="px-4 py-2 rounded-lg bg-black/50 border border-white/40 text-sm font-semibold whitespace-nowrap">
                 Palm
               </div>
               <p className="text-xs text-muted-foreground">Biospheric Telemetry</p>
@@ -333,8 +333,8 @@ export function NLMArchitecture({ className }: { className?: string }) {
 
             {/* Layer label: Palm */}
             <div className="flex items-center gap-2 mb-4">
-              <Database className="h-4 w-4 text-slate-500" />
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-500/90">
+              <Database className="h-4 w-4 text-black/50" />
+              <span className="text-xs font-bold uppercase tracking-widest text-black/50/90">
                 Palm: Biospheric Telemetry Stack
               </span>
             </div>
@@ -349,7 +349,7 @@ export function NLMArchitecture({ className }: { className?: string }) {
         {/* Data flow legend */}
         <div className="mt-8 flex flex-wrap gap-6 justify-center text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-slate-500/60" />
+            <div className="w-3 h-3 rounded-full bg-black/50" />
             <span>Biospheric sensors & data</span>
           </div>
           <div className="flex items-center gap-2">

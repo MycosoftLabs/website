@@ -57,8 +57,28 @@ import {
 } from "@/components/ui/neuromorphic"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { GlassButton, GlassChip } from "@/components/ui/glass-button"
+import {
+  FUSARIUM_GLASS_CYCLE_FRAMES,
+  ProductGlassIconCycle,
+} from "@/components/brand/product-glass-icon-cycle"
 import { deviceHeroVideoSources } from "@/lib/asset-video-sources"
 import { FusariumExploreCta } from "./explore-platform-cta"
+
+// ---------------------------------------------------------------------------
+// Hero — same NAS / AutoplayVideo contract as Launchpad + Earth Sim band:
+// lp-media-bg stacking, poster for instant paint, ordered `-web` then full.
+// ---------------------------------------------------------------------------
+const FUSARIUM_HERO_MP4 = "/assets/fusarium/fusarium-hero-2026-web.mp4"
+const FUSARIUM_HERO_POSTER =
+  process.env.NEXT_PUBLIC_FUSARIUM_HERO_POSTER?.trim() ||
+  "/assets/fusarium/fusarium-hero-2026-web-poster.jpg"
+const fusariumHeroSources = deviceHeroVideoSources(FUSARIUM_HERO_MP4, {
+  envUrl: process.env.NEXT_PUBLIC_FUSARIUM_HERO_MP4,
+  aliases: [
+    "/assets/fusarium/fusarium-hero-web.mp4",
+    "/assets/fusarium/fusarium-hero.mp4",
+  ],
+})
 
 // ---------------------------------------------------------------------------
 // Section 05 backdrop. Large media lives on the NAS bind mount under
@@ -370,22 +390,39 @@ export default function FusariumPage() {
     <NeuromorphicProvider>
       {/* House glass/neumorphic template (same as About, Apps, Devices, NatureOS) */}
       <div className="launchpad-glass-page min-h-dvh">
-        {/* ================= 02 · HERO — video preserved exactly ================= */}
-        <section className="relative min-h-[82vh] overflow-hidden py-24 flex items-center" data-over-video>
-          <AutoplayVideo
-            src="/assets/fusarium/fusarium-hero-2026-web.mp4"
-            sources={["/assets/fusarium/fusarium-hero-2026-web.mp4"]}
-            preload="auto"
-            className="absolute inset-0 h-full w-full object-cover"
-            style={{ filter: "brightness(0.72) contrast(1.08) saturate(1.06)" }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/12 via-black/20 to-background/82" />
+        {/* ================= 02 · HERO — lp-media-band so footage paints under glass ================= */}
+        <section
+          className="relative min-h-[82vh] overflow-hidden py-24 flex items-center lp-media-band"
+          data-over-video
+        >
+          <div className="lp-media-bg">
+            <AutoplayVideo
+              sources={fusariumHeroSources}
+              poster={FUSARIUM_HERO_POSTER}
+              preload="auto"
+              smoothLoop
+              pointerEventsNone
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{ filter: "brightness(0.72) contrast(1.08) saturate(1.06)" }}
+            />
+          </div>
+          <div className="lp-media-scrim lp-media-scrim--strong" aria-hidden="true" />
+          <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(to_bottom,transparent_0%,transparent_78%,var(--background)_100%)]" />
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#fff2_1px,transparent_1px),linear-gradient(to_bottom,#fff2_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.06] pointer-events-none" />
 
           <div className="container max-w-7xl mx-auto px-4 relative z-10">
             <div className="max-w-4xl mx-auto text-center">
               <GlassChip className="mb-4">OPERATIONAL ENVIRONMENTAL INTELLIGENCE</GlassChip>
-              <h1 className="text-6xl md:text-8xl font-bold mb-6 tracking-tight text-white">FUSARIUM</h1>
+              <h1 className="mb-6 inline-flex w-full items-center justify-center gap-[0.18em] text-6xl md:text-8xl font-bold tracking-tight text-white leading-none">
+                <ProductGlassIconCycle
+                  frames={FUSARIUM_GLASS_CYCLE_FRAMES}
+                  className="origin-center h-[1em] w-[1em] scale-90 translate-y-[5px]"
+                  alt="Fusarium"
+                  reducedMotionLightIndex={3}
+                  reducedMotionDarkIndex={0}
+                />
+                <span className="leading-none">FUSARIUM</span>
+              </h1>
               <p className="text-2xl md:text-3xl font-semibold text-white mb-4">
                 Intelligence grounded in the physical world.
               </p>

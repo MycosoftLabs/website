@@ -52,7 +52,7 @@ export default function Page() {
             {paper.metadata.subtitle}
           </p>
           <p className="mt-4 text-sm text-muted-foreground">
-            {paper.metadata.author} · {paper.metadata.date}
+            {paper.metadata.author}
           </p>
         </header>
 
