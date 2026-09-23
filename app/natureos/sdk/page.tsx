@@ -94,12 +94,12 @@ const REPOS: GitHubRepo[] = [
   },
   { 
     name: "nlm-funga", 
-    description: "Nature Learning Model - First stage: Fungal language understanding", 
+    description: "Nature Learning Model — fungal electrophysiology and signal-state training (NLM-Funga)", 
     stars: 45, 
     forks: 12, 
     language: "Python", 
     url: `https://github.com/${GITHUB_ORG}/nlm-funga`, 
-    topics: ["machine-learning", "nlp", "mycology", "research"],
+    topics: ["signal-models", "mycology", "research", "sensors"],
     isReal: true,
     isPublic: false
   },

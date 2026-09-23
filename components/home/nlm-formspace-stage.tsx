@@ -24,7 +24,7 @@ const CARDS: Array<{
     videoId: "6lrvQIfRazs",
     videoTitle: "SI That Sees The World - All Of It.",
     mark: "nlm",
-    body: "The Nature Learning Model learns a physical environment through time, which a language model cannot do because a language model learns text. It takes light, sound, gas, electricity, heat, and pressure as one observation, keeps a missing channel empty, and remembers the state that came before. The result is a learned environmental state with an explicit record of what was measured and what was not.",
+    body: "The Nature Learning Model is a family of signal-state and scenario models that learn a physical environment through time. It takes light, sound, gas, electricity, heat, and pressure as one observation, keeps a missing channel empty, and remembers the state that came before. The result is a learned environmental state with an explicit record of what was measured and what was not.",
   },
   {
     index: "02",

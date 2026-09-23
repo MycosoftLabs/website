@@ -61,7 +61,7 @@ export function LiveNlmBanner() {
           </p>
         </div>
         <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
-          NLM {state.nlmLoaded ? 'loaded' : 'unloaded'} · {state.weightCount || 0} weights · not Ollama · forecast unqualified
+          NLM {state.nlmLoaded ? 'loaded' : 'unloaded'} · {state.weightCount || 0} weights · signal model · forecast unqualified
         </p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

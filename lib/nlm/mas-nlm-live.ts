@@ -162,7 +162,7 @@ export function liveNlmModelCard(nlm: LiveNlmConsole['nlm'] | null | undefined) 
     name: nlm.display_name || nlm.model_name || 'Nature Learning Model',
     description:
       nlm.description ||
-      'Live Nature Learning Model on MAS. Not Ollama. Forecast unqualified until calibrated.',
+      'Live Nature Learning Model on MAS — signal-state training service. Forecast unqualified until calibrated.',
     status: nlm.model_loaded ? 'loaded' : nlm.status || 'unloaded',
     ownerId: 'mas',
     version: nlm.model_version || '0.1.0',

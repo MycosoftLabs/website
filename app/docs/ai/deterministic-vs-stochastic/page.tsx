@@ -96,7 +96,7 @@ const sections = [
     id: "nlm-signal-native-bridge",
     title: "NLM: The Signal-Native Bridge",
     paragraphs: [
-      "The Nature Learning Model is the bridge between deterministic and stochastic SI. NLM is not simply an LLM with ecological vocabulary. It is a signal-native model family designed to learn from physical streams before they are compressed into human language.",
+      "The Nature Learning Model is the bridge between deterministic and stochastic SI. It is a signal-native model family designed to learn from physical streams before those streams are compressed into human-language views.",
       "NLM works over signals such as spectral distributions, acoustic waveforms, bioelectric voltages, chemical signatures, gas concentrations, humidity gradients, thermal gradients, electromagnetic fields, mechanical vibration, pressure differentials, spatial context, and temporal change. Meaning is derived from physics and biology, not only from words.",
       "That makes NLM the place where Mycosoft can build deterministic, stochastic, and hybrid model families over the same canonical evidence. Deterministic NLMs can support replay-safe classification, gating, thresholding, and action envelopes. Stochastic NLMs can support latent-state inference, forecasting, reconstruction, anomaly scoring, and uncertainty-aware prediction. Hybrid NLMs can use deterministic envelopes over stochastic cores.",
       "The key is that both model classes should operate over the same provenance-aware Nature Message Frame or equivalent signal record. One evidence substrate feeds both repeatability and exploration.",

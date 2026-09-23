@@ -33,8 +33,8 @@ import {
   Microscope,
   TreeDeciduous,
   Globe,
-  LineChart,
   Beaker,
+  Leaf,
   Upload,
   BookMarked,
   Wind,
@@ -206,7 +206,7 @@ const SIX_LAYERS = [
     icon: Brain,
     cardClass: "border-amber-900/50 bg-amber-950/20",
     iconClass: "text-amber-300",
-    items: ["NLM-Funga foundation model", "Translation services", "Forecasting & anomaly detection"],
+    items: ["NLM-Funga signal-state model", "Translation services", "Forecasting & anomaly detection"],
   },
   {
     layer: "6",
@@ -259,7 +259,7 @@ export default function NLM2Page() {
                       className="border-amber-600/40 bg-amber-950/30 text-amber-200 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.2)]"
                     >
                       <Sparkles className="mr-1 h-3 w-3" />
-                      Foundation model
+                      Signal model family
                     </Badge>
                     <Badge
                       variant="outline"
@@ -446,46 +446,41 @@ export default function NLM2Page() {
                 happening but why and what might happen next. It integrates with MYCA&apos;s worldview and
                 AVANI&apos;s live Earth feeds so every agent shares an evolving logical substrate.
               </p>
-              <div className="mt-10 grid gap-6 lg:grid-cols-2">
-                <Card className={cn("border-stone-700/60 bg-[#0c1410]/90", NLM2_CARD_DEPTH)}>
+              <div className="mt-10 grid gap-6 md:grid-cols-3">
+                <Card className={cn("border-teal-900/50 bg-teal-950/20", NLM2_CARD_DEPTH)}>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-stone-100">
-                      <LineChart className="h-5 w-5 text-stone-400" />
-                      Large Language Models (LLM)
+                    <CardTitle className="flex items-center gap-2 text-teal-100">
+                      <Leaf className="h-5 w-5 text-cyan-400" />
+                      Primary signal
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 text-sm text-stone-400">
-                    <p>
-                      <strong className="text-stone-300">Primary signal:</strong> human text (plus images/audio)
-                    </p>
-                    <p>
-                      <strong className="text-stone-300">Core objective:</strong> predict / produce language tokens
-                    </p>
-                    <p>
-                      <strong className="text-stone-300">Ground truth:</strong> human-written corpora and supervised
-                      labels
-                    </p>
+                  <CardContent className="text-sm text-stone-400">
+                    <strong className="text-stone-200">Synchronized nature telemetry</strong> — time series,
+                    chemistry, imagery, and multi-channel sensor streams.
                   </CardContent>
                 </Card>
                 <Card className={cn("border-teal-900/50 bg-teal-950/20", NLM2_CARD_DEPTH)}>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-teal-100">
                       <Brain className="h-5 w-5 text-cyan-400" />
-                      Nature Learning Model (NLM)
+                      Core objective
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-stone-400">
+                    Learn latent environmental state and interaction dynamics of ecosystems under uncertainty.
+                  </CardContent>
+                </Card>
+                <Card className={cn("border-teal-900/50 bg-teal-950/20", NLM2_CARD_DEPTH)}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-teal-100">
+                      <Beaker className="h-5 w-5 text-cyan-400" />
+                      Ground truth
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm text-stone-400">
                     <p>
-                      <strong className="text-stone-200">Primary signal:</strong> synchronized nature telemetry
-                      (time series + chemistry + imagery)
-                    </p>
-                    <p>
-                      <strong className="text-stone-200">Core objective:</strong> learn latent state + interaction
-                      dynamics of ecosystems
-                    </p>
-                    <p>
-                      <strong className="text-stone-200">Ground truth:</strong> causal experiments, field
-                      observations, physical/biological assays
+                      <strong className="text-stone-200">Causal experiments</strong>, field observations, and
+                      physical/biological assays.
                     </p>
                     <p className="pt-2 text-xs text-teal-200/80">
                       Key constraint: scientifically falsifiable outputs with explicit uncertainty—not story-like
@@ -494,6 +489,11 @@ export default function NLM2Page() {
                   </CardContent>
                 </Card>
               </div>
+              <p className="mt-6 max-w-3xl text-sm text-stone-400">
+                NLM is a <strong className="text-stone-200">family of signal-state and scenario learning models</strong>
+                —not a chat or text-generation product. Human-language summaries are optional views of structured
+                state.
+              </p>
               <Card className={cn("mt-8 border-emerald-900/40 bg-emerald-950/15", NLM2_CARD_DEPTH)}>
                 <CardHeader>
                   <CardTitle className="text-stone-100">Abstract</CardTitle>
@@ -501,7 +501,7 @@ export default function NLM2Page() {
                 <CardContent className="text-stone-400">
                   <p className="italic leading-relaxed">
                     The <strong className="font-medium text-stone-200">Nature Learning Model (NLM)</strong> is a
-                    proposed class of multi-modal foundation models that learn the information-bearing signals of
+                    family of signal-state and scenario models that learn the information-bearing signals of
                     living and non-living Earth systems and translate them into operational representations usable by
                     humans, machines, and scientific workflows. The initial deliverable is{" "}
                     <strong className="text-stone-200">NLM-Funga</strong>, trained on standardized fungal datasets
