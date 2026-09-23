@@ -60,7 +60,7 @@ export const TOUR_SLIDES: TourSlide[] = [
   },
   {
     group: 'Readiness', label: 'Requirements', href: '/app/launchpad/readiness/controls', icon: ClipboardCheck,
-    blurb: 'The register of all 110 NIST SP 800-171 security requirements, marked by you with honest states. AI never marks anything implemented on your behalf.',
+    blurb: 'The register of all 110 NIST SP 800-171 security requirements, marked by you with honest states. SI never marks anything implemented on your behalf.',
   },
   {
     group: 'Readiness', label: 'Score', href: '/app/launchpad/readiness/score', icon: Gauge,
@@ -68,7 +68,7 @@ export const TOUR_SLIDES: TourSlide[] = [
   },
   {
     group: 'Readiness', label: 'POA&M', href: '/app/launchpad/readiness/poam', icon: ListChecks,
-    blurb: 'Plan of Action & Milestones for gaps that are eligible for deferred closure, with the 180-day clock in view. Eligibility comes from a deterministic rule pack, not an AI opinion.',
+    blurb: 'Plan of Action & Milestones for gaps that are eligible for deferred closure, with the 180-day clock in view. Eligibility comes from a deterministic rule pack, not an SI opinion.',
   },
   {
     group: 'Readiness', label: 'Closure Board', href: '/app/launchpad/readiness/closure', icon: Layers,
@@ -152,11 +152,11 @@ export const TOUR_SLIDES: TourSlide[] = [
   },
   {
     group: 'Account', label: 'Billing', href: '/app/launchpad/billing', icon: CreditCard,
-    blurb: 'Your plan, entitlements, and AI credit balance. Downgrading never deletes data — locked features re-enable in place when you upgrade.',
+    blurb: 'Your plan, entitlements, and SI credit balance. Downgrading never deletes data — locked features re-enable in place when you upgrade.',
   },
   {
-    group: 'Account', label: 'AI integrations', href: '/app/launchpad/settings/integrations', icon: Plug,
-    blurb: 'Connect your own AI provider keys or use managed credits. Bring-your-own-key actions never consume credits, on every tier.',
+    group: 'Account', label: 'SI integrations', href: '/app/launchpad/settings/integrations', icon: Plug,
+    blurb: 'Connect your own SI provider keys or use managed credits. Bring-your-own-key actions never consume credits, on every tier.',
   },
   {
     group: 'Account', label: 'API keys', href: '/app/launchpad/settings/keys', icon: KeyRound,

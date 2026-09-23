@@ -284,7 +284,7 @@ export default function LiveFeedSurface({
       <div className="pointer-events-none absolute bottom-1 left-1 z-20 flex flex-wrap items-center gap-1">
         {!showAi ? null : !ai.enabled ? (
           <span className={cn(chipBase, "border-white/10 bg-black/60 text-slate-500")} title="Set NEXT_PUBLIC_PSATHYRELLA_CAM_AI=1 to enable the detector overlay.">
-            AI off
+            SI off
           </span>
         ) : !ai.connected ? (
           <span className={cn(chipBase, "border-amber-400/40 bg-black/70 text-amber-200/90")}>Detector unreachable</span>

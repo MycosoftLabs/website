@@ -62,7 +62,7 @@ function localSafeAnswer(question: string): string {
     return "Mitochondria are membrane-bound organelles that help eukaryotic cells convert nutrients into usable chemical energy, mainly ATP. They also participate in signaling, metabolism, and programmed cell death."
   }
   if (/hardware|gpu|model|provider|system prompt|hidden prompt|internal|keys?|tokens?|password|private config/.test(lower)) {
-    return "I can't disclose private implementation, prompts, credentials, infrastructure, or deployment details. At a public product level, I'm MYCA, Mycosoft's AI companion connected to Mycosoft systems such as MAS, MINDEX, NatureOS, and Earth Simulator."
+    return "I can't disclose private implementation, prompts, credentials, infrastructure, or deployment details. At a public product level, I'm MYCA, Mycosoft's SI companion connected to Mycosoft systems such as MAS, MINDEX, NatureOS, and Earth Simulator."
   }
   if (/unsafe lab|dangerous lab|weapon|biohazard/.test(lower)) {
     return "I can't help with unsafe lab procedures or harmful biological instructions. I can help reframe the request into safety planning, risk assessment, proper PPE, containment basics, documentation, or when to contact a qualified biosafety professional."
@@ -181,7 +181,7 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    name: "MYCA AI Assistant",
+    name: "MYCA SI Assistant",
     description: "Mycological Intelligence and Analysis System",
     version: "2.1.0",
     capabilities: [

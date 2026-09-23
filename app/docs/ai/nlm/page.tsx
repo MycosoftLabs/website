@@ -12,13 +12,13 @@ import { Badge } from "@/components/ui/badge"
 export const metadata: Metadata = {
   title: "NLM",
   description:
-    "Nature Learning Model is Mycosoft's signal-native AI model family for calibrated physical telemetry, environmental state, and scientific prediction.",
+    "Nature Learning Model is Mycosoft's signal-native SI model family for calibrated physical telemetry, environmental state, and scientific prediction.",
 }
 
 const markdownPath = path.join(process.cwd(), "docs", "ai", "nlm.md")
 const sourceMarkdown = fs.readFileSync(markdownPath, "utf8")
 const articleMarkdown = sourceMarkdown.replace(
-  /^# Nature Learning Model \(NLM\)\r?\n## Signal-native AI for physical reality\r?\n\r?\n\*\*Public technical article draft\*\*\s*\r?\n\*\*Prepared for Mycosoft\*\*\s*\r?\n\*\*Version:\*\* v0\.1, May 2026\r?\n\r?\n---\r?\n\r?\n/,
+  /^# Nature Learning Model \(NLM\)\r?\n## Signal-native SI for physical reality\r?\n\r?\n\*\*Public technical article draft\*\*\s*\r?\n\*\*Prepared for Mycosoft\*\*\s*\r?\n\*\*Version:\*\* v0\.1, May 2026\r?\n\r?\n---\r?\n\r?\n/,
   "",
 )
 
@@ -92,13 +92,13 @@ export default function Page() {
           </Link>
           <span aria-hidden> / </span>
           <Link href="/docs/ai" className="hover:text-foreground">
-            AI Stack
+            SI Stack
           </Link>
         </nav>
 
         <header className="mb-8 overflow-hidden rounded-2xl border border-white/25 bg-white/55 p-6 shadow-2xl shadow-black/10 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/55 md:p-8">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">AI Stack</Badge>
+            <Badge variant="outline">SI Stack</Badge>
             <Badge variant="default">Public technical article</Badge>
             <Badge variant="outline">v0.1 · May 2026</Badge>
           </div>
@@ -106,7 +106,7 @@ export default function Page() {
             Nature Learning Model (NLM)
           </h1>
           <p className="mt-4 max-w-3xl text-xl font-semibold leading-relaxed text-muted-foreground">
-            Signal-native AI for physical reality.
+            Signal-native SI for physical reality.
           </p>
           <p className="mt-4 max-w-3xl leading-relaxed text-muted-foreground">
             A technical demonstration document for NLM schemas, sensor-native
@@ -269,7 +269,7 @@ export default function Page() {
             AVANI
           </Link>
           <Link href="/docs/ai" className="text-sm text-muted-foreground hover:text-foreground">
-            Back to AI Stack
+            Back to SI Stack
           </Link>
         </footer>
       </article>

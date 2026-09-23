@@ -55,7 +55,7 @@ export const CMMC_L2_SELF_ASSESSMENT: WalkthroughDef = {
       what:
         'Go through all 110 NIST SP 800-171 requirements and set an honest state on each: Not started, In progress, ' +
         'Customer-marked implemented, or Not applicable. “Customer-marked implemented” is the strongest state this product ' +
-        'ever records — it is your statement, not a certification, and AI never sets it for you.',
+        'ever records — it is your statement, not a certification, and SI never sets it for you.',
       why:
         'This register is the factual core of the whole assessment. Every downstream number and document derives from it, ' +
         'and an assessor’s first move is to pick a requirement you marked implemented and ask to see it work.',
@@ -144,7 +144,7 @@ export const CMMC_L2_SELF_ASSESSMENT: WalkthroughDef = {
         'ineligible requirement, or letting one age past 180 days, invalidates the conditional status you were counting on.',
       actions: [
         {
-          text: 'Open POA&M and review which of your gaps the rule pack marks eligible — the eligibility is deterministic, not an AI judgment.',
+          text: 'Open POA&M and review which of your gaps the rule pack marks eligible — the eligibility is deterministic, not an SI judgment.',
           link: { label: 'Open POA&M', href: '/app/launchpad/readiness/poam' },
         },
         { text: 'Give every item an owner and a realistic milestone date inside the 180-day window.' },

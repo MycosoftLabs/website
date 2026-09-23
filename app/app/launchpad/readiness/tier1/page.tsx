@@ -339,7 +339,7 @@ export default function Tier1Page() {
           <Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
           <span>
             <span className="font-medium text-foreground">Human-entered only.</span> Every record on
-            this page is created and completed by a person on your team. AI and automated agents can
+            this page is created and completed by a person on your team. SI and automated agents can
             never create or complete a record here — and nothing on this page marks anything
             &ldquo;met&rdquo; for you or certifies compliance with anything.
           </span>

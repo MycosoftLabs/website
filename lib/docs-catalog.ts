@@ -81,7 +81,7 @@ export const DOCS_CATALOG: DocSection[] = [
       {
         title: "Glossary",
         description:
-          "Mycology, AI, and federal-contracting terms in one place — written for newcomers.",
+          "Mycology, SI, and federal-contracting terms in one place — written for newcomers.",
         href: "/docs/glossary",
         status: "stable",
         sources: placeholderSources("glossary"),
@@ -90,11 +90,11 @@ export const DOCS_CATALOG: DocSection[] = [
   },
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 2. AI Stack
+  // 2. SI Stack
   // ─────────────────────────────────────────────────────────────────────────
   {
     id: "ai",
-    title: "AI Stack",
+    title: "SI Stack",
     href: "/docs/ai",
     description:
       "MYCA, AVANI, NLM, and the deterministic-vs-stochastic decision framework for field-deployed systems.",
@@ -125,13 +125,21 @@ export const DOCS_CATALOG: DocSection[] = [
       {
         title: "NLM",
         description:
-          "Natural Language for Mycology — research model trained on mycological literature and biosignal data.",
+          "Nature Learning Model — selective state-space model of physical environmental measurements.",
         href: "/docs/ai/nlm",
         status: "frontier",
-        sources: placeholderSources("nlm"),
+        sources: [{ label: "White paper", href: "/docs/ai/nlm", kind: "internal" }],
       },
       {
-        title: "Deterministic vs Stochastic AI",
+        title: "FormSpace",
+        description:
+          "Mathematical white paper: atlas, selective state-space update, prototypes, links, and synthetic measurements.",
+        href: "/docs/ai/formspace",
+        status: "frontier",
+        sources: [{ label: "White paper", href: "/docs/ai/formspace", kind: "internal" }],
+      },
+      {
+        title: "Deterministic vs Stochastic SI",
         description:
           "When to use rule-based pipelines, LLMs, or hybrids; reliability tradeoffs in field deployments.",
         href: "/docs/ai/deterministic-vs-stochastic",

@@ -34,7 +34,7 @@ const DOMAIN_OPTIONS = [
   { key: 'sensors', label: 'Sensors', hint: 'environmental, acoustic, optical, RF sensing' },
   { key: 'software', label: 'Software', hint: 'applications, firmware, simulation, tooling' },
   { key: 'data', label: 'Data', hint: 'datasets, pipelines, geospatial, telemetry' },
-  { key: 'ai', label: 'AI / ML', hint: 'models, inference, perception, analytics' },
+  { key: 'ai', label: 'SI / ML', hint: 'models, inference, perception, analytics' },
   { key: 'hardware', label: 'Hardware', hint: 'boards, enclosures, power, manufacturing' },
 ];
 
@@ -190,7 +190,7 @@ export default function PartnerMeshPage() {
       <PageHeader
         title="Partner Mesh"
         icon={Network}
-        description="An opt-in path to integrate your robotics, sensors, software, data, AI, or hardware into the FUSARIUM ecosystem. Everything here is off until you affirmatively turn it on."
+        description="An opt-in path to integrate your robotics, sensors, software, data, SI, or hardware into the FUSARIUM ecosystem. Everything here is off until you affirmatively turn it on."
         actions={<TierTag feature="partnerMesh" />}
       />
 

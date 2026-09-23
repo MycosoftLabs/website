@@ -166,7 +166,7 @@ const sensingPages = {
     accent: "cyan",
     heroImage: "/assets/myconode/myconode blue.jpg",
     summary:
-      "BlueSight is Mycosoft's visual sensing package: optical, spatial, and scene-intelligence systems that combine cameras, blue-light biological response, LiDAR, radar, WiFiSense, and edge AI into one perception fabric.",
+      "BlueSight is Mycosoft's visual sensing package: optical, spatial, and scene-intelligence systems that combine cameras, blue-light biological response, LiDAR, radar, WiFiSense, and edge SI into one perception fabric.",
     metrics: [
       { label: "Visual coverage", value: "Directional + panoramic" },
       { label: "Spatial channels", value: "LiDAR / radar / WiFiSense" },
@@ -205,7 +205,7 @@ const sensingPages = {
           "Radar and WiFiSense add motion, range, and presence signals. This lets MYCA distinguish visual anomalies from movement, occupancy, vibration, weather, or occlusion.",
       },
       {
-        title: "Edge visual AI",
+        title: "Edge visual SI",
         icon: Brain,
         // Aerial LiDAR map — wide-area perception plate.
         bg: "/assets/bluesite/lidar-aerial.png",
@@ -243,7 +243,7 @@ const sensingPages = {
       "Infrastructure and habitat surveys",
     ],
     softwarePlan: {
-      title: "BlueSight AI Sensing Software Plan",
+      title: "BlueSight SI Sensing Software Plan",
       intro:
         "BlueSight should become the reusable vision service that lets MYCA see live camera feeds, Petri dish simulations, field devices, and saved media through the same detection, segmentation, tracking, and MINDEX recording pipeline.",
       phases: [

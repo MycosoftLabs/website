@@ -156,9 +156,9 @@ export const FIELD_REGISTRY: FieldDataset[] = [
   {
     id: "helios",
     repo: "mycosoft/helios-solar-irradiance",
-    name: "Helios Solar Irradiance (Zeus AI)",
+    name: "Helios Solar Irradiance (Zeus SI)",
     group: "solar",
-    provider: "Zeus AI / Earthmover",
+    provider: "Zeus SI / Earthmover",
     coverage: "global",
     timeDim: "time", // VERIFY
     frames: 18,

@@ -4,7 +4,7 @@ import { ToolsHubIndex } from "@/components/natureos/apps/tools-hub/tools-hub-in
 export const metadata: Metadata = {
   title: "Tools Hub | NatureOS",
   description:
-    "Catalog of lab equipment, AI analysis, chemistry, biology, genetics, physics, and sampling tools across NatureOS.",
+    "Catalog of lab equipment, SI analysis, chemistry, biology, genetics, physics, and sampling tools across NatureOS.",
 }
 
 export default function NatureOSToolsHubPage() {

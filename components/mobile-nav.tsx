@@ -226,9 +226,9 @@ export function MobileNav() {
                   Agent Access
                 </Link>
 
-                {/* AI - Expandable (Overview, MYCA, AVANI, NLM) */}
+                {/* SI - Expandable (Overview, MYCA, AVANI, NLM) */}
                 <ExpandableSection
-                  title="AI"
+                  title="SI"
                   href="/ai"
                   icon={Bot}
                   items={AI_NAV_ITEMS.map(({ title, href, icon }) => ({ title, href, icon }))}
@@ -295,7 +295,7 @@ export function MobileNav() {
                   <DialogTrigger asChild>
                     <Button variant="outline" className="w-full justify-start" onClick={closeMenu}>
                       <Bot className="h-5 w-5 mr-2" />
-                      Myca AI Assistant
+                      Myca SI Assistant
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-4xl h-[80vh]">

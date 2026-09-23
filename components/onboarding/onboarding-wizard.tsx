@@ -36,12 +36,12 @@ const SLIDES = [
     id: 'welcome',
     title: 'Welcome to NatureOS',
     subtitle: 'The Operating System for Earth',
-    description: 'Connect with nature through AI-powered discovery, real-time environmental monitoring, and the world\'s largest fungal database.',
+    description: 'Connect with nature through superintelligence-powered discovery, real-time environmental monitoring, and the world\'s largest fungal database.',
     icon: Leaf,
     gradient: 'from-emerald-500 via-green-600 to-teal-600',
     features: [
       { icon: Database, label: '15,000+ Species', desc: 'Comprehensive fungal database' },
-      { icon: Microscope, label: 'AI Identification', desc: 'Instant species recognition' },
+      { icon: Microscope, label: 'SI Identification', desc: 'Instant species recognition' },
       { icon: Globe2, label: 'Live Earth View', desc: 'Real-time global monitoring' }
     ]
   },
@@ -54,7 +54,7 @@ const SLIDES = [
     gradient: 'from-violet-500 via-purple-600 to-indigo-600',
     features: [
       { icon: Dna, label: 'Genetic Data', desc: 'Full phylogenetic trees' },
-      { icon: Sparkles, label: 'AI Powered', desc: 'Smart search & identification' },
+      { icon: Sparkles, label: 'SI Powered', desc: 'Smart search & identification' },
       { icon: Database, label: 'Research Papers', desc: 'Linked scientific literature' }
     ]
   },
@@ -73,13 +73,13 @@ const SLIDES = [
   },
   {
     id: 'ai',
-    title: 'AI That Understands',
-    subtitle: 'MYCA AI Assistant',
-    description: 'Your personal mycology expert. Ask questions, get cultivation tips, identify specimens, and explore the fungal kingdom with AI guidance.',
+    title: 'SI That Understands',
+    subtitle: 'MYCA SI Assistant',
+    description: 'Your personal mycology expert. Ask questions, get cultivation tips, identify specimens, and explore the fungal kingdom with SI guidance.',
     icon: Brain,
     gradient: 'from-cyan-500 via-blue-600 to-indigo-600',
     features: [
-      { icon: Sparkles, label: 'Natural Chat', desc: 'Conversational AI' },
+      { icon: Sparkles, label: 'Natural Chat', desc: 'Conversational SI' },
       { icon: Microscope, label: 'Expert Knowledge', desc: 'Trained on scientific data' },
       { icon: Zap, label: 'Instant Answers', desc: 'Fast, accurate responses' }
     ]
@@ -88,7 +88,7 @@ const SLIDES = [
     id: 'signup',
     title: 'Join the Network',
     subtitle: 'Create Your Account',
-    description: 'Start exploring for free. Upgrade anytime for unlimited access to all features and premium AI capabilities.',
+    description: 'Start exploring for free. Upgrade anytime for unlimited access to all features and premium SI capabilities.',
     icon: Sparkles,
     gradient: 'from-emerald-500 via-teal-500 to-cyan-500',
     isSignup: true
@@ -554,7 +554,7 @@ function SignupSlide({ slide, onComplete }: { slide: typeof SLIDES[0], onComplet
           {[
             'Free forever plan available',
             '15,000+ species in our database',
-            'AI-powered identification',
+            'superintelligence-powered identification',
             'Real-time monitoring tools',
             'Community access'
           ].map((feature, i) => (

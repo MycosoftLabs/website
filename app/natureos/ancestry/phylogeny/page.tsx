@@ -21,6 +21,7 @@ export default function PhylogenyPage() {
 function PhylogenyPageContent() {
   const searchParams = useSearchParams()
   const taxonId = searchParams.get("taxon") || undefined
+  const legacyRootSpeciesId = taxonId && /^\d+$/.test(taxonId) ? Number(taxonId) : null
   const [treeType, setTreeType] = useState<"cladogram" | "phylogram" | "radial" | "unrooted">("cladogram")
   const [taxonomicLevel, setTaxonomicLevel] = useState("order")
   const [dataSource, setDataSource] = useState("its")
@@ -155,10 +156,13 @@ function PhylogenyPageContent() {
             <TabsContent value="tree">
               <Card>
                 <CardContent className="p-6">
-                  {treeRootMap && treeRootMap[selectedTree] ? (
-                    <PhylogenyVisualization rootSpeciesId={treeRootMap[selectedTree]} />
+                  {legacyRootSpeciesId !== null ? (
+                    <PhylogenyVisualization rootSpeciesId={legacyRootSpeciesId} />
                   ) : (
-                    <p className="text-muted-foreground">No visualization available for this tree.</p>
+                    <p className="text-muted-foreground">
+                      No verified legacy root is bound for this tree. Open a species record with a numeric taxon
+                      identifier to request its available lineage evidence.
+                    </p>
                   )}
                   <div className="flex justify-end gap-2 mt-4">
                     <button className="text-sm text-foreground/70 hover:text-foreground flex items-center gap-1">

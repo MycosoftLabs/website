@@ -385,7 +385,7 @@ function TONLDemo() {
       <div>
         <h3 className="font-semibold">Token Optimization (TONL)</h3>
         <p className="text-sm text-muted-foreground">
-          Reduces JSON size by 32-45% for AI prompts
+          Reduces JSON size by 32-45% for SI prompts
         </p>
       </div>
       
@@ -579,7 +579,7 @@ export default function IntegrationsPage() {
               { name: 'Animated Icons', status: 'active', desc: 'Framer Motion icon animations' },
               { name: 'TONL', status: 'active', desc: 'Token optimization (32-45% savings)' },
               { name: 'Nodemailer', status: 'active', desc: 'Email service with templates' },
-              { name: 'json-render', status: 'active', desc: 'AI-generated widget catalog' },
+              { name: 'json-render', status: 'active', desc: 'SI-generated widget catalog' },
               { name: 'PDF Extraction', status: 'active', desc: 'Research paper processing' },
               { name: 'maptoposter', status: 'ready', desc: 'Map generation service (Docker)' },
               { name: 'vex-tui', status: 'installed', desc: 'Terminal spreadsheet (Go)' },

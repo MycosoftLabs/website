@@ -50,7 +50,7 @@ interface GitHubRepo {
 const REPOS: GitHubRepo[] = [
   { 
     name: "mycosoft-mas", 
-    description: "Multi-Agent System (MAS) - AI orchestrator for fungal intelligence research", 
+    description: "Multi-Agent System (MAS) - SI orchestrator for fungal intelligence research",
     stars: 0, 
     forks: 0, 
     language: "Python", 
@@ -105,7 +105,7 @@ const REPOS: GitHubRepo[] = [
   },
   { 
     name: "myca-agents", 
-    description: "MYCA AI agent definitions and tools", 
+    description: "MYCA SI agent definitions and tools",
     stars: 5, 
     forks: 1, 
     language: "Python", 
@@ -133,7 +133,7 @@ results = mindex.species.search(
 for species in results:
     print(f"{species.scientific_name}: {species.observation_count} observations")
 
-# Chat with MYCA AI
+# Chat with MYCA SI
 myca = MYCA()
 response = myca.chat(
     "What are the medicinal properties of Lion's Mane?",
@@ -142,7 +142,7 @@ response = myca.chat(
 print(response.message)
 
 # All interactions are logged for MYCA training
-# Your usage helps improve the AI!`,
+# Your usage helps improve the SI!`,
 
   typescript: `// Install: npm install @mycosoft/sdk
 import { MINDEXClient, MYCAClient } from '@mycosoft/sdk';
@@ -162,7 +162,7 @@ species.forEach(s => {
   console.log(\`\${s.scientificName}: \${s.commonName}\`);
 });
 
-// Get AI assistance
+// Get SI assistance
 const response = await myca.chat({
   message: 'Explain mycelium network communication',
   context: 'development'
@@ -171,26 +171,26 @@ const response = await myca.chat({
 console.log(response.message);
 
 // SDK usage is logged to improve MYCA
-// Thank you for contributing to our AI!`,
+// Thank you for contributing to our SI!`,
 
   curl: `# MINDEX Species API
-curl -X GET "https://api.mycosoft.org/v1/species/search?q=agaricus&limit=10" \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
+curl -X GET "https://api.mycosoft.org/v1/species/search?q=agaricus&limit=10" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json"
 
-# MYCA AI Chat
-curl -X POST "https://api.mycosoft.org/v1/ai/chat" \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
+# MYCA SI Chat
+curl -X POST "https://api.mycosoft.org/v1/ai/chat" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
   -d '{
     "message": "What fungi are best for bioremediation?",
     "context": "research"
   }'
 
 # Submit Training Feedback
-curl -X POST "https://api.mycosoft.org/v1/training/feedback" \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
+curl -X POST "https://api.mycosoft.org/v1/training/feedback" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
   -d '{
     "type": "correction",
     "original": "incorrect response",
@@ -371,7 +371,7 @@ export default function SDKPage() {
         </h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
           Build applications on top of Mycosoft's fungal intelligence platform.
-          Access 500,000+ species, real-time data, and MYCA AI.
+          Access 500,000+ species, real-time data, and MYCA SI.
         </p>
         <div className="flex justify-center gap-4">
           <Button size="lg" asChild>
@@ -404,7 +404,7 @@ export default function SDKPage() {
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-3xl font-bold text-purple-500">MYCA</div>
-            <div className="text-sm text-muted-foreground">AI Assistant</div>
+            <div className="text-sm text-muted-foreground">SI Assistant</div>
           </CardContent>
         </Card>
         <Card>
@@ -520,7 +520,7 @@ export default function SDKPage() {
             </Badge>
           </CardTitle>
           <CardDescription>
-            Test the MYCA AI API directly - All interactions train the model
+            Test the MYCA SI API directly - All interactions train the model
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -651,9 +651,9 @@ export default function SDKPage() {
             </div>
             <div className="p-4 border rounded-lg">
               <Bot className="h-8 w-8 text-purple-500 mb-2" />
-              <h3 className="font-semibold">MYCA AI</h3>
+              <h3 className="font-semibold">MYCA SI</h3>
               <p className="text-sm text-muted-foreground">
-                Natural language AI for fungal knowledge, code generation, and research assistance
+                Natural language SI for fungal knowledge, code generation, and research assistance
               </p>
               <Button variant="link" className="px-0 mt-2" asChild>
                 <Link href="/natureos/shell">Try Shell →</Link>
@@ -681,7 +681,7 @@ export default function SDKPage() {
             Help Train MYCA
           </CardTitle>
           <CardDescription>
-            Every SDK interaction improves our AI. Thank you for contributing!
+            Every SDK interaction improves our SI. Thank you for contributing!
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

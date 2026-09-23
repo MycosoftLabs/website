@@ -51,7 +51,7 @@ const FINGERS = [
     id: "apple",
     icon: Smartphone,
     title: "Apple / Meta",
-    subtitle: "Product-based AI",
+    subtitle: "Product-based SI",
     lineage: "Device UX, privacy positioning, social & product ecosystems",
     dataRoot: "User interactions, on-device + private cloud, product data",
     limitation: "Intimate but isolated, no planetary view",

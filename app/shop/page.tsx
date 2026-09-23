@@ -55,13 +55,13 @@ const PRODUCTS = [
       'CO2 monitoring (0-5000 ppm)',
       'VOC & gas detection',
       'Dual BME688 sensors',
-      'BSEC AI gas analysis',
+      'BSEC SI gas analysis',
       'Advanced analytics',
       'NeoPixel status LED',
       'Buzzer alerts',
     ],
     specs: {
-      sensors: ['Dual BME688 (AI Gas Sensing)', 'CO2 sensor'],
+      sensors: ['Dual BME688 (SI Gas Sensing)', 'CO2 sensor'],
       connectivity: 'WiFi 2.4GHz + BLE',
       power: 'USB-C (5V) / Battery option',
       range: 'Indoor + Greenhouse',
@@ -181,7 +181,7 @@ export default function ShopPage() {
             </h1>
             <p className="text-xl text-slate-400">
               Professional environmental monitoring for your mushroom cultivation. 
-              Real-time data, AI-powered insights, and seamless NatureOS integration.
+              Real-time data, superintelligence-powered insights, and seamless NatureOS integration.
             </p>
           </motion.div>
         </div>

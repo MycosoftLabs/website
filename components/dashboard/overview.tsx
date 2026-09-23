@@ -32,7 +32,7 @@ export function Overview() {
         </Card>
         <Card className="bg-purple-500/10 border-purple-500/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">AI Operations</CardTitle>
+            <CardTitle className="text-sm font-medium">SI Operations</CardTitle>
             <Bot className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
@@ -93,7 +93,7 @@ export function Overview() {
           <CardContent>
             <div className="space-y-4">
               {[
-                { icon: Bot, text: "AI Model training completed", time: "2m ago", status: "success" },
+                { icon: Bot, text: "SI Model training completed", time: "2m ago", status: "success" },
                 { icon: AlertCircle, text: "High network load detected", time: "5m ago", status: "warning" },
                 { icon: Cloud, text: "New node cluster deployed", time: "15m ago", status: "success" },
                 { icon: Database, text: "Database backup completed", time: "1h ago", status: "success" },
@@ -125,7 +125,7 @@ export function Overview() {
             <div className="grid gap-2">
               <Button className="w-full justify-start" variant="outline">
                 <Bot className="mr-2 h-4 w-4" />
-                Launch AI Studio
+                Launch SI Studio
               </Button>
               <Button className="w-full justify-start" variant="outline">
                 <Globe className="mr-2 h-4 w-4" />

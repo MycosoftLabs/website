@@ -39,7 +39,7 @@ export function AIStudioUnauthorized({ reason, email }: AIStudioUnauthorizedProp
           <div className="space-y-2">
             <h1 className="text-2xl font-bold flex items-center justify-center gap-2">
               <Brain className="h-6 w-6 text-purple-500" />
-              MYCA AI Studio
+              MYCA SI Studio
             </h1>
             <p className="text-lg font-semibold text-muted-foreground">
               Access Restricted
@@ -51,7 +51,7 @@ export function AIStudioUnauthorized({ reason, email }: AIStudioUnauthorizedProp
             {reason === "unauthenticated" ? (
               <>
                 <p>
-                  The MYCA AI Studio is an internal tool restricted to authorized
+                  The MYCA SI Studio is an internal tool restricted to authorized
                   Mycosoft team members only.
                 </p>
                 <p>
@@ -63,13 +63,13 @@ export function AIStudioUnauthorized({ reason, email }: AIStudioUnauthorizedProp
             ) : (
               <>
                 <p>
-                  The MYCA AI Studio is an internal tool available only to
+                  The MYCA SI Studio is an internal tool available only to
                   authorized Mycosoft team members.
                 </p>
                 {email && (
                   <p className="text-xs bg-muted/50 rounded-lg px-3 py-2">
                     Signed in as <strong className="text-foreground">{email}</strong> — this
-                    account does not have access to the AI Studio.
+                    account does not have access to the SI Studio.
                   </p>
                 )}
                 <p>

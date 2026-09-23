@@ -169,7 +169,7 @@ const FUNCTIONS: ServerlessFunction[] = [
   { 
     id: "fn-009", 
     name: "ai-response-handler", 
-    description: "Handle AI/MYCA responses",
+    description: "Handle SI/MYCA responses",
     runtime: "Node.js 20", 
     status: "active", 
     invocations: 15600, 
@@ -353,7 +353,7 @@ Generate TypeScript/Node.js code that:
       }
     } catch (e) {
       setGeneratedCode(`// Error generating function
-// MYCA AI backend may be unavailable
+// MYCA SI backend may be unavailable
 
 // Template function:
 export default async function handler(req: Request) {
@@ -664,7 +664,7 @@ export default async function handler(req: Request) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-500" />
-              Create Function with MYCA AI
+              Create Function with MYCA SI
             </DialogTitle>
             <DialogDescription>
               Describe what you want your function to do, and MYCA will generate the code
@@ -696,7 +696,7 @@ export default async function handler(req: Request) {
               ) : (
                 <>
                   <Bot className="h-4 w-4 mr-2" />
-                  Generate with MYCA AI
+                  Generate with MYCA SI
                 </>
               )}
             </Button>

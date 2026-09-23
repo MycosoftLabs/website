@@ -455,9 +455,9 @@ function HeaderContent() {
             <span>About Us</span>
           </a>
 
-          {/* AI Dropdown — public IA: Overview, MYCA, AVANI, NLM, Agent Access */}
+          {/* SI Dropdown — public IA: Overview, MYCA, AVANI, NLM, Agent Access */}
           <NavDropdown
-            label="AI"
+            label="SI"
             icon={Bot}
             items={AI_NAV_ITEMS}
             isOpen={openDropdown === "ai"}

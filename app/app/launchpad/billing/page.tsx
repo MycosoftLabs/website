@@ -93,7 +93,7 @@ export default function BillingPage() {
       <PageHeader
         title="Billing"
         icon={CreditCard}
-        description="Your plan, AI-credit balance, and the checkout for changing either — all payment handling stays on Stripe's side."
+        description="Your plan, SI-credit balance, and the checkout for changing either — all payment handling stays on Stripe's side."
       />
 
       {/* Education-first: what / why / next step */}
@@ -102,7 +102,7 @@ export default function BillingPage() {
           <div>
             <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1">What is this</div>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              This workspace&rsquo;s plan, AI-credit balance, and the checkout to change either.
+              This workspace&rsquo;s plan, SI-credit balance, and the checkout to change either.
               Every payment runs on Stripe&rsquo;s hosted checkout — card details never touch
               Launchpad.
             </p>
@@ -119,7 +119,7 @@ export default function BillingPage() {
             <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1">Your next step</div>
             <p className="text-xs text-muted-foreground leading-relaxed">
               No plan yet? The Launch Pass is the one-time, never-auto-renewing way to start.
-              Already on a plan? Top up AI credits with a pack below.
+              Already on a plan? Top up SI credits with a pack below.
             </p>
           </div>
         </div>
@@ -146,7 +146,7 @@ export default function BillingPage() {
           value={<span className="text-lg">{state?.derived.mode ?? 'unknown'}</span>}
         />
         <StatTile
-          label="AI credits"
+          label="SI credits"
           tone="sky"
           value={
             <span className="inline-flex items-center gap-2">

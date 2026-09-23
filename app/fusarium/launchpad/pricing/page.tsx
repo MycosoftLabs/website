@@ -67,7 +67,7 @@ function planFeatures(key: PlanKey): string[] {
   const e = PLAN_ENTITLEMENTS[key]
   const f = [
     `${e.users} users`,
-    `${e.aiCreditsMonthly} AI credits / month`,
+    `${e.aiCreditsMonthly} SI credits / month`,
     `${e.contractRadarFrequency === "daily" ? "Daily" : "Weekly"} Contract Radar matching`,
     `${e.activeOpportunityWatches} active opportunity watches`,
   ]
@@ -257,7 +257,7 @@ export default function LaunchpadPricingPage() {
                     <Coins className="h-5 w-5 text-emerald-500" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-lg font-semibold leading-tight">AI credit packs</h3>
+                    <h3 className="text-lg font-semibold leading-tight">SI credit packs</h3>
                     <p className="text-[11px] uppercase tracking-widest text-muted-foreground mt-0.5">
                       One-time · never expires
                     </p>
@@ -303,7 +303,7 @@ export default function LaunchpadPricingPage() {
                 </ul>
 
                 <p className="text-xs text-muted-foreground leading-relaxed mt-5 pt-4 border-t border-border/60">
-                  Bringing your own AI provider key costs zero credits — on every plan, including
+                  Bringing your own SI provider key costs zero credits — on every plan, including
                   the entry tier.
                 </p>
 

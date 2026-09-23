@@ -120,7 +120,7 @@ export default function DataBoundaryPage() {
             <Ban className="h-4 w-4 text-red-500" /> Never put these in Launchpad
           </h2>
           <p className="text-sm text-muted-foreground mb-3">
-            Not in a form, a note, a task, an evidence title, or an AI chat box:
+            Not in a form, a note, a task, an evidence title, or an SI chat box:
           </p>
           <ul className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5">
             {PROHIBITED_EXAMPLES.map((item) => (
@@ -221,7 +221,7 @@ function ClassCard({ card }: { card: (typeof DATA_CLASSES)[number] }) {
             <dd className="text-xs leading-relaxed mt-0.5">{card.allowedDetail}</dd>
           </div>
           <div>
-            <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Can AI features use it?</dt>
+            <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Can SI features use it?</dt>
             <dd className="text-xs leading-relaxed mt-0.5">{card.aiUse}</dd>
           </div>
           <div>

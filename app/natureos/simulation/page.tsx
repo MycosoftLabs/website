@@ -162,7 +162,7 @@ export default function SimulationPage() {
               <CardHeader>
                 <CardTitle>Integration</CardTitle>
                 <CardDescription>
-                  Links to MATLAB AI Studio and device management
+                  Links to MATLAB SI Studio and device management
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -170,7 +170,7 @@ export default function SimulationPage() {
                   <Button asChild variant="outline">
                     <Link href="/natureos/ai-studio">
                       <Cpu className="h-4 w-4 mr-2" />
-                      AI Studio
+                      SI Studio
                     </Link>
                   </Button>
                   <Button asChild variant="outline">

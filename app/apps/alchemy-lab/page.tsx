@@ -246,7 +246,7 @@ export function AlchemyLabContent() {
                   Computational Alchemy Lab
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Design novel fungal compounds with AI-powered predictions
+                  Design novel fungal compounds with superintelligence-powered predictions
                 </p>
               </div>
             </div>

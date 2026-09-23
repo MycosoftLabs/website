@@ -137,8 +137,8 @@ const API_ENDPOINTS: APIEndpoint[] = [
   { 
     method: "POST", 
     path: "/api/ai", 
-    description: "Send request to MYCA AI assistant", 
-    category: "AI",
+    description: "Send request to MYCA SI assistant",
+    category: "SI",
     mycaIntegrated: true,
     bodySchema: `{
   "message": "Your question or request",
@@ -150,7 +150,7 @@ const API_ENDPOINTS: APIEndpoint[] = [
     method: "POST", 
     path: "/api/myca/training", 
     description: "Submit training data to improve MYCA", 
-    category: "AI",
+    category: "SI",
     mycaIntegrated: true,
     bodySchema: `{
   "type": "feedback | correction | example",
@@ -163,21 +163,21 @@ const API_ENDPOINTS: APIEndpoint[] = [
     method: "GET", 
     path: "/api/myca/conversations", 
     description: "Get MYCA conversation history", 
-    category: "AI",
+    category: "SI",
     mycaIntegrated: true
   },
   { 
     method: "GET", 
     path: "/api/myca/workflows", 
-    description: "List AI-managed n8n workflows", 
-    category: "AI",
+    description: "List SI-managed n8n workflows",
+    category: "SI",
     mycaIntegrated: true
   },
   { 
     method: "GET", 
     path: "/api/myca/runs", 
     description: "Get recent agent runs", 
-    category: "AI",
+    category: "SI",
     mycaIntegrated: true
   },
   
@@ -309,7 +309,7 @@ const METHOD_COLORS = {
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   MINDEX: <Database className="h-4 w-4" />,
-  AI: <Bot className="h-4 w-4" />,
+  SI: <Bot className="h-4 w-4" />,
   System: <Settings className="h-4 w-4" />,
   Infrastructure: <Network className="h-4 w-4" />,
   Storage: <Database className="h-4 w-4" />,
@@ -703,7 +703,7 @@ export default function APIPage() {
               <h4 className="font-semibold">MYCA Learning Mode</h4>
               <p className="text-sm text-muted-foreground">
                 All API interactions are logged to improve MYCA's understanding of developer needs. 
-                Your usage helps make the AI better for everyone!
+                Your usage helps make the SI better for everyone!
               </p>
             </div>
             <Button variant="outline" asChild>

@@ -970,7 +970,7 @@ export function SpeciesWidget({
             </Button>
             <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] rounded-lg"
               onClick={() => onFocusWidget?.({ type: "ai" })}>
-                <Sparkles className="h-2.5 w-2.5 mr-0.5" /> AI
+                <Sparkles className="h-2.5 w-2.5 mr-0.5" /> SI
             </Button>
             {onAddToNotepad && (
               <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] rounded-lg"

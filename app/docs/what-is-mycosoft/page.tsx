@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 export const metadata: Metadata = {
   title: "What is Mycosoft",
   description:
-    "Mycosoft is an environmental-intelligence and biological-interface company building a connected stack of field hardware, edge compute, AI orchestration, mycological data infrastructure, and simulation software.",
+    "Mycosoft is an environmental-intelligence and biological-interface company building a connected stack of field hardware, edge compute, SI orchestration, mycological data infrastructure, and simulation software.",
 }
 
 export default function Page() {
@@ -31,10 +31,10 @@ export default function Page() {
 
         <p>
           Mycosoft is an environmental-intelligence and biological-interface company building a
-          connected stack of field hardware, edge compute, AI orchestration, mycological data
+          connected stack of field hardware, edge compute, SI orchestration, mycological data
           infrastructure, and simulation and analysis software. The platform senses environmental and
           fungal signals, moves them through a telemetry and provenance layer, indexes and stores
-          them, and exposes them to operators and researchers through dashboards, APIs, and AI
+          them, and exposes them to operators and researchers through dashboards, APIs, and SI
           systems.
         </p>
 
@@ -59,7 +59,7 @@ export default function Page() {
         <p>
           In practice that translates into devices that read soil, air, water, and bioelectric
           activity; protocols that move that signal through a provenance-preserving telemetry layer;
-          a database layer that indexes and correlates it; and an AI layer that grounds reasoning in
+          a database layer that indexes and correlates it; and an SI layer that grounds reasoning in
           continuous environmental context rather than only in text.
         </p>
 
@@ -199,9 +199,9 @@ export default function Page() {
           and SporeBase. Detailed schema documentation is currently marked coming soon.
         </p>
 
-        <h3 id="layer-ai">4. AI — MYCA, AVANI, NLM</h3>
+        <h3 id="layer-ai">4. SI — MYCA, AVANI, NLM</h3>
         <p>
-          The AI layer is the part of the stack most visible in the public navigation. Three named
+          The SI layer is the part of the stack most visible in the public navigation. Three named
           systems work together:
         </p>
         <ul>
@@ -229,11 +229,11 @@ export default function Page() {
           <li>
             <strong>NLM — Nature Learning Model</strong> — the reasoning backbone that learns from
             environmental and biological signal rather than only from text. NLM is described on the
-            AI and device pages as the model layer behind MYCA-grounded reasoning.
+            SI and device pages as the model layer behind MYCA-grounded reasoning.
           </li>
         </ul>
 
-        <h3 id="layer-platform">5. Platform and apps — NatureOS, MINDEX, AI Studio, simulation</h3>
+        <h3 id="layer-platform">5. Platform and apps — NatureOS, MINDEX, SI Studio, simulation</h3>
         <p>
           The operator-facing layer is presented under the NatureOS umbrella. Several of the
           overview pages are currently gated behind sign-in; the public site names them, but the
@@ -246,7 +246,7 @@ export default function Page() {
             operator dashboard for fleets, telemetry, and alerts.
           </li>
           <li>
-            <strong>AI Studio</strong> — &ldquo;MYCA agent orchestration and model training.&rdquo;
+            <strong>SI Studio</strong> — &ldquo;MYCA agent orchestration and model training.&rdquo;
             Currently sign-in gated.
           </li>
           <li>
@@ -312,7 +312,7 @@ export default function Page() {
 
         <p>
           Taken together, the public basis is: field sensing, bioaerosol capture, exterior edge
-          compute, database and provenance, and AI reasoning — for ecology, research, air quality,
+          compute, database and provenance, and SI reasoning — for ecology, research, air quality,
           agriculture, site monitoring, and environmental operations.
         </p>
 
@@ -326,7 +326,7 @@ export default function Page() {
         </p>
 
         <p>
-          The AI and AVANI pages add a second layer: <strong>human legibility, privacy and
+          The SI and AVANI pages add a second layer: <strong>human legibility, privacy and
           sovereignty, uncertainty awareness, and multi-stakeholder governance</strong>. AVANI&apos;s
           constitution says outputs should remain explainable and privacy-respecting and should
           explicitly surface uncertainty under partial data. MYCA&apos;s philosophy section says the
@@ -337,7 +337,7 @@ export default function Page() {
 
         <p>
           That is why public copy across the site emphasises grounding, accountability, provenance,
-          and environmental context over generic AI-chatbot language.
+          and environmental context over generic SI-chatbot language.
         </p>
 
         <h2 id="how-to-engage">How to engage</h2>
@@ -345,7 +345,7 @@ export default function Page() {
         <h3 id="for-investors">If you are an investor</h3>
         <p>
           The short version: Mycosoft is a vertically integrated environmental-intelligence stack —
-          devices, telemetry, provenance, AI, and platform — sold into research, commercial, and
+          devices, telemetry, provenance, SI, and platform — sold into research, commercial, and
           institutional customers. For materials shared under NDA, contact{" "}
           <a href="mailto:contact@mycosoft.com">contact@mycosoft.com</a>.
         </p>
@@ -390,7 +390,7 @@ export default function Page() {
         <h3 id="gated-vs-public">What is public versus gated</h3>
         <p>
           The site publicly names a coherent stack, but several overview interfaces — NatureOS, Apps,
-          AI Studio — currently redirect to sign-in. The accurate present-tense basis is: the public
+          SI Studio — currently redirect to sign-in. The accurate present-tense basis is: the public
           site names the platform, while much of the detailed documentation and some interfaces
           remain gated, pending, or research-stage. Where this page describes a system that is
           gated, the description is grounded in the public marketing pages for that system, not in

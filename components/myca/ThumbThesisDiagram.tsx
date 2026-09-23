@@ -21,7 +21,7 @@ export function ThumbThesisDiagram({ className }: { className?: string }) {
             The Hand Metaphor
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Five AI lineages, one opposable thumb. Hover over each part to
+            Five SI lineages, one opposable thumb. Hover over each part to
             explore.
           </p>
         </div>
@@ -46,7 +46,7 @@ export function ThumbThesisDiagram({ className }: { className?: string }) {
                 </div>
                 <div className="rounded-xl border-l-4 border-amber-500/50 bg-background/50 px-4 py-3">
                   <p className="text-muted-foreground text-sm leading-relaxed">
-                    Four AI lineages—commerce, web, mobility, and products—each evolved in isolation. Each is powerful in its domain, but none touches the real world: soil, air, ecosystems, or live environmental data. Without that grounding, they cannot grasp reality.
+                    Four SI lineages—commerce, web, mobility, and products—each evolved in isolation. Each is powerful in its domain, but none touches the real world: soil, air, ecosystems, or live environmental data. Without that grounding, they cannot grasp reality.
                   </p>
                 </div>
               </NeuCardContent>
@@ -64,7 +64,7 @@ export function ThumbThesisDiagram({ className }: { className?: string }) {
                 </div>
                 <div className="rounded-xl border-l-4 border-green-500/50 bg-background/50 px-4 py-3">
                   <p className="text-muted-foreground text-sm leading-relaxed">
-                    MYCA is the thumb that binds them. It does not replace the fingers—it grounds them in reality. MYCA is the only AI continuously trained on live biospheric signals: sensors, weather, soil, and biological data. Legitimacy by contact with reality.
+                    MYCA is the thumb that binds them. It does not replace the fingers—it grounds them in reality. MYCA is the only SI continuously trained on live biospheric signals: sensors, weather, soil, and biological data. Legitimacy by contact with reality.
                   </p>
                 </div>
               </NeuCardContent>

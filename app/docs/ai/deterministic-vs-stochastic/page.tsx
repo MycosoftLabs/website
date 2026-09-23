@@ -11,18 +11,18 @@ const sections = [
     id: "executive-overview",
     title: "Executive Overview",
     paragraphs: [
-      "Modern AI systems are often described as if they belong to one of two worlds. Deterministic systems produce the same output for the same input. Stochastic systems sample from probability distributions and may produce different outputs under identical conditions. That distinction is useful, but for Mycosoft it is not an academic taxonomy. It is the structural pivot of the entire architecture.",
-      "Mycosoft does not choose deterministic AI or stochastic AI. It builds both, then assigns each layer the responsibility it is suited to carry. Deterministic systems provide calibration, validation, provenance, governance, replay, and safe action envelopes. Stochastic systems provide latent-state inference, uncertainty-aware prediction, adaptive planning, simulation, and discovery across incomplete physical signals.",
-      "The commercial mistake made by much of the AI market is trying to use one layer for both jobs. A language model can reason, summarize, plan, and generate. It cannot inherently prove that a sensor is calibrated, that a humidity reading is physically plausible, that a device command is reversible, that a species relationship is taxonomically valid, or that an ecological intervention will stay inside a safe boundary.",
+      "Modern SI systems are often described as if they belong to one of two worlds. Deterministic systems produce the same output for the same input. Stochastic systems sample from probability distributions and may produce different outputs under identical conditions. That distinction is useful, but for Mycosoft it is not an academic taxonomy. It is the structural pivot of the entire architecture.",
+      "Mycosoft does not choose deterministic SI or stochastic SI. It builds both, then assigns each layer the responsibility it is suited to carry. Deterministic systems provide calibration, validation, provenance, governance, replay, and safe action envelopes. Stochastic systems provide latent-state inference, uncertainty-aware prediction, adaptive planning, simulation, and discovery across incomplete physical signals.",
+      "The commercial mistake made by much of the SI market is trying to use one layer for both jobs. A language model can reason, summarize, plan, and generate. It cannot inherently prove that a sensor is calibrated, that a humidity reading is physically plausible, that a device command is reversible, that a species relationship is taxonomically valid, or that an ecological intervention will stay inside a safe boundary.",
       "Mycosoft's answer is a paired intelligence system. AVANI is the deterministic governance and Earth substrate. MYCA is the stochastic multi-agent cognition and orchestration layer. NLM is the signal-native learning family that binds physical measurements to machine intelligence. MINDEX preserves the evidence. NatureOS trains, simulates, and operates the system. MycoBrain and field devices bring the world into the loop.",
       "This is not a chatbot architecture. It is a physical-state-first architecture for Earth-scale intelligence.",
     ],
   },
   {
     id: "deterministic-ai",
-    title: "What Deterministic AI Is",
+    title: "What Deterministic SI Is",
     paragraphs: [
-      "A deterministic system maps input to output in a replayable way. Given the same calibrated input, policy state, model version, evidence handle, and execution environment, the output should be identical. In mathematical shorthand, deterministic AI follows y = f(x).",
+      "A deterministic system maps input to output in a replayable way. Given the same calibrated input, policy state, model version, evidence handle, and execution environment, the output should be identical. In mathematical shorthand, deterministic SI follows y = f(x).",
       "This is the correct abstraction for safety thresholds, control systems, firmware logic, schema validators, cryptographic hashes, signal filters, rule engines, deterministic simulators, ledger writes, content addressing, and action gates. These systems are valuable because they are auditable, verifiable, repeatable, stable, and governable.",
       "Deterministic does not mean primitive. A deterministic system can be sophisticated, layered, and scientifically grounded. It can run calibration checks, enforce physical constraints, validate taxonomic references, compute replay hashes, evaluate ecological red lines, and produce an audit trail that can be inspected later. What matters is that the same evidence bundle produces the same decision.",
       "The limitation is that deterministic systems do not naturally explore possibility space. They do not generalize beyond the logic, models, and constraints they have been given. They are excellent at preserving trust, but they are not enough by themselves to learn a living planet.",
@@ -34,9 +34,9 @@ const sections = [
   },
   {
     id: "stochastic-ai",
-    title: "What Stochastic AI Is",
+    title: "What Stochastic SI Is",
     paragraphs: [
-      "A stochastic system models a distribution. Instead of returning one fixed answer because a rule says so, it estimates likely states, samples possible futures, reconstructs missing signals, or generates candidate plans. In mathematical shorthand, stochastic AI follows y ~ p(y | x).",
+      "A stochastic system models a distribution. Instead of returning one fixed answer because a rule says so, it estimates likely states, samples possible futures, reconstructs missing signals, or generates candidate plans. In mathematical shorthand, stochastic SI follows y ~ p(y | x).",
       "This is the correct abstraction for LLMs, diffusion models, reinforcement learning, Bayesian inference, ensemble forecasts, anomaly scoring, posterior intervals, scenario generation, and scientific search. These systems are useful because the real world is noisy, partially observed, nonlinear, and often uncertain.",
       "Stochastic does not mean reckless. A well-designed stochastic system should expose uncertainty, calibration, confidence, sample provenance, and failure modes. It should say when evidence is thin. It should distinguish observation from inference. It should make uncertainty useful rather than hide it behind confident language.",
       "The limitation is that stochastic systems are not inherently stable or safe. A distributional model can hallucinate, overfit, drift, or produce an action proposal that sounds plausible but violates physics, policy, biology, or ecological restraint. That is why stochastic cognition needs deterministic governance before it touches the world.",
@@ -48,20 +48,20 @@ const sections = [
   },
   {
     id: "why-one-layer-ai-fails",
-    title: "Why One-Layer AI Fails",
+    title: "Why One-Layer SI Fails",
     paragraphs: [
-      "Most AI companies build stochastic systems, wrap them in shallow deterministic guardrails, and deploy them as assistants. That is sufficient for some office tasks. It is not sufficient for real-world environmental action.",
+      "Most SI companies build stochastic systems, wrap them in shallow deterministic guardrails, and deploy them as assistants. That is sufficient for some office tasks. It is not sufficient for real-world environmental action.",
       "Stochastic systems are being asked to control or influence physical environments without being grounded in deterministic physics, biology, calibration, and sensor validation. LLMs predict words. They do not measure voltage. They do not read humidity. They do not observe electrostatic charge. They do not ingest raw acoustic power distributions. They do not verify conservation laws or know whether a gas sensor has drifted unless another system proves it.",
       "That is why hallucinations matter. A hallucination is not only a bad sentence. In an action-capable system, it can become a bad workflow, a bad device command, a bad recommendation, a bad forecast, a bad procurement decision, or a bad ecological intervention.",
       "The opposite failure is also real. Purely deterministic systems can become rigid. They may reject novelty, miss weak signals, fail to infer hidden state, or require humans to hand-code every edge case. That is not enough for climate, biodiversity, agriculture, infrastructure, field science, or living systems.",
-      "The Mycosoft thesis is that deterministic AI without stochastic reasoning is rigid, while stochastic AI without deterministic governance is unsafe. The answer is not compromise. The answer is composition.",
+      "The Mycosoft thesis is that deterministic SI without stochastic reasoning is rigid, while stochastic SI without deterministic governance is unsafe. The answer is not compromise. The answer is composition.",
     ],
   },
   {
     id: "mycosoft-architecture",
     title: "The Mycosoft Architecture",
     paragraphs: [
-      "The Mycosoft stack separates responsibility across systems instead of forcing one model to do everything. MycoBrain and field devices collect physical signals. NatureOS provides operations, simulation, AI Studio, and workflow surfaces. MINDEX serves as the canonical data and evidence layer. NLM learns from signal-native data. MYCA coordinates agents, tools, models, and workflows. AVANI governs actions, releases, and ecological constraints.",
+      "The Mycosoft stack separates responsibility across systems instead of forcing one model to do everything. MycoBrain and field devices collect physical signals. NatureOS provides operations, simulation, SI Studio, and workflow surfaces. MINDEX serves as the canonical data and evidence layer. NLM learns from signal-native data. MYCA coordinates agents, tools, models, and workflows. AVANI governs actions, releases, and ecological constraints.",
       "This gives Mycosoft a practical deterministic-stochastic fusion stack. Deterministic systems validate and bind the world. Stochastic systems infer and explore the world. AVANI decides what is safe enough to release or execute. MYCA coordinates the work. NLM learns from the physical signals that ordinary language-first systems only describe.",
       "The public architecture can be summarized simply: sense, validate, encode, reason, govern, act, and learn. The important detail is order. Validation happens before learning. Governance happens before action. Provenance follows the entire path.",
     ],
@@ -80,7 +80,7 @@ const sections = [
       "AVANI is the deterministic governance layer for Mycosoft's action-capable intelligence. It is built to verify, constrain, audit, and protect. AVANI does not exist to make the system sound ethical after the fact. It exists so the system has a governed operating boundary before it acts.",
       "AVANI validates sensor state, physical plausibility, ecological context, species and ecosystem references, policy constraints, reversibility, operator authority, and environmental risk. It can return decisions such as allow, allow with audit, require approval, deny, or pause. In production architecture, that decision is not decorative metadata. It is the boundary between a proposal and an action.",
       "This is why AVANI is deterministic by design. Its job is not to sample possible moral interpretations every time MYCA proposes a device command. Its job is to replay the same evidence, rules, season state, and policy context into the same governed decision. That is what makes audit, accountability, and safety possible.",
-      "AVANI is especially important because Mycosoft is not only building software that writes text. It is building systems connected to sensors, devices, biological interfaces, Earth simulation, ecological reasoning, and customer-facing worldstate. The closer AI moves toward the living world, the more deterministic governance matters.",
+      "AVANI is especially important because Mycosoft is not only building software that writes text. It is building systems connected to sensors, devices, biological interfaces, Earth simulation, ecological reasoning, and customer-facing worldstate. The closer SI moves toward the living world, the more deterministic governance matters.",
     ],
   },
   {
@@ -96,7 +96,7 @@ const sections = [
     id: "nlm-signal-native-bridge",
     title: "NLM: The Signal-Native Bridge",
     paragraphs: [
-      "The Nature Learning Model is the bridge between deterministic and stochastic AI. NLM is not simply an LLM with ecological vocabulary. It is a signal-native model family designed to learn from physical streams before they are compressed into human language.",
+      "The Nature Learning Model is the bridge between deterministic and stochastic SI. NLM is not simply an LLM with ecological vocabulary. It is a signal-native model family designed to learn from physical streams before they are compressed into human language.",
       "NLM works over signals such as spectral distributions, acoustic waveforms, bioelectric voltages, chemical signatures, gas concentrations, humidity gradients, thermal gradients, electromagnetic fields, mechanical vibration, pressure differentials, spatial context, and temporal change. Meaning is derived from physics and biology, not only from words.",
       "That makes NLM the place where Mycosoft can build deterministic, stochastic, and hybrid model families over the same canonical evidence. Deterministic NLMs can support replay-safe classification, gating, thresholding, and action envelopes. Stochastic NLMs can support latent-state inference, forecasting, reconstruction, anomaly scoring, and uncertainty-aware prediction. Hybrid NLMs can use deterministic envelopes over stochastic cores.",
       "The key is that both model classes should operate over the same provenance-aware Nature Message Frame or equivalent signal record. One evidence substrate feeds both repeatability and exploration.",
@@ -150,7 +150,7 @@ const sections = [
     paragraphs: [
       "Earth-scale intelligence must reason about cascades. A species decline is not usually caused by one isolated variable. It may emerge from habitat fragmentation, temperature shift, pathogen pressure, water stress, food-web disruption, land-use change, infrastructure expansion, and economic incentives that reward extraction faster than regeneration.",
       "AVANI is designed to model those relationships as constraints, risks, and governance signals. It can evaluate interspecies relationships, fungal-plant symbiosis, soil microbiome networks, water cycles, atmospheric interactions, human economic behavior, policy decisions, and infrastructure changes. MYCA can then explore possible responses, but AVANI constrains what is safe enough to attempt or expose.",
-      "The Mycosoft thesis is that planetary AI cannot only optimize engagement, revenue, or language accuracy. It must understand that an action in one system can propagate through biomass, biology, ecosystems, environments, markets, and human planning. That is where deterministic governance and stochastic forecasting become inseparable.",
+      "The Mycosoft thesis is that planetary SI cannot only optimize engagement, revenue, or language accuracy. It must understand that an action in one system can propagate through biomass, biology, ecosystems, environments, markets, and human planning. That is where deterministic governance and stochastic forecasting become inseparable.",
     ],
     callout: {
       label: "Cascade sketch",
@@ -166,7 +166,7 @@ const sections = [
       "General language benchmarks are the wrong scoreboard for signal-native intelligence. A system that will observe and influence the physical world must be evaluated on replay stability, calibration, cross-device generalization, missing-modality resilience, next-event prediction, physics consistency, perturbation identification, relation prediction, edge deployment cost, and governance challenge performance.",
       "For deterministic systems, the center of gravity is reproducibility, false-positive cost, drift resistance, bounded failure, and exact replay. For stochastic systems, the center of gravity is calibration, proper scoring, coverage, uncertainty usefulness, posterior quality, and performance under domain shift. A hybrid benchmark must require both.",
       "This prevents high-confidence wrongness from entering production through the back door. A model should not be promoted only because it speaks well. It should prove that it can survive noisy sensors, stale sources, missing modalities, ecological uncertainty, and governance review.",
-      "The benchmark story is also an investor story. If Mycosoft can benchmark signal-native intelligence with the seriousness that internet AI companies benchmark text and coding, it can own a more defensible category: AI evaluated against reality.",
+      "The benchmark story is also an investor story. If Mycosoft can benchmark signal-native intelligence with the seriousness that internet SI companies benchmark text and coding, it can own a more defensible category: SI evaluated against reality.",
     ],
   },
   {
@@ -175,14 +175,14 @@ const sections = [
     paragraphs: [
       "The deployed system can be understood as three planes. The edge plane runs near the signal through MycoBrain, Jetson-class devices, embedded sensors, deterministic quality control, low-latency inference, and compressed stochastic summaries. The control plane runs through MYCA, which coordinates agents, model calls, tools, simulations, memory, and workflows. The governance plane runs through AVANI, which authorizes, audits, escalates, and blocks.",
       "This separation is important for reliability. Edge devices should not need a cloud round trip for every deterministic safety check. MYCA should not be allowed to bypass governance because a workflow is convenient. AVANI should not depend on a single chat response to understand whether an action is reversible or ecologically risky.",
-      "Together, these planes turn deterministic and stochastic AI into an operating architecture. They also explain why Mycosoft's stack is not simply a model wrapper. It is hardware, data, learning, orchestration, governance, and deployment integrated into one system.",
+      "Together, these planes turn deterministic and stochastic SI into an operating architecture. They also explain why Mycosoft's stack is not simply a model wrapper. It is hardware, data, learning, orchestration, governance, and deployment integrated into one system.",
     ],
   },
   {
     id: "business-case",
     title: "Investor and Market Perspective",
     paragraphs: [
-      "The AI market is saturated with language models, copilots, chat interfaces, and SaaS automation. The less saturated opportunity is planetary-scale ecological intelligence: systems that connect live environmental data to governed reasoning, customer-facing worldstate, compliance, forecasting, field operations, and scientific discovery.",
+      "The SI market is saturated with language models, copilots, chat interfaces, and SaaS automation. The less saturated opportunity is planetary-scale ecological intelligence: systems that connect live environmental data to governed reasoning, customer-facing worldstate, compliance, forecasting, field operations, and scientific discovery.",
       "The opportunity spans climate risk modeling, biodiversity markets, agricultural forecasting, carbon and methane monitoring, environmental compliance, defense environmental intelligence, supply-chain ecological auditing, infrastructure resilience, and biological production systems. These are not markets where hallucinated confidence is acceptable. They require provenance, calibration, and action discipline.",
       "The risk is high execution complexity. Mycosoft must integrate hardware, sensors, taxonomy databases, ecosystem models, governance rules, edge compute, customer APIs, and multi-agent orchestration. That is harder than building a wrapper around a frontier model.",
       "The reward is that this difficulty creates the moat. A company with original signal data, field devices, NLM models, MINDEX provenance, MYCA orchestration, AVANI governance, and NatureOS operations is structurally different from a company that only rents model access. This is not a chatbot market. It is planetary infrastructure.",
@@ -192,23 +192,23 @@ const sections = [
     id: "why-no-one-else",
     title: "Why This Is Hard to Copy",
     paragraphs: [
-      "Many AI companies can access strong foundation models. Far fewer can build the sensors, calibration flows, biological interfaces, provenance ledgers, ecological constraints, edge runtimes, model registries, and governance systems required for physical-state intelligence.",
+      "Many SI companies can access strong foundation models. Far fewer can build the sensors, calibration flows, biological interfaces, provenance ledgers, ecological constraints, edge runtimes, model registries, and governance systems required for physical-state intelligence.",
       "Frontier model vendors provide powerful stochastic engines. Enterprise platforms provide managed agent infrastructure. Edge hardware vendors provide inference substrates. Sensor vendors provide measurement components. Mycosoft's opportunity is to connect these pieces around a physical-state-first thesis that begins with calibrated environmental reality and ends with governed action.",
-      "Most AI companies optimize for engagement or general-purpose productivity. Mycosoft optimizes for reality. That means original data, field validation, deterministic replay, ecological restraint, and stochastic exploration all have to live in the same architecture.",
-      "This is why deterministic vs stochastic AI is not a side document. It is the operating doctrine for the Mycosoft stack.",
+      "Most SI companies optimize for engagement or general-purpose productivity. Mycosoft optimizes for reality. That means original data, field validation, deterministic replay, ecological restraint, and stochastic exploration all have to live in the same architecture.",
+      "This is why deterministic vs stochastic SI is not a side document. It is the operating doctrine for the Mycosoft stack.",
     ],
   },
   {
     id: "thesis",
     title: "The Mycosoft Thesis",
     paragraphs: [
-      "Deterministic AI without stochastic reasoning is rigid. Stochastic AI without deterministic governance is unsafe. Mycosoft integrates both because Earth-scale intelligence needs both.",
-      "AVANI ensures the Earth is protected. MYCA ensures exploration and adaptation. NLM ensures learning is grounded in physics and biology. MINDEX ensures evidence survives. NatureOS ensures the system can be trained, simulated, monitored, and operated. MycoBrain ensures AI is connected to the world through real signals.",
-      "The old AI pattern was text to transformer to text. The Mycosoft pattern is signal to validation to latent physics to probabilistic planning to deterministic enforcement to device execution to feedback.",
-      "That is not incremental AI. It is architectural redefinition.",
+      "Deterministic SI without stochastic reasoning is rigid. Stochastic SI without deterministic governance is unsafe. Mycosoft integrates both because Earth-scale intelligence needs both.",
+      "AVANI ensures the Earth is protected. MYCA ensures exploration and adaptation. NLM ensures learning is grounded in physics and biology. MINDEX ensures evidence survives. NatureOS ensures the system can be trained, simulated, monitored, and operated. MycoBrain ensures SI is connected to the world through real signals.",
+      "The old SI pattern was text to transformer to text. The Mycosoft pattern is signal to validation to latent physics to probabilistic planning to deterministic enforcement to device execution to feedback.",
+      "That is not incremental SI. It is architectural redefinition.",
     ],
     callout: {
-      label: "Mycosoft AI pattern",
+      label: "Mycosoft SI pattern",
       code:
         "Signal -> Validation -> Latent Physics -> Probabilistic Planning\n" +
         "Probabilistic Planning -> Deterministic Enforcement -> Device Execution -> Feedback",
@@ -217,7 +217,7 @@ const sections = [
 ] as const;
 
 export const metadata: Metadata = {
-  title: "Deterministic vs Stochastic AI",
+  title: "Deterministic vs Stochastic SI",
   description:
     "Why Mycosoft pairs deterministic governance with stochastic cognition across AVANI, MYCA, NLM, MINDEX, NatureOS, and MycoBrain.",
 };
@@ -251,14 +251,14 @@ export default function Page() {
             href="/docs/ai"
             className="text-muted-foreground hover:text-foreground"
           >
-            AI Stack
+            SI Stack
           </Link>
         </div>
 
-        <h1>Deterministic vs Stochastic AI</h1>
+        <h1>Deterministic vs Stochastic SI</h1>
 
         <div className="not-prose my-6 flex flex-wrap items-center gap-2">
-          <Badge variant="outline">AI Stack</Badge>
+          <Badge variant="outline">SI Stack</Badge>
           <Badge variant="default">Public technical article</Badge>
           <Badge variant="outline">AVANI + MYCA + NLM</Badge>
         </div>

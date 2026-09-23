@@ -54,7 +54,7 @@ export default function AVANIPage() {
             </Link>
             <Link href="/ai">
               <Button variant="outline" size="lg" className="gap-2 min-h-[44px] min-w-[160px] px-6 touch-manipulation">
-                AI Overview
+                SI Overview
               </Button>
             </Link>
             <Link href="/myca">
@@ -267,7 +267,7 @@ export default function AVANIPage() {
         <div className="container max-w-4xl mx-auto px-4 md:px-6 text-center">
           <h2 className="text-2xl md:text-3xl font-bold mb-6">Request Access</h2>
           <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto mb-8">
-            Deploy governed AI with Mycosoft. Talk to us about human seats, agent seats, and
+            Deploy governed SI with Mycosoft. Talk to us about human seats, agent seats, and
             infrastructure tiers.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center flex-wrap">

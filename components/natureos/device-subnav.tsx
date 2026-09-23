@@ -32,7 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/natureos/devices/map", label: "Map", icon: MapIcon },
   { href: "/natureos/devices/insights", label: "Insights", icon: Brain },
   { href: "/natureos/devices/fleet", label: "Fleet", icon: Boxes },
-  { href: "/natureos/devices/onsite-ai", label: "On-Site AI", icon: Radio },
+  { href: "/natureos/devices/onsite-ai", label: "On-Site SI", icon: Radio },
   { href: "/natureos/meshtastic", label: "Mesh", icon: Network },
   { href: "/natureos/earth-simulator", label: "Earth Sim", icon: Globe2 },
 ]

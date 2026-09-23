@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 export const metadata: Metadata = {
   title: "Glossary",
   description:
-    "Every Mycosoft-specific term, plus the AI, mycology, and federal contracting vocabulary you will meet in our documentation — written for newcomers.",
+    "Every Mycosoft-specific term, plus the SI, mycology, and federal contracting vocabulary you will meet in our documentation — written for newcomers.",
 }
 
 export default function Page() {
@@ -31,7 +31,7 @@ export default function Page() {
 
         <p>
           One place to look up every term you will hit in the Mycosoft docs. Grouped into six
-          sections — company &amp; products, platform &amp; AI, devices &amp; firmware, protocols,
+          sections — company &amp; products, platform &amp; SI, devices &amp; firmware, protocols,
           mycology &amp; biology, and federal contracting. Cross-references link to the canonical
           documentation for each concept.
         </p>
@@ -41,7 +41,7 @@ export default function Page() {
             Company &amp; products
           </a>
           <a href="#platform" className="rounded-md border border-border bg-card px-3 py-2 hover:bg-accent">
-            Platform &amp; AI
+            Platform &amp; SI
           </a>
           <a href="#devices" className="rounded-md border border-border bg-card px-3 py-2 hover:bg-accent">
             Devices &amp; firmware
@@ -108,7 +108,7 @@ export default function Page() {
           </dd>
         </dl>
 
-        <h2 id="platform">Platform &amp; AI</h2>
+        <h2 id="platform">Platform &amp; SI</h2>
         <dl>
           <dt>
             <strong>MYCA</strong>
@@ -169,7 +169,7 @@ export default function Page() {
           </dd>
 
           <dt>
-            <strong>AI Studio</strong>
+            <strong>SI Studio</strong>
           </dt>
           <dd>
             Model training, evaluation, and deployment surface for internal and partner ML work.
@@ -197,7 +197,7 @@ export default function Page() {
           </dd>
 
           <dt>
-            <strong>Deterministic vs Stochastic AI</strong>
+            <strong>Deterministic vs Stochastic SI</strong>
           </dt>
           <dd>
             A hard line Mycosoft draws in production. Any pipeline that affects physical equipment,

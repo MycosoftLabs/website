@@ -634,10 +634,10 @@ export default function LaunchpadDashboard() {
           </Panel>
 
           {/* 11. AI usage */}
-          <Panel icon={Bot} title="AI usage & credits" href="/app/launchpad/settings/integrations">
+          <Panel icon={Bot} title="SI usage & credits" href="/app/launchpad/settings/integrations">
             {p.aiConnections == null && p.aiLedger == null ? (
-              <PanelEmpty text="AI connections aren't set up yet. Bring your own provider key, or use managed credits."
-                href="/app/launchpad/settings/integrations" linkLabel="Set up AI" />
+              <PanelEmpty text="SI connections aren't set up yet. Bring your own provider key, or use managed credits."
+                href="/app/launchpad/settings/integrations" linkLabel="Set up SI" />
             ) : (
               <div className="space-y-1.5 text-xs">
                 <div className="flex items-center justify-between gap-2">

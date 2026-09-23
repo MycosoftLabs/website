@@ -61,7 +61,7 @@ const architectureLayers = [
     title: "Sensing",
     subtitle: "Data sensors + Fungi Compute",
     description:
-      "Mushroom 1, SporeBase, MycoNode, Hyphae 1, and Psathyrella. Each device is an edge data-center node, a sensor platform, and an AI execution environment — autonomous intelligence nodes, not IoT gadgets.",
+      "Mushroom 1, SporeBase, MycoNode, Hyphae 1, and Psathyrella. Each device is an edge data-center node, a sensor platform, and an SI execution environment — autonomous intelligence nodes, not IoT gadgets.",
     links: [
       { label: "Devices", href: "/devices" },
       { label: "MycoBrain", href: "/devices/mycobrain" },
@@ -110,7 +110,7 @@ const architectureLayers = [
     title: "Platform",
     subtitle: "NatureOS & FUSARIUM",
     description:
-      "NatureOS delivers civilian environmental intelligence — real-time global monitoring and sensor plus AI orchestration. FUSARIUM is defense-grade environmental intelligence for multi-domain sensing and classified operational deployment.",
+      "NatureOS delivers civilian environmental intelligence — real-time global monitoring and sensor plus SI orchestration. FUSARIUM is defense-grade environmental intelligence for multi-domain sensing and classified operational deployment.",
     links: [
       { label: "NatureOS", href: "/natureos" },
       { label: "FUSARIUM", href: "/defense/fusarium" },
@@ -333,7 +333,7 @@ export default function AboutPage() {
           </h1>
 
           <p className="text-lg md:text-xl text-white/90 max-w-3xl mx-auto mb-8">
-            We deploy a global network of intelligent data sensors — compute, sensing, AI inference, and mesh networking in one deployable node. Together they form a distributed, living data center outside.
+            We deploy a global network of intelligent data sensors — compute, sensing, SI inference, and mesh networking in one deployable node. Together they form a distributed, living data center outside.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -367,7 +367,7 @@ export default function AboutPage() {
               Data centers were built to store and process information; they are centralized, power-intensive facilities optimized to refine what already exists. They do not generate new truth — they refine old information.
             </p>
             <p>
-              Mycosoft is building systems that <span className="text-foreground font-medium">discover</span> information. Instead of a centralized data center, we deploy a global network of intelligent data sensors embedded in the real world. Each node is compute, sensing, AI inference, and network participation in one — with embedded GPUs, CPUs, TPUs, biological interfaces (including fungal signal systems), environmental sensing, and mesh networking. Collectively they form a <span className="text-foreground font-medium">distributed, living data center outside</span>.
+              Mycosoft is building systems that <span className="text-foreground font-medium">discover</span> information. Instead of a centralized data center, we deploy a global network of intelligent data sensors embedded in the real world. Each node is compute, sensing, SI inference, and network participation in one — with embedded GPUs, CPUs, TPUs, biological interfaces (including fungal signal systems), environmental sensing, and mesh networking. Collectively they form a <span className="text-foreground font-medium">distributed, living data center outside</span>.
             </p>
             <p>
               Mobile, deployable edge nodes replace warehouse-scale infrastructure; solar-powered compute replaces centralized power; mesh-connected intelligence replaces cloud-only platforms. We do not only move compute closer to data — we place compute <span className="text-foreground font-medium">into the environment itself</span>, creating a resilient and sustainable data fabric.
@@ -405,7 +405,7 @@ export default function AboutPage() {
               Mycosoft is building systems that discover information in the world, not only refine what already exists on the internet. Our data sensors observe reality independently; when networked, they produce new ground truth for science, infrastructure, and defense.
             </p>
             <p className="text-lg !text-white/86 leading-relaxed">
-              We integrate physical sensing, edge compute, mesh protocols, cryptographic data layers, and governed AI so that environmental and biological signals become durable intelligence — not one-off telemetry, but a living data fabric.
+              We integrate physical sensing, edge compute, mesh protocols, cryptographic data layers, and governed SI so that environmental and biological signals become durable intelligence — not one-off telemetry, but a living data fabric.
             </p>
           </div>
 
@@ -427,14 +427,14 @@ export default function AboutPage() {
             <div className="p-6 rounded-2xl border border-border bg-card/80 backdrop-blur-md dark:border-white/10 dark:bg-white/5">
               <h3 className="text-2xl font-bold mb-3 text-foreground">What We Build</h3>
               <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
-                Mycosoft develops a fully integrated system spanning physical sensing hardware, edge compute infrastructure, distributed networking protocols, environmental and biological AI, and autonomous multi-agent orchestration — designed to turn reality into data, then that data into intelligence.
+                Mycosoft develops a fully integrated system spanning physical sensing hardware, edge compute infrastructure, distributed networking protocols, environmental and biological SI, and autonomous multi-agent orchestration — designed to turn reality into data, then that data into intelligence.
               </p>
               <div className="space-y-2">
                 {[
                   { icon: Cpu, label: "Physical sensing hardware", desc: "Data sensors: Mushroom 1, SporeBase, MycoNode, Hyphae 1, Psathyrella" },
                   { icon: Zap, label: "Edge compute infrastructure", desc: "On-node inference, resilient power, deployable where data is born" },
                   { icon: Network, label: "Distributed networking", desc: "Mycorrhizae Protocol — LoRa, LTE, device-to-device mesh" },
-                  { icon: Brain, label: "Environmental & biological AI", desc: "NLM world models plus domain models trained on live signals" },
+                  { icon: Brain, label: "Environmental & biological SI", desc: "NLM world models plus domain models trained on live signals" },
                   { icon: Bot, label: "Autonomous orchestration", desc: "MYCA — agents, tools, APIs, and continuous operation" },
                   { icon: Shield, label: "Governance & integrity", desc: "AVANI — admissibility, safety, auditability, system policy" },
                 ].map(({ icon: Icon, label, desc }) => (
@@ -467,10 +467,10 @@ export default function AboutPage() {
               {/* Description block */}
               <div className="p-4 rounded-xl border border-border bg-muted/50 backdrop-blur-sm mb-3 dark:border-white/10 dark:bg-white/5">
                 <p className="text-foreground/90 mb-4 text-sm leading-relaxed">
-                  Today&apos;s AI systems are trained on internet data, human-generated content, and synthetic datasets — leading to feedback loops, stagnation, and loss of ground truth. Mycosoft builds AI trained on live, real, continuously generated environmental data from the field.
+                  Today&apos;s SI systems are trained on internet data, human-generated content, and synthetic datasets — leading to feedback loops, stagnation, and loss of ground truth. Mycosoft builds SI trained on live, real, continuously generated environmental data from the field.
                 </p>
                 <p className="text-foreground/90 text-sm leading-relaxed">
-                  That creates new datasets, new intelligence, and new models of reality. The next AI will not only be trained on the internet — it will learn from the Earth itself.
+                  That creates new datasets, new intelligence, and new models of reality. The next SI will not only be trained on the internet — it will learn from the Earth itself.
                 </p>
               </div>
 
@@ -515,7 +515,7 @@ export default function AboutPage() {
                 <h3 className="font-bold text-lg text-foreground">Our Mission</h3>
               </div>
               <div className="space-y-3 text-sm text-muted-foreground">
-                <p>To build the Earth computer by deploying a global network of data sensors that replace outdated center-only thinking. We generate new ground truth, train AI on live environmental data, and unlock a new paradigm of distributed intelligence.</p>
+                <p>To build the Earth computer by deploying a global network of data sensors that replace outdated center-only thinking. We generate new ground truth, train SI on live environmental data, and unlock a new paradigm of distributed intelligence.</p>
                 <p>This is not only environmental monitoring — it is infrastructure for truth in the biosphere.</p>
                 <p className="text-emerald-950/80 dark:text-emerald-200/85 font-bold text-base">
                   Nature Compute — where the planet is the dataset.
@@ -551,9 +551,9 @@ export default function AboutPage() {
                 </div>
                 <p className="text-muted-foreground text-sm flex-grow mb-4">
                   {layer.id === "hardware"
-                    ? "Mushroom 1, SporeBase, MycoNode, Hyphae 1, and Psathyrella. Each device is an edge data-center node, a sensor platform, and an AI execution environment - autonomous intelligence nodes, not IoT gadgets."
+                    ? "Mushroom 1, SporeBase, MycoNode, Hyphae 1, and Psathyrella. Each device is an edge data-center node, a sensor platform, and an SI execution environment - autonomous intelligence nodes, not IoT gadgets."
                     : layer.id === "networking"
-                      ? "MDP, the Mycosoft Device Protocol, gives MycoBrain devices a field language. DirtNet links MDP, Mycorrhizae Protocol, MycoSpeak, LoRa, LoRaWAN, Meshtastic, LTE, and device-to-device paths for decentralized edge data, inference, and AI."
+                      ? "MDP, the Mycosoft Device Protocol, gives MycoBrain devices a field language. DirtNet links MDP, Mycorrhizae Protocol, MycoSpeak, LoRa, LoRaWAN, Meshtastic, LTE, and device-to-device paths for decentralized edge data, inference, and SI."
                       : layer.description}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -899,7 +899,7 @@ export default function AboutPage() {
                 The data center will not disappear — it will dissolve into forests, oceans, cities, and infrastructure. Mycosoft is building a distributed intelligence system that lives where reality happens, not only in synthetic datasets.
               </p>
               <p>
-                Data sensors replace the old assumption that truth must be centralized to be trusted. Cryptography, mesh resilience, and governed AI let intelligence stay honest at the edge.
+                Data sensors replace the old assumption that truth must be centralized to be trusted. Cryptography, mesh resilience, and governed SI let intelligence stay honest at the edge.
               </p>
               <p className="text-white font-medium">
                 The next paradigm is environmental: live ground truth, continuous models, and platforms that respect admissibility from sensor to decision.

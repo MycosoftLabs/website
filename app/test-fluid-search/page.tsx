@@ -43,7 +43,7 @@ export default function TestFluidSearchPage() {
       {/* Development banner */}
       <div className="bg-yellow-500/10 border-b border-yellow-500/20 py-2 px-4 text-center">
         <p className="text-sm text-yellow-600 dark:text-yellow-400">
-          <strong>Development Mode:</strong> Testing Fluid Search with Voice, AI, and Session Memory
+          <strong>Development Mode:</strong> Testing Fluid Search with Voice, SI, and Session Memory
         </p>
       </div>
 
@@ -77,7 +77,7 @@ export default function TestFluidSearchPage() {
                 <strong>Voice:</strong> PersonaPlex Ready
               </div>
               <div>
-                <strong>AI Backend:</strong> MYCA Brain / Frontier Router
+                <strong>SI Backend:</strong> MYCA Brain / Frontier Router
               </div>
               <div>
                 <strong>Session:</strong> Active

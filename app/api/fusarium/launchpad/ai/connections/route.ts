@@ -36,7 +36,7 @@ export async function GET() {
 
   const listed = await listPublicConnections(ctx.supabase, ctx.tenantId);
   if (!listed.ok) {
-    return jsonError(500, 'load_failed', 'Could not load AI connections');
+    return jsonError(500, 'load_failed', 'Could not load SI connections');
   }
 
   const { data: ledger, error: ledgerError } = await ctx.supabase
@@ -46,7 +46,7 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(50);
   if (ledgerError) {
-    return jsonError(500, 'load_failed', 'Could not load AI cost ledger');
+    return jsonError(500, 'load_failed', 'Could not load SI cost ledger');
   }
 
   const kms = kmsBackendStatus();
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
       .update({ status: 'active', revoked_at: null, ...(label ? { label } : {}) })
       .eq('tenant_id', ctx.tenantId)
       .eq('id', existing.id);
-    if (updateError) return jsonError(500, 'store_failed', 'Could not re-enable managed AI');
+    if (updateError) return jsonError(500, 'store_failed', 'Could not re-enable managed SI');
     await appendAuditEvent(ctx.supabase, ctx.tenantId, ctx.user.id, {
       action: 'ai.connection.managed_enabled',
       entity: 'launchpad_ai_connections',
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
     })
     .select('id')
     .single();
-  if (error || !data) return jsonError(500, 'store_failed', 'Could not enable managed AI');
+  if (error || !data) return jsonError(500, 'store_failed', 'Could not enable managed SI');
 
   await appendAuditEvent(ctx.supabase, ctx.tenantId, ctx.user.id, {
     action: 'ai.connection.managed_enabled',

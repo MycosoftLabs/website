@@ -60,7 +60,7 @@ export const DATA_CLASSES: DataClassCard[] = [
     definition:
       'Information that is already public or that you would happily publish: your website copy, published capability statements, public government listings.',
     allowedDetail: 'Yes — store and work with it freely.',
-    aiUse: 'Yes — AI drafting and analysis can use it without restriction.',
+    aiUse: 'Yes — SI drafting and analysis can use it without restriction.',
     action: 'Use it anywhere in the workspace.',
     examples: [
       'Your public capability statement',
@@ -77,7 +77,7 @@ export const DATA_CLASSES: DataClassCard[] = [
     definition:
       'Your ordinary internal business data with no government-imposed safeguarding requirement. This is the home class of the workspace — what Launchpad is built to hold.',
     allowedDetail: 'Yes — this is what the workspace is for.',
-    aiUse: 'Yes, under the AI settings you choose (managed credits or your own key).',
+    aiUse: 'Yes, under the SI settings you choose (managed credits or your own key).',
     action: 'Store it here; every row stays scoped to your workspace.',
     examples: [
       'Requirement narratives and readiness notes',
@@ -94,7 +94,7 @@ export const DATA_CLASSES: DataClassCard[] = [
     definition:
       'Your own sensitive business content — material you restrict internally even though the government does not regulate it. Launchpad holds a pointer to it, never the content.',
     allowedDetail: 'References and metadata only — a title, where it lives, and a content hash (a fingerprint computed from the file, not the file itself).',
-    aiUse: 'No — AI features see the metadata you typed, never the underlying content.',
+    aiUse: 'No — SI features see the metadata you typed, never the underlying content.',
     action: 'Keep the content in your own systems; index a reference here if it serves as evidence.',
     examples: [
       'Unreleased financials or contract pricing',
@@ -111,7 +111,7 @@ export const DATA_CLASSES: DataClassCard[] = [
     definition:
       'CUI (Controlled Unclassified Information) is government-created or government-required information that federal rules say must be safeguarded — for example technical data delivered under a defense contract. It is not classified, but it is regulated.',
     allowedDetail: 'Never — not marked CUI, not suspected CUI, not "just this once."',
-    aiUse: 'Never. No AI feature in this workspace may receive CUI.',
+    aiUse: 'Never. No SI feature in this workspace may receive CUI.',
     action: 'Keep it in your authorized enclave (a government-suitable environment such as PreVeil or Microsoft GCC High). Launchpad can hold a reference to where it lives — nothing more.',
     examples: [
       'Documents marked CUI// or bearing a CUI banner',
@@ -144,7 +144,7 @@ export const DATA_CLASSES: DataClassCard[] = [
     definition:
       'Technical data restricted by export-control law — ITAR (the International Traffic in Arms Regulations, covering defense articles) or EAR (the Export Administration Regulations, covering dual-use technology). Sharing it with the wrong system or person can itself be an unlawful export.',
     allowedDetail: 'Never — Launchpad is not an authorized export-controlled environment.',
-    aiUse: 'Never. AI features also never classify data as ITAR/EAR for you — that determination belongs with export counsel.',
+    aiUse: 'Never. SI features also never classify data as ITAR/EAR for you — that determination belongs with export counsel.',
     action: 'Keep it in an authorized environment and involve export-control counsel. Launchpad can track that a determination is pending — not the data itself.',
     examples: [
       'ITAR-controlled design files or source code',
@@ -161,7 +161,7 @@ export const DATA_CLASSES: DataClassCard[] = [
       'Anything that grants access: passwords, API secrets (machine-to-machine access keys), private keys, tokens, recovery codes. Always blocked as stored content, regardless of what data class the system they unlock belongs to.',
     allowedDetail: 'Never stored as content. Launchpad-issued API keys exist only as hashes — a one-way fingerprint we can verify but never reverse.',
     aiUse: 'Never. A pasted secret is a spilled secret — rotate it.',
-    action: 'Keep secrets in a password manager or secrets vault. The one planned exception — optional bring-your-own AI provider keys under KMS envelope encryption (an encrypt-at-rest design where a cloud key service wraps a per-workspace key) — requires policy v1.1 and a live KMS backend before it accepts real keys.',
+    action: 'Keep secrets in a password manager or secrets vault. The one planned exception — optional bring-your-own SI provider keys under KMS envelope encryption (an encrypt-at-rest design where a cloud key service wraps a per-workspace key) — requires policy v1.1 and a live KMS backend before it accepts real keys.',
     examples: [
       'Portal passwords (SAM.gov, PIEE, DSIP)',
       'Cloud provider access keys and tokens',
@@ -177,7 +177,7 @@ export const DATA_CLASSES: DataClassCard[] = [
     definition:
       'Unprocessed machine output: packet captures, full endpoint logs, unredacted SIEM exports (a SIEM is the security information and event management system that collects your logs). Raw telemetry routinely embeds credentials, personal data, and network internals — so it is blocked wholesale.',
     allowedDetail: 'Never as raw data. Only sanitized, structured pass/fail results (for example from the Local Assurance Agent running on your own machines) are accepted.',
-    aiUse: 'Never on raw data. AI features may discuss the sanitized results.',
+    aiUse: 'Never on raw data. SI features may discuss the sanitized results.',
     action: 'Keep raw logs in your own logging stack. Record here only what a result was, not the log lines that produced it.',
     examples: [
       'Packet captures (.pcap files)',
@@ -230,7 +230,7 @@ export const ENFORCEMENT_CONTROLS: EnforcementControl[] = [
   {
     control: 'Prompt firewall',
     status: 'live',
-    detail: 'AI requests are screened before any model call: prohibited-claim vocabulary and boundary patterns are refused, not forwarded.',
+    detail: 'SI requests are screened before any model call: prohibited-claim vocabulary and boundary patterns are refused, not forwarded.',
   },
   {
     control: 'Per-object classification labels',
@@ -270,7 +270,7 @@ export const INCIDENT_GUIDANCE = {
   intro:
     'If you see CUI — marked or suspected — inside this workspace or any other unauthorized system, treat it as a spill. Speed and containment matter more than blame.',
   steps: [
-    'Stop. Do not keep working with the material — no summarizing, no editing, no AI actions on it.',
+    'Stop. Do not keep working with the material — no summarizing, no editing, no SI actions on it.',
     'Do not forward, copy, download, or screenshot it. Every copy widens the spill.',
     'Contact your workspace owner immediately and tell them exactly where the material is.',
     'Move the work to your authorized enclave (your government-suitable environment, such as PreVeil or GCC High). That is where the material — and the conversation about it — belongs.',

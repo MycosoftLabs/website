@@ -109,7 +109,7 @@ export default function SspPage() {
       <PageHeader
         title="System Security Plan (SSP)"
         icon={FileCheck2}
-        description={<>Assemble a DRAFT SSP skeleton from your own recorded facts — deterministic, no AI drafting, every missing fact left as an explicit placeholder. <TierTag feature="documentFactory" /></>}
+        description={<>Assemble a DRAFT SSP skeleton from your own recorded facts — deterministic, no SI drafting, every missing fact left as an explicit placeholder. <TierTag feature="documentFactory" /></>}
         actions={
           <GlassButton onClick={generate} disabled={generating}>
             {generating ? <Loader2 className="h-4 w-4 animate-spin text-current mr-2" /> : <Sparkles className="h-4 w-4 text-current mr-2" />}

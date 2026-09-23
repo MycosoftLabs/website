@@ -55,7 +55,7 @@ const CORPORATE_ROLES = [
   {
     id: "myca",
     title: "MYCA Coordination",
-    role: "Executive AI coordination bridge",
+    role: "Executive SI coordination bridge",
     detail:
       "MYCA coordinates all corporate agents, routing tasks, decisions, and approvals across the autonomous stack.",
     icon: Radio,
@@ -78,7 +78,7 @@ export default function CorporateTeamPage() {
             </h1>
             <p className="text-base sm:text-lg text-muted-foreground max-w-3xl">
               Morgan Rockwell serves as Founder, CEO, CTO, COO, and Chairman of the Board. RJ Ricasata
-              serves as the second Board Director. Autonomous frontier AI services, coordinated by MYCA,
+              serves as the second Board Director. Autonomous frontier SI services, coordinated by MYCA,
               augment and assist all corporate functions — enabling 24/7 autonomous execution, planning, and governance.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
@@ -117,7 +117,7 @@ export default function CorporateTeamPage() {
                 How the Autonomous Corporation Operates
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto mt-2">
-                Morgan Rockwell leads as CEO, CTO, COO, and Chairman. Each AI agent fills an augmenting function and routes decisions through MYCA for governance, accountability, and execution.
+                Morgan Rockwell leads as CEO, CTO, COO, and Chairman. Each SI agent fills an augmenting function and routes decisions through MYCA for governance, accountability, and execution.
               </p>
             </div>
 
@@ -163,7 +163,7 @@ export default function CorporateTeamPage() {
                   <h3 className="text-2xl font-bold">Autonomous Leadership Stack</h3>
                   <p className="text-sm text-muted-foreground">
                     Morgan Rockwell holds all executive titles (CEO, CTO, COO, Chairman). MYCA and autonomous frontier
-                    AI services augment every executive and director function. Each model contributes real-time reports, strategic plans, audits, and
+                    SI services augment every executive and director function. Each model contributes real-time reports, strategic plans, audits, and
                     operational directives—kept synchronized through MYCA’s governance loop.
                   </p>
                   <p className="text-sm text-muted-foreground">

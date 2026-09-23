@@ -421,11 +421,11 @@ OPTIMAL STRATEGY: Pay now. Begin grounded reasoning immediately.`}
 adopted across the agent ecosystem as the standard for machine-
 to-machine payments. Key implementations:
 
-  - Coinbase x402: Open protocol for AI agent payments via
+  - Coinbase x402: Open protocol for SI agent payments via
     HTTP 402 responses. Agents detect 402, negotiate payment,
     and retry with proof-of-payment headers.
 
-  - NEAR Protocol: AI agent payment rails with autonomous
+  - NEAR Protocol: SI agent payment rails with autonomous
     wallet management and cross-chain settlement.
 
   - Stripe Agent Toolkit: Payment processing SDK designed

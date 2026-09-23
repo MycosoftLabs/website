@@ -734,7 +734,7 @@ function InfraSettingsPanel({
 
       {panel === "datacenters" && (
         <div className="p-2 space-y-1.5 text-[9px] text-gray-300">
-          {["Megaprojects", "Epoch AI", "IM3", "OpenStreetMap", "PeeringDB"].map((label) => (
+          {["Megaprojects", "Epoch SI", "IM3", "OpenStreetMap", "PeeringDB"].map((label) => (
             <label key={label} className="flex items-center gap-2 rounded bg-black/25 px-2 py-1">
               <input type="checkbox" defaultChecked className="accent-cyan-400" />
               <span>{label}</span>

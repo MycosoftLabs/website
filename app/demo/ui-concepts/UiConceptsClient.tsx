@@ -24,7 +24,7 @@ export default function UiConceptsClient() {
             UI Concepts — Uncodixfy for NatureOS, CREP, Search
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Human-like design experiments. Compare generic AI patterns vs Linear /
+            Human-like design experiments. Compare generic SI patterns vs Linear /
             Raycast / Stripe / GitHub aesthetic.
           </p>
         </div>
@@ -328,7 +328,7 @@ function ConceptSection({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <p className="text-xs font-medium text-amber-600 dark:text-amber-500 flex items-center gap-1">
-            <X className="h-3.5 w-3.5" /> Avoid — Generic AI
+            <X className="h-3.5 w-3.5" /> Avoid — Generic SI
           </p>
           <div className="rounded-lg border border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20 p-4">
             {avoid}

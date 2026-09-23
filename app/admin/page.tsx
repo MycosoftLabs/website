@@ -308,7 +308,7 @@ const MOCK_USERS: UserAccount[] = [
   },
   { 
     id: 'm2', 
-    name: 'Cursor AI Agent', 
+    name: 'Cursor SI Agent',
     email: 'cursor-agent@system.mycosoft.org', 
     type: 'machine',
     machineType: 'ai_agent',
@@ -1180,7 +1180,7 @@ export default function SuperAdminPage() {
                   return (
                     <div key={category} className="mb-6">
                       <h3 className="text-sm font-mono text-slate-400 mb-3 uppercase tracking-wider flex items-center gap-2">
-                        {category}
+                        {category === 'AI' ? 'SI' : category}
                         <span className="text-xs text-slate-600">({keys.length})</span>
                       </h3>
                       <div className="space-y-2">
@@ -1453,9 +1453,9 @@ export default function SuperAdminPage() {
                   <div>
                     <h3 className="text-white font-medium mb-2">Machine Account Access Control</h3>
                     <p className="text-slate-400 text-sm">
-                      Machine accounts (AI agents, bots, services, automation) are separated from human users for security auditing. 
+                      Machine accounts (SI agents, bots, services, automation) are separated from human users for security auditing.
                       Each machine account has rate limiting, scoped permissions, and activity logging. 
-                      External AI services (Claude, OpenAI, Grok) are gated through our API proxy for usage tracking and cost control.
+                      External SI services (Claude, OpenAI, Grok) are gated through our API proxy for usage tracking and cost control.
                     </p>
                   </div>
                 </div>
@@ -1721,7 +1721,7 @@ export default function SuperAdminPage() {
                             <div>
                               <div className="text-white font-medium">{service.name}</div>
                               <div className="text-slate-500 text-sm">
-                                {service.port ? `Port ${service.port}` : 'Cloud Service'} • {service.type}
+                              {service.port ? `Port ${service.port}` : 'Cloud Service'} • {service.type === 'AI' ? 'SI' : service.type}
                               </div>
                               <div className="text-slate-600 text-xs">{service.description}</div>
                             </div>

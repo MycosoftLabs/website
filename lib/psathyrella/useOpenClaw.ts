@@ -169,8 +169,8 @@ export function useOpenClaw(opts?: { enabled?: boolean }): OpenClawApi {
             atMs: Date.now(),
             text: up
               ? first
-                ? "OpenClaw bridge reachable — droid AI online."
-                : "OpenClaw bridge recovered — droid AI back online."
+                ? "OpenClaw bridge reachable — droid SI online."
+                : "OpenClaw bridge recovered — droid SI back online."
               : `${first ? "OpenClaw not reachable" : "OpenClaw link lost"} — ${reason}`,
           });
         }

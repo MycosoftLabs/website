@@ -370,7 +370,7 @@ export function TopNav() {
                     </h4>
                     <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
                       <li>1. Use the search bar or <kbd className="px-1 py-0.5 bg-muted rounded text-xs">Ctrl+K</kbd> to search across all resources</li>
-                      <li>2. Navigate using the sidebar menu to access Apps, AI, Tools, and more</li>
+                      <li>2. Navigate using the sidebar menu to access Apps, SI, Tools, and more</li>
                       <li>3. Check the Settings page to configure your NatureOS environment</li>
                       <li>4. Connect devices via the Devices section for real-time monitoring</li>
                     </ul>
@@ -452,7 +452,7 @@ export function TopNav() {
 
                   {/* Version Info */}
                   <div className="text-center text-xs text-muted-foreground pt-2 border-t">
-                    NatureOS v2.1 &middot; MYCA AI Platform &middot; <a href="mailto:support@mycosoft.com" className="text-blue-400 hover:underline">support@mycosoft.com</a>
+                    NatureOS v2.1 &middot; MYCA SI Platform &middot; <a href="mailto:support@mycosoft.com" className="text-blue-400 hover:underline">support@mycosoft.com</a>
                   </div>
                 </div>
               </DialogContent>

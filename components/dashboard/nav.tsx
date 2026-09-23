@@ -81,11 +81,11 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    title: "AI",
+    title: "SI",
     key: "ai",
     defaultOpen: true,
     items: [
-      { title: "Myca AI Studio", href: "/natureos/ai-studio", icon: Bot, companyOnly: true },
+      { title: "Myca SI Studio", href: "/natureos/ai-studio", icon: Bot, companyOnly: true },
       { title: "NLM Training Dashboard", href: "/natureos/model-training", icon: Cpu },
       { title: "Workflows", href: "/natureos/workflows", icon: Workflow, companyOnly: true },
     ],

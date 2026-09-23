@@ -60,7 +60,7 @@ const devices = [
       runtime: "6 months without sun"
     },
     certifications: ["IP67", "FCC Part 15", "CE", "RoHS"],
-    processing: "ESP32-S3 with 8MB PSRAM, Edge AI capable"
+    processing: "ESP32-S3 with 8MB PSRAM, Edge SI capable"
   },
   {
     id: "myconode",

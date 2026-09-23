@@ -109,7 +109,7 @@ export const REPORT_CATALOG: ReportCatalogEntry[] = [
     title: 'ITAR/EAR Applicability Screening Worksheet (DRAFT skeleton)',
     group: 'skeleton',
     description:
-      'An educational worksheet describing how export-control jurisdiction (ITAR vs. EAR) gets determined and which questions counsel will ask. Launchpad and its AI never classify your technical data.',
+      'An educational worksheet describing how export-control jurisdiction (ITAR vs. EAR) gets determined and which questions counsel will ask. Launchpad and its SI never classify your technical data.',
     sources: ['company profile only'],
   },
   {
@@ -237,7 +237,7 @@ function draftHead(title: string): string {
     `**${DRAFT_LABEL}**`,
     '',
     `> ${COMMERCIAL_NON_CUI_BANNER} · Assembled deterministically from your Launchpad records on ${today()}.`,
-    '> No AI wrote this document (the AI document factory is a separate tool). Nothing in it',
+    '> No SI wrote this document (the SI document factory is a separate tool). Nothing in it',
     '> certifies, accredits, approves, or guarantees anything, and it is not a government filing.',
     `> Review every line, replace every ${PLACEHOLDER} placeholder, and have your responsible`,
     '> official approve it before any external use.',
@@ -384,7 +384,7 @@ function unassessedDisclosure(states: Record<string, AssessmentState | undefined
     '',
     unassessed > 0
       ? `**${unassessed} of ${CMMC_L2_CONTROLS.length} requirements have no recorded state and are scored as Not Met in this report.** Record a state for each in the requirement register before treating any number here as your posture.`
-      : `All ${CMMC_L2_CONTROLS.length} requirements have a recorded state. Every state was recorded by your team (or a read-only agent check) — never by AI.`,
+      : `All ${CMMC_L2_CONTROLS.length} requirements have a recorded state. Every state was recorded by your team (or a read-only agent check) — never by SI.`,
     '',
   ].join('\n');
 }
@@ -764,7 +764,7 @@ function buildItarEarSkeleton(d: ReportData): string {
     '4. If you manufacture or export defense articles: **DDTC registration** is required even before',
     '   any export occurs.',
     '',
-    '> **Launchpad and its AI do not and cannot classify your items or technical data.** Jurisdiction',
+    '> **Launchpad and its SI do not and cannot classify your items or technical data.** Jurisdiction',
     '> and classification are legal determinations — engage qualified export-control counsel.',
     '',
     signoffBlock(),
@@ -799,7 +799,7 @@ function buildFociSkeleton(d: ReportData): string {
     'DCSA (the Defense Counterintelligence and Security Agency) may require a mitigation instrument —',
     'e.g. a board resolution, Security Control Agreement (SCA), Special Security Agreement (SSA),',
     'Voting Trust, or Proxy Agreement. Which one (if any) fits is a determination made by DCSA with',
-    'your counsel — **never by Launchpad, and never by AI.**',
+    'your counsel — **never by Launchpad, and never by SI.**',
     '',
     signoffBlock(),
   ].join('\n');

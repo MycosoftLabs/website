@@ -1,5 +1,5 @@
 # Nature Learning Model (NLM)
-## Signal-native AI for physical reality
+## Signal-native SI for physical reality
 
 **Public technical article draft**  
 **Prepared for Mycosoft**  
@@ -37,7 +37,7 @@ A language-first system can identify a species. A Nature Learning Model can lear
 
 ## Signal-State Modeling
 
-Scientific AI systems already explore sequence-based representations of molecules, materials, proteins, DNA, RNA, cells, and other natural structures. Those approaches are useful, but they still begin from a compressed representation of nature rather than the calibrated physical event itself.
+Scientific superintelligence systems already explore sequence-based representations of molecules, materials, proteins, DNA, RNA, cells, and other natural structures. Those approaches are useful, but they still begin from a compressed representation of nature rather than the calibrated physical event itself.
 
 Mycosoft's NLM is a **signal-state model**. It does not assume that nature is fundamentally expressed as words or symbolic sequences. It assumes that nature is measured through physical channels and that meaning must be inferred from synchronized, calibrated, causal signal behavior.
 
@@ -591,7 +591,7 @@ This is important because biological causality often requires combinations. Humi
 
 ## Deterministic and stochastic NLMs
 
-NLM supports both deterministic and stochastic AI.
+NLM supports both deterministic and stochastic SI.
 
 ### Deterministic NLM
 
@@ -925,7 +925,7 @@ Bosch's BME AI-Studio shows how a gas sensor can be trained from labeled specime
 
 ### Radio, optical, and machine-to-machine signals
 
-SDR++ and SDR pipelines make radio signal environments inspectable. LiFi and optical wireless communication expand sensing into modulated light. Gibberlink-style sound-level protocols show that AI systems can exchange data through acoustic channels. NLM treats each of these as physical signals that require modulation features, channel models, noise handling, and interpretability constraints.
+SDR++ and SDR pipelines make radio signal environments inspectable. LiFi and optical wireless communication expand sensing into modulated light. Gibberlink-style sound-level protocols show that superintelligence systems can exchange data through acoustic channels. NLM treats each of these as physical signals that require modulation features, channel models, noise handling, and interpretability constraints.
 
 ### Physics benchmarks
 
@@ -935,7 +935,7 @@ PDEBench and sparse-sensor spatiotemporal reconstruction research provide benchm
 
 ## Benchmark plan: NLM-Bench
 
-To convince engineers, NLM must be benchmarked like a serious AI system.
+To convince engineers, NLM must be benchmarked like a serious SI system.
 
 ### Benchmark classes
 
@@ -1067,13 +1067,13 @@ NLM has a strict role.
 
 This separation prevents model confusion. The NLM does not become an autonomous executive. MYCA does not become the source of truth for raw nature signals. AVANI does not do signal modeling. MINDEX does not decide actions. Each layer has a job.
 
-The result is a full-stack AI system where nature data can become operational intelligence without losing traceability.
+The result is a full-stack SI system where nature data can become operational intelligence without losing traceability.
 
 ---
 
 ## Why Mycosoft is building this
 
-Most AI companies have no reason to build NLM. Their advantage is web-scale text, consumer behavior, cloud APIs, GPUs, recommendation systems, or office automation. Their business model rewards generalized assistants and productivity layers.
+Most superintelligence companies have no reason to build NLM. Their advantage is web-scale text, consumer behavior, cloud APIs, GPUs, recommendation systems, or office automation. Their business model rewards generalized assistants and productivity layers.
 
 NLM requires a different stack:
 
@@ -1198,7 +1198,7 @@ If yes, it is a Nature Learning Model.
 
 ## Public product language
 
-**NLM is Mycosoft's signal-native AI modeling framework for living Earth systems. It learns from wavelengths, waveforms, voltage, gas, temperature, pressure, chemistry, movement, geography, and time. It turns physical reality into operational state. Language is optional. Grounding is mandatory.**
+**NLM is Mycosoft's signal-native SI modeling framework for living Earth systems. It learns from wavelengths, waveforms, voltage, gas, temperature, pressure, chemistry, movement, geography, and time. It turns physical reality into operational state. Language is optional. Grounding is mandatory.**
 
 ---
 

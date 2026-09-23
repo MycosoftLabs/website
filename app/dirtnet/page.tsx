@@ -49,7 +49,7 @@ const networkLayers = [
 ]
 
 const edgePillars = [
-  { title: "Decentralized AI", body: "Agents reason locally first, then coordinate upward only when needed.", icon: Brain },
+  { title: "Decentralized SI", body: "Agents reason locally first, then coordinate upward only when needed.", icon: Brain },
   { title: "Decentralized Devices", body: "Every MycoBrain-powered node can sense, speak, relay, and act at the edge.", icon: Network },
   { title: "Decentralized Inference", body: "Jetson, TPU, MCU, and accelerator nodes run models where the signal is created.", icon: Server },
   { title: "Decentralized Data", body: "MINDEX preserves field data with context, provenance, and integrity instead of trapping it in one silo.", icon: Database },
@@ -104,7 +104,7 @@ export default function DirtNetPage() {
               The anti-SkyNet for Earth intelligence.
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-relaxed text-muted-foreground md:text-xl">
-              DirtNet is Mycosoft&apos;s decentralized edge network: AI, devices, inference, and data distributed through soil, air, water, machines, and field nodes instead of trapped inside one centralized data center.
+              DirtNet is Mycosoft&apos;s decentralized edge network: SI, devices, inference, and data distributed through soil, air, water, machines, and field nodes instead of trapped inside one centralized data center.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild>

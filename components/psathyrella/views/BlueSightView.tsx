@@ -265,11 +265,11 @@ export default function BlueSightView({ telemetry, active = true, className }: {
           onClick={() => setShowAi((a) => !a)}
           title={camAiAvailable
             ? "Detection boxes from the Jetson detector, on the camera surfaces only"
-            : "Camera AI is off — set NEXT_PUBLIC_PSATHYRELLA_CAM_AI=1 to enable the detector overlay"}
+            : "Camera SI is off — set NEXT_PUBLIC_PSATHYRELLA_CAM_AI=1 to enable the detector overlay"}
           className={cn("flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wide",
             showAi && camAiAvailable ? "border-cyan-500/50 bg-cyan-500/15 text-cyan-100" : "border-white/10 text-slate-400 hover:text-slate-200")}
         >
-          <ScanSearch className="h-3 w-3" /> Cam AI{camAiAvailable ? "" : " off"}
+          <ScanSearch className="h-3 w-3" /> Cam SI{camAiAvailable ? "" : " off"}
         </button>
         <div className="flex overflow-hidden rounded-md border border-cyan-500/25 text-[10px] font-bold uppercase tracking-wide">
           {(["QUAD", "FUSION"] as Mode[]).map((m) => (

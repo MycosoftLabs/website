@@ -5900,7 +5900,7 @@ export function SineAcousticPlayer({ embedded = false, compact = false }: SineAc
     }
     if (modelRegistryMissing) {
       return {
-        mode: "AI model not loaded",
+        mode: "SI model not loaded",
         detail: "The acoustic library is reachable, but MINDEX has not exposed a trained SINE model registry yet. This run can check signal evidence, not confirmed sound meaning.",
         buttonLabel: "Run evidence check",
         buttonTitle: "Runs the current SINE signal evidence check. Confirmed identification requires registered model outputs, prototype matches, fusion evidence, or transcripts.",
@@ -6408,7 +6408,7 @@ export function SineAcousticPlayer({ embedded = false, compact = false }: SineAc
 
     if ((analysisProvenance.status === "contract_violation" || analysisProvenance.status === "quarantined") && realAudioReady && scopeReady && !modelRuntimeReady) {
       return {
-        label: "Instrument ready / AI pending",
+        label: "Instrument ready / SI pending",
         badge: `${readyCount}/${evidenceChecklist.length}`,
         detail: "The recording and oscilloscope view are real; unverified classifier output is held until trained model evidence is loaded.",
         tone: "border-amber-300/25 bg-amber-300/10 text-amber-100",
@@ -6435,7 +6435,7 @@ export function SineAcousticPlayer({ embedded = false, compact = false }: SineAc
 
     if (realAudioReady && scopeReady && !modelRuntimeReady) {
       return {
-        label: "Instrument ready / AI pending",
+        label: "Instrument ready / SI pending",
         badge: `${readyCount}/${evidenceChecklist.length}`,
         detail: "The recording and oscilloscope view are real; trained model evidence is still missing.",
         tone: "border-amber-300/25 bg-amber-300/10 text-amber-100",
@@ -9074,7 +9074,7 @@ export function SineAcousticPlayer({ embedded = false, compact = false }: SineAc
               <StatusPill icon={<HardDrive className="h-4 w-4" />} label="Storage" value={storageLabel} />
               <StatusPill icon={<Database className="h-4 w-4" />} label="Library" value={libraryPillValue} detail={libraryPillDetail} />
               <StatusPill icon={<Gauge className="h-4 w-4" />} label="Detectors" value={`${detectorList.length || 0} active`} />
-              <StatusPill icon={<Cpu className="h-4 w-4" />} label="AI models" value={modelPillValue} detail={modelPillDetail} />
+              <StatusPill icon={<Cpu className="h-4 w-4" />} label="SI models" value={modelPillValue} detail={modelPillDetail} />
             </div>
           </div>
         </header>

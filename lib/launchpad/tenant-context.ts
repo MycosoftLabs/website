@@ -160,7 +160,7 @@ export async function requireTenant(
       error: err(
         403,
         'ai_paused',
-        'AI is paused while billing is in grace or read/export. Resolve billing, then buy credits if the balance is 0.',
+        'SI is paused while billing is in grace or read/export. Resolve billing, then buy credits if the balance is 0.',
       ),
     };
   }

@@ -151,7 +151,7 @@ export function SporeTrackerAbout() {
               <div>
                 <h3 className="text-lg font-medium mb-2">SporeBase Devices</h3>
                 <p className="text-muted-foreground">
-                  Our proprietary SporeBase devices use advanced air sampling technology combined with AI-powered image
+                  Our proprietary SporeBase devices use advanced air sampling technology combined with superintelligence-powered image
                   recognition to identify and quantify fungal spores in real-time. Each unit contains environmental
                   sensors for temperature, humidity, air pressure, and wind conditions, providing comprehensive data for
                   analysis.

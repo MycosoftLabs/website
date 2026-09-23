@@ -236,7 +236,7 @@ const SENSORS = [
   { name: "Chemical + Climate", icon: Wind, specs: ["BME690 VOC and VSC gas sensing", "Humidity and temperature", "Pressure and air quality", "Environmental telemetry arrays"] },
   { name: "FCI Bioelectric Probe", icon: Cable, specs: ["Ground-actuated Fungal Computer Interface", "Soil and mycelium network contact", "Bioelectric signal capture", "Subsurface interaction layer"] },
   { name: "Signal Intelligence", icon: Radio, specs: ["Software-defined radio", "Mesh spectrum awareness", "Field telemetry relay", "Remote environmental signals"] },
-  { name: "Edge AI + Onsite Inference", icon: Cpu, specs: ["MycoBrain controller platform", "NVIDIA Blackwell edge compute", "M5Stack LLM8850 accelerator", "Future PCIe TPU/GPU/SSD expansion", "Nature Learning Model host"] },
+  { name: "Edge SI + Onsite Inference", icon: Cpu, specs: ["MycoBrain controller platform", "NVIDIA Blackwell edge compute", "M5Stack LLM8850 accelerator", "Future PCIe TPU/GPU/SSD expansion", "Nature Learning Model host"] },
   { name: "Indefinite Field Power", icon: Battery, specs: ["Solar charging skin", "Battery-backed operation", "Low-power duty cycling", "Designed for indefinite outdoor use"] },
 ]
 
@@ -612,7 +612,7 @@ export function Mushroom1Details() {
             </h2>
             <p className="mt-5 text-lg leading-8 text-slate-700 dark:text-white/70">
               It integrates with FCI, MYCA, NatureOS, MINDEX, and the Mycorrhizae Protocol so field hardware,
-              biological interfaces, and autonomous AI operations work as one connected system.
+              biological interfaces, and autonomous SI operations work as one connected system.
             </p>
           </motion.div>
 

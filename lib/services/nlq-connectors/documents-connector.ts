@@ -88,7 +88,7 @@ export class DocumentsConnector implements BaseConnector {
       },
       {
         id: "myca",
-        title: "MYCA AI Guide",
+        title: "MYCA SI Guide",
         path: "/docs/MYCA_KNOWLEDGE_BASE.md",
         description: "MYCA cognitive agent documentation",
         keywords: ["myca", "ai", "agent", "orchestrator", "voice"],

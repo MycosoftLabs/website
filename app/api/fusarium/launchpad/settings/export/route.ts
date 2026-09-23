@@ -57,7 +57,7 @@ export async function GET() {
   });
   return NextResponse.json({
     export: bundle,
-    note: 'AI provider secrets, enroll hashes, and generated HTML bodies are omitted. Audit chain is not rewritten.',
+    note: 'SI provider secrets, enroll hashes, and generated HTML bodies are omitted. Audit chain is not rewritten.',
   });
 }
 

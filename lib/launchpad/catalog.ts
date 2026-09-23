@@ -148,11 +148,11 @@ export const CATALOG: CatalogProduct[] = [
   { lookupKey: 'fus_launchpad_partner_annual', name: 'FUSARIUM Partner Mesh Pro Annual',
     kind: 'plan', billing: 'year', unitAmount: 999000, planKey: 'partner_mesh_pro' },
 
-  { lookupKey: 'fus_launchpad_credits_100', name: 'FUSARIUM Launchpad 100 AI Credits',
+  { lookupKey: 'fus_launchpad_credits_100', name: 'FUSARIUM Launchpad 100 SI Credits',
     kind: 'credits', billing: 'one_time', unitAmount: 2000, creditQuantity: 100 },
-  { lookupKey: 'fus_launchpad_credits_500', name: 'FUSARIUM Launchpad 500 AI Credits',
+  { lookupKey: 'fus_launchpad_credits_500', name: 'FUSARIUM Launchpad 500 SI Credits',
     kind: 'credits', billing: 'one_time', unitAmount: 7500, creditQuantity: 500 },
-  { lookupKey: 'fus_launchpad_credits_2000', name: 'FUSARIUM Launchpad 2,000 AI Credits',
+  { lookupKey: 'fus_launchpad_credits_2000', name: 'FUSARIUM Launchpad 2,000 SI Credits',
     kind: 'credits', billing: 'one_time', unitAmount: 24000, creditQuantity: 2000 },
 
   { lookupKey: 'fus_launchpad_advisory_15', name: 'FUSARIUM Launchpad 15-Minute Advisory',
@@ -199,7 +199,7 @@ export function catalogInvariants(): string[] {
   const keys = CATALOG.map((p) => p.lookupKey);
   if (new Set(keys).size !== keys.length) errors.push('duplicate lookup keys');
   for (const [plan, ent] of Object.entries(PLAN_ENTITLEMENTS)) {
-    if (!ent.byoAiKey) errors.push(`${plan} must allow BYO AI keys`);
+    if (!ent.byoAiKey) errors.push(`${plan} must allow BYO SI provider keys`);
   }
   return errors;
 }

@@ -101,7 +101,7 @@ export function deriveEntitlements(sub: SubscriptionRow | null, now = new Date()
         mode: 'grace',
         planKey,
         entitlements: ent,
-        reason: 'Payment issue — grace period. Expensive AI actions are paused; fix billing to avoid read/export mode.',
+        reason: 'Payment issue — grace period. Expensive SI actions are paused; fix billing to avoid read/export mode.',
       };
     }
     return {

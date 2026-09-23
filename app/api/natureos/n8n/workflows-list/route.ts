@@ -21,7 +21,7 @@ const KNOWN_WORKFLOWS: WorkflowInfo[] = [
   { id: "02", name: "Router Integration Dispatch", description: "Routes requests to appropriate integrations", category: "myca", file: "02_router_integration_dispatch.json" },
   
   // Native Integrations
-  { id: "03", name: "Native AI", description: "AI model integrations (OpenAI, Anthropic)", category: "native", file: "03_native_ai.json" },
+  { id: "03", name: "Native SI", description: "SI model integrations (OpenAI, Anthropic)", category: "native", file: "03_native_ai.json" },
   { id: "04", name: "Native Comms", description: "Communication integrations (Email, SMS, Slack)", category: "native", file: "04_native_comms.json" },
   { id: "05", name: "Native DevTools", description: "Developer tools (GitHub, GitLab)", category: "native", file: "05_native_devtools.json" },
   { id: "06", name: "Native Data Storage", description: "Data storage integrations", category: "native", file: "06_native_data_storage.json" },

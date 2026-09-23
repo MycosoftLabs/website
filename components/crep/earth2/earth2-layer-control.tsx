@@ -330,7 +330,7 @@ export function Earth2LayerControl({
           </div>
 
           <p className="px-2 py-1.5 text-[9px] text-gray-500 leading-snug border-b border-emerald-500/10">
-            GPU-side AI weather uses MAS/Legion pipelines aligned with{" "}
+            GPU-side SI weather uses MAS/Legion pipelines aligned with{" "}
             <a
               href="https://github.com/NVIDIA/earth2studio"
               target="_blank"
@@ -606,7 +606,7 @@ export function Earth2LayerControl({
               {/* Model Tab */}
               <TabsContent value="model" className="m-0 p-2 space-y-3">
                 <div className="space-y-1.5">
-                  <span className="text-[10px] text-emerald-400/70 uppercase">AI Model</span>
+                  <span className="text-[10px] text-emerald-400/70 uppercase">SI Model</span>
                   <Select
                     value={filter.selectedModel}
                     onValueChange={(value) => onFilterChange({ selectedModel: value as Earth2Model })}
@@ -730,7 +730,7 @@ export function Earth2LayerControl({
                       mode="earth2"
                       label="Earth-2"
                       icon={<Cloud className="w-3 h-3" />}
-                      description="Weather AI"
+                      description="Weather SI"
                       currentMode={filter.gpuMode}
                       onSelect={(mode) => onFilterChange({ gpuMode: mode })}
                     />
@@ -738,7 +738,7 @@ export function Earth2LayerControl({
                       mode="voice"
                       label="PersonaPlex"
                       icon={<Mic className="w-3 h-3" />}
-                      description="Voice AI"
+                      description="Voice SI"
                       currentMode={filter.gpuMode}
                       onSelect={(mode) => onFilterChange({ gpuMode: mode })}
                     />

@@ -90,7 +90,7 @@ const missionCriticalData: MissionModalData[] = [
         items: [
           { name: "NatureOS", description: "Unified command center for real-time visualization and alerts", link: "/natureos" },
           { name: "CREP Dashboard", description: "Common Relevant Environmental Picture for situational awareness", link: "/dashboard/crep" },
-          { name: "Nature Learning Model", description: "AI-powered anomaly detection and pattern recognition" }
+          { name: "Nature Learning Model", description: "superintelligence-powered anomaly detection and pattern recognition" }
         ]
       },
       {
@@ -157,7 +157,7 @@ const missionCriticalData: MissionModalData[] = [
         category: "Software & Analytics",
         items: [
           { name: "NatureOS Marine Module", description: "Specialized visualization for coastal operations", link: "/natureos" },
-          { name: "Source Tracking AI", description: "ML-powered contamination source identification" },
+          { name: "Source Tracking SI", description: "ML-powered contamination source identification" },
           { name: "CREP Maritime", description: "Coastal environmental picture integration", link: "/dashboard/crep" }
         ]
       },
@@ -188,9 +188,9 @@ const missionCriticalData: MissionModalData[] = [
         ]
       },
       {
-        category: "Software & AI",
+        category: "Software & SI",
         items: [
-          { name: "Nature Learning Model", description: "AI trained on normal microbial dynamics to detect anomalies" },
+          { name: "Nature Learning Model", description: "SI trained on normal microbial dynamics to detect anomalies" },
           { name: "Fusarium Biodefense", description: "Specialized dashboard for biothreat monitoring", link: "/defense/fusarium" },
           { name: "EEW System", description: "Environmental Early Warning automated alerting" }
         ]
@@ -354,7 +354,7 @@ const dodIntegrationItems = [
       ],
       tools: [
         { name: "MINDEX Intel Export", description: "Classified intelligence product generation" },
-        { name: "NLM Analysis", description: "AI-powered pattern recognition" },
+        { name: "NLM Analysis", description: "superintelligence-powered pattern recognition" },
         { name: "CREP Dashboard", description: "Situational awareness display" }
       ],
       compliance: ["ICD 503", "NIST 800-53", "DoD 8140"]
@@ -435,7 +435,7 @@ const dodIntegrationItems = [
       tools: [
         { name: "NatureOS API", description: "RESTful and gRPC integration" },
         { name: "Standard Formats", description: "MIL-STD compliant data exchange" },
-        { name: "NLM AI", description: "Automated environmental assessment" }
+        { name: "NLM SI", description: "Automated environmental assessment" }
       ],
       compliance: ["CJADC2 Strategy", "DoD Data Strategy", "ABMS Compatible"]
     }
@@ -897,7 +897,7 @@ export function DefensePortal() {
                   {/* AI Processing Layer */}
                   <div className="absolute top-24 left-1/2 -translate-x-1/2 w-28 h-12 rounded-lg bg-purple-500/20 border border-purple-500/50 flex flex-col items-center justify-center">
                     <Cpu className="h-4 w-4 text-purple-500" />
-                    <span className="text-[7px] font-bold mt-0.5">NLM / AI</span>
+                    <span className="text-[7px] font-bold mt-0.5">NLM / SI</span>
                   </div>
 
                   {/* Central Node - NatureOS */}

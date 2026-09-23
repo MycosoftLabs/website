@@ -17,7 +17,7 @@ export default function EthicsPage() {
             Mycosoft Ethics Policy
           </h1>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-            Our AI systems operate under a structured ethics framework — Truth, Incentive, and Horizon gates — with sector-specific checklists and mandatory human oversight.
+            Our SI systems operate under a structured ethics framework — Truth, Incentive, and Horizon gates — with sector-specific checklists and mandatory human oversight.
           </p>
         </div>
       </section>

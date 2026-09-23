@@ -27,7 +27,7 @@ export async function GET() {
       note: 'Red-team and network scanners stay on the Local Assurance Agent. Cloud receives sanitized structured results only.',
     },
     byoKeys:
-      'Optional BYO AI provider keys are envelope-encrypted under a customer-scoped DEK. They are a policy carve-out vs hashed tenant API keys. Trust-page copy is drafted for Claude — do not treat the published “never stores secret values” line as covering BYO until that page is updated.',
+      'Optional BYO SI provider keys are envelope-encrypted under a customer-scoped DEK. They are a policy carve-out vs hashed tenant API keys. Trust-page copy is drafted for Claude — do not treat the published “never stores secret values” line as covering BYO until that page is updated.',
   });
 }
 

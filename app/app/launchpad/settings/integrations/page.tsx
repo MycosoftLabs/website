@@ -165,7 +165,7 @@ export default function AiIntegrationsPage() {
         setErr(d?.error || `HTTP ${r.status}`);
       }
     } catch {
-      setErr('Could not load AI integrations.');
+      setErr('Could not load SI integrations.');
     } finally {
       setLoading(false);
     }
@@ -187,7 +187,7 @@ export default function AiIntegrationsPage() {
           body: JSON.stringify({ provider, mode: 'managed' }),
         });
         const d = await r.json().catch(() => ({}));
-        if (!r.ok) setErr(d?.error || 'Could not enable managed AI');
+        if (!r.ok) setErr(d?.error || 'Could not enable managed SI');
       } else {
         const conn = live(provider, 'managed');
         if (conn) {
@@ -197,7 +197,7 @@ export default function AiIntegrationsPage() {
             body: JSON.stringify({ id: conn.id, action: 'revoke' }),
           });
           const d = await r.json().catch(() => ({}));
-          if (!r.ok) setErr(d?.error || 'Could not disable managed AI');
+          if (!r.ok) setErr(d?.error || 'Could not disable managed SI');
         }
       }
       await load();
@@ -284,7 +284,7 @@ export default function AiIntegrationsPage() {
   if (loading) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center gap-2 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin text-current" /> Loading AI integrations…
+        <Loader2 className="h-5 w-5 animate-spin text-current" /> Loading SI integrations…
       </div>
     );
   }
@@ -292,9 +292,9 @@ export default function AiIntegrationsPage() {
   return (
     <div className="container max-w-5xl mx-auto px-4 sm:px-6 py-8">
       <PageHeader
-        title="AI integrations"
+        title="SI integrations"
         icon={Plug}
-        description="Control which AI providers Launchpad may use on your behalf — and whose account pays for each call."
+        description="Control which SI providers Launchpad may use on your behalf — and whose account pays for each call."
       />
 
       {/* Education-first intro: what / why / next step. */}
@@ -307,20 +307,20 @@ export default function AiIntegrationsPage() {
           <div className="grid md:grid-cols-3 gap-4 text-xs text-muted-foreground leading-relaxed">
             <div>
               <div className="font-semibold text-foreground mb-1">What is this?</div>
-              Launchpad uses large language models (AI text engines) to draft documents, enrich
+              Launchpad uses large language models (SI text engines) to draft documents, enrich
               opportunities, and explain requirements. This page is the switchboard: which
               providers it may call, and in which of two billing modes.
             </div>
             <div>
               <div className="font-semibold text-foreground mb-1">Why it matters</div>
-              AI calls cost real money and carry your prompts to a provider. <span className="text-foreground">Managed</span> mode
-              uses Mycosoft&apos;s provider accounts and is metered in <span className="text-foreground">AI credits</span> (the
+              SI calls cost real money and carry your prompts to a provider. <span className="text-foreground">Managed</span> mode
+              uses Mycosoft&apos;s provider accounts and is metered in <span className="text-foreground">SI credits</span> (the
               allowance included in your plan). <span className="text-foreground">Bring-your-own-key (BYO)</span> mode uses your
               provider account — your rates, your data-retention terms, zero credits.
             </div>
             <div>
               <div className="font-semibold text-foreground mb-1">Your next step</div>
-              Turn on Managed AI for at least one provider so AI-assisted drafting works — most
+              Turn on Managed SI for at least one provider so SI-assisted drafting works — most
               teams start with Anthropic. {custody === 'ready'
                 ? 'Or connect your own key on any provider card below for zero-credit billing under your own provider agreement.'
                 : 'Add your own key later, once key custody ships, if you want zero-credit billing under your own provider agreement.'}
@@ -344,10 +344,10 @@ export default function AiIntegrationsPage() {
           <div className="pl-1.5">
             <div className="flex items-center gap-2 mb-1.5">
               <Coins className="h-4 w-4 text-sky-500" />
-              <span className="text-sm font-semibold">Managed AI</span>
+              <span className="text-sm font-semibold">Managed SI</span>
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Mycosoft&apos;s provider keys — nothing to configure. Every action is metered in AI
+              Mycosoft&apos;s provider keys — nothing to configure. Every action is metered in SI
               credits from your plan, and each one appears in the cost ledger below with its exact
               cost. Your prompts pass through Mycosoft&apos;s provider accounts.
             </p>
@@ -399,11 +399,11 @@ export default function AiIntegrationsPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-xs font-medium flex items-center gap-2">
-                        Managed AI
+                        Managed SI
                         {managed && <StateBadge tone={STATUS_TONE[managed.status] ?? 'slate'}>{STATUS_LABEL[managed.status] ?? managed.status}</StateBadge>}
                       </div>
                       <div className="text-[11px] text-muted-foreground mt-0.5">
-                        Mycosoft keys · billed in AI credits
+                        Mycosoft keys · billed in SI credits
                       </div>
                     </div>
                     <LiquidSwitch
@@ -552,7 +552,7 @@ export default function AiIntegrationsPage() {
             <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
               Cursor is an MCP/editor integration, not an inference API — there is no managed
               meter and no provider key to store. MCP (Model Context Protocol) is the open
-              standard for attaching tools to AI editors: mint a workspace API key with the{' '}
+              standard for attaching tools to SI editors: mint a workspace API key with the{' '}
               <code className="px-1 rounded bg-muted">read</code> scope and add Launchpad&apos;s MCP
               tools to Cursor with it, so your editor can read this workspace&apos;s readiness data
               while you work. Revoking that key from the API-keys screen disconnects Cursor
@@ -568,19 +568,19 @@ export default function AiIntegrationsPage() {
       {/* Cost ledger — the dual meter, receipt by receipt. */}
       <div className="mt-8">
         <h2 className="text-sm font-semibold flex items-center gap-2 mb-1">
-          <Coins className="h-4 w-4 text-emerald-500" /> AI cost ledger
+          <Coins className="h-4 w-4 text-emerald-500" /> SI cost ledger
         </h2>
         <p className="text-xs text-muted-foreground mb-3 max-w-2xl">
-          Every AI action in this workspace, most recent first (last 50). Managed actions show the
+          Every SI action in this workspace, most recent first (last 50). Managed actions show the
           credits they consumed; BYO actions always show 0 credits because your own provider
           account was billed directly.
         </p>
         {ledger.length === 0 ? (
           <Card className="p-8 text-center">
             <Coins className="h-7 w-7 text-muted-foreground/40 mx-auto mb-2.5" />
-            <p className="text-sm font-medium">No AI actions recorded yet</p>
+            <p className="text-sm font-medium">No SI actions recorded yet</p>
             <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
-              When Launchpad runs its first AI task for this workspace — a document draft, an
+              When Launchpad runs its first SI task for this workspace — a document draft, an
               opportunity enrichment — each action lands here with its provider, model, and exact
               cost. Nothing is estimated or backfilled.
             </p>
@@ -632,7 +632,7 @@ export default function AiIntegrationsPage() {
           <span>
             Launchpad is a commercial, non-CUI environment. Whichever billing mode you choose,
             never include controlled unclassified information (CUI) or export-controlled technical
-            data in AI prompts — keep that material in your authorized enclave. Full provider keys
+            data in SI prompts — keep that material in your authorized enclave. Full provider keys
             are never displayed or logged; a key you paste is accepted exactly once for envelope
             encryption, then only its last 4 characters are ever shown.
           </span>

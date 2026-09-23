@@ -10,7 +10,7 @@ import Earth2HybridView from "@/components/earth2/Earth2HybridView";
 export const metadata: Metadata = {
   title: "Earth-2 RTX | Mycosoft",
   description:
-    "NVIDIA Earth-2 visualization with RTX rendering and AI weather models",
+    "NVIDIA Earth-2 visualization with RTX rendering and SI weather models",
 };
 
 export default function Earth2RTXPage() {

@@ -231,7 +231,7 @@ export const MYCOSOFT_DEVICE_BOMS: DeviceBom[] = [
     population: 'partial',
     note: 'Portfolio-reference only — no live procurement sheet yet. Unitree (China-based quadruped maker) is on the DoD §1260H list: a category risk signal, though Mushroom 1 uses its own components. Enter the real BOM to screen. Compute SoC/camera/LiDAR fab origin before any defense claim.',
     lines: [
-      { component: 'Edge AI module', vendor: 'NVIDIA', country: 'USA', partNumber: 'Jetson Orin Nano 8GB', baaBucket: 'A' },
+      { component: 'Edge SI module', vendor: 'NVIDIA', country: 'USA', partNumber: 'Jetson Orin Nano 8GB', baaBucket: 'A' },
       { component: 'MycoBrain controller', vendor: 'Mycosoft', country: 'mixed (see MycoBrain BOM)', baaBucket: 'C' },
       { component: 'LiDAR (proposed)', vendor: 'Ouster REV8', country: 'USA', baaBucket: 'A' },
     ],

@@ -275,7 +275,7 @@ export function CreditMeter() {
   return (
     <div className="px-2 py-1.5">
       <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
-        <span className="inline-flex items-center gap-1"><Coins className="h-3 w-3" /> AI credits</span>
+        <span className="inline-flex items-center gap-1"><Coins className="h-3 w-3" /> SI credits</span>
         <span className="tabular-nums font-medium text-foreground">
           {s.creditBalance ?? '—'}{monthly ? <span className="text-muted-foreground font-normal"> / {monthly} mo</span> : null}
         </span>
@@ -287,7 +287,7 @@ export function CreditMeter() {
         ) : null}
       </div>
       <p className="text-[9px] text-muted-foreground mt-1 leading-snug">
-        Managed AI only — bring-your-own-key actions never consume credits.
+        Managed SI only — bring-your-own-key actions never consume credits.
       </p>
     </div>
   );

@@ -803,7 +803,7 @@ function SmellTrainingContent() {
                   Upload BSEC Blob
                 </CardTitle>
                 <CardDescription>
-                  Upload trained selectivity blob from Bosch AI-Studio
+                  Upload trained selectivity blob from Bosch SI-Studio
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

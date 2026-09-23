@@ -124,7 +124,7 @@ export default function ClosureBoardPage() {
             <p className="text-xs text-muted-foreground leading-relaxed">
               Work wave 1 left to right: fix the underlying practice, index the evidence, then mark the requirement
               in the control register. The board recomputes from your register — nothing here closes on its own,
-              and no AI ever marks a requirement for you.
+              and no SI ever marks a requirement for you.
             </p>
           </div>
         </div>

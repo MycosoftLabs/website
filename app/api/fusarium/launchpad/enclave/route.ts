@@ -28,7 +28,7 @@ export async function GET() {
     providers: PROVIDERS,
     connectorPattern: {
       stores: ['title', 'id', 'owner', 'date', 'hash', 'status'],
-      never: ['imported content', 'broad drive search', 'AI processing without item-level approval'],
+      never: ['imported content', 'broad drive search', 'SI processing without item-level approval'],
     },
     note:
       references.length === 0

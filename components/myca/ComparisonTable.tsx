@@ -57,10 +57,10 @@ export function ComparisonTable({ className }: { className?: string }) {
             Comparison
           </Badge>
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            MYCA vs Frontier AI
+            MYCA vs Frontier SI
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            The only AI continuously learning from the living planet.
+            The only SI continuously learning from the living planet.
           </p>
         </div>
 

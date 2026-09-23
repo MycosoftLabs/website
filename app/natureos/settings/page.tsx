@@ -418,7 +418,7 @@ export default function SettingsPage() {
     <DashboardShell>
       <DashboardHeader 
         heading="System Settings" 
-        text="Configure NatureOS, MYCA AI, integrations, and system preferences"
+        text="Configure NatureOS, MYCA SI, integrations, and system preferences"
       >
         <div className="flex items-center gap-2">
           {mycaMessage && (
@@ -639,7 +639,7 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bot className="h-5 w-5 text-purple-500" />
-                MYCA AI Configuration
+                MYCA SI Configuration
               </CardTitle>
               <CardDescription>
                 Configure MYCA&apos;s behavior, learning, and permissions. All changes are logged for training.
@@ -650,7 +650,7 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-3">
                   <Sparkles className="h-6 w-6 text-purple-500" />
                   <div>
-                    <p className="font-medium">MYCA AI Assistant</p>
+                    <p className="font-medium">MYCA SI Assistant</p>
                     <p className="text-sm text-muted-foreground">
                       {settings.myca.enabled ? "Active and learning from interactions" : "Disabled"}
                     </p>
@@ -664,7 +664,7 @@ export default function SettingsPage() {
 
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="myca-model">AI Model</Label>
+                  <Label htmlFor="myca-model">SI Model</Label>
                   <Select
                     value={settings.myca.model}
                     onValueChange={(v) => updateSetting("myca", "model", v)}
@@ -1621,9 +1621,9 @@ export default function SettingsPage() {
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label>AI Assist</Label>
+                    <Label>SI Assist</Label>
                     <p className="text-sm text-muted-foreground">
-                      Enable MYCA AI assistance in shell
+                      Enable MYCA SI assistance in shell
                     </p>
                   </div>
                   <Switch

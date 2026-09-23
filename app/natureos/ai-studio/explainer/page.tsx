@@ -30,7 +30,7 @@ export default function TransformerExplainerPage() {
                 <Badge variant="outline">Educational</Badge>
               </h1>
               <p className="text-muted-foreground mt-1">
-                Understand how MYCA&apos;s AI processes and generates responses using transformer architecture
+                Understand how MYCA&apos;s SI processes and generates responses using transformer architecture
               </p>
             </div>
           </div>
@@ -293,7 +293,7 @@ export default function TransformerExplainerPage() {
                   How MYCA Uses Transformers
                 </CardTitle>
                 <CardDescription>
-                  Understanding MYCA&apos;s AI architecture and decision-making process
+                  Understanding MYCA&apos;s SI architecture and decision-making process
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -388,7 +388,7 @@ export default function TransformerExplainerPage() {
                   <Button asChild>
                     <Link href="/natureos/ai-studio">
                       <Brain className="h-4 w-4 mr-2" />
-                      Open MYCA AI Studio
+                      Open MYCA SI Studio
                     </Link>
                   </Button>
                   <Button variant="outline" asChild>

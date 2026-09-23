@@ -85,7 +85,7 @@ const deviceRoles = [
   {
     name: "Mushroom 1",
     role: "walking ground droid",
-    detail: "FCI soil contact, BlueSight vision, gas, acoustic, thermal, and Jetson-class on-device AI.",
+    detail: "FCI soil contact, BlueSight vision, gas, acoustic, thermal, and Jetson-class on-device SI.",
     image: "/assets/mushroom1/Main A.jpg",
     imageAlt: "Mushroom 1 walking ground droid",
   },
@@ -227,7 +227,7 @@ export default function MycobrainPage() {
                 Device network
               </MycobrainGlassLink>
               <MycobrainGlassLink href="/natureos/devices/onsite-ai" className="mycobrain-petri-over-video" icon={<ChevronRight className="h-4 w-4" />}>
-                NemoClaw on-site AI
+                NemoClaw on-site SI
               </MycobrainGlassLink>
             </div>
           </div>

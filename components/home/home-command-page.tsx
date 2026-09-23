@@ -1,12 +1,9 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { motion } from "framer-motion"
-import { ArrowUpRight, Database, Globe2, Layers3, Radar, Search, Shield, Sparkles } from "lucide-react"
+import { ArrowUpRight, Database, Globe2, Layers3, Radar, Shield, Sparkles } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
-import { HeroSearch } from "@/components/home/hero-search"
-import { HomeMYCAExperience } from "@/components/home/home-myca-demo-panel"
+import { NlmFormspaceHero } from "@/components/home/nlm-formspace-hero"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { homeHeroVideoSources, primaryHomeHeroPosterPath } from "@/lib/asset-video-sources"
 import { homeHeroYoutubeId } from "@/lib/hero-youtube"
@@ -124,9 +121,9 @@ const TILES: HomeTile[] = [
   },
   {
     title: "MYCA",
-    eyebrow: "Mission AI",
+    eyebrow: "Mission SI",
     href: "/myca",
-    description: "The AI interface for planning, querying, and coordinating Mycosoft systems.",
+    description: "The SI interface for planning, querying, and coordinating Mycosoft systems.",
     video: "/assets/homepage/tiles/mycobrain-tile-1080-2026.mp4",
     sources: ["/assets/homepage/tiles/mycobrain-tile-1080-2026.mp4"],
     poster: "/assets/devices/mycobrainjetson-black.jpg",
@@ -168,56 +165,11 @@ function TileMedia({ tile, posterOnly }: { tile: HomeTile; posterOnly?: boolean 
 
 export function HomeCommandPage() {
   const allowHomeVideo = useAllowRichHomeMedia()
-  const [showMYCADemo, setShowMYCADemo] = useState(false)
-  const [hasMountedMYCADemo, setHasMountedMYCADemo] = useState(false)
-  const showMYCADemoRef = useRef(false)
-
-  const pinHero = () => {
-    if (typeof window === "undefined") return
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" })
-  }
-
-  const openMYCADemo = () => {
-    if (showMYCADemoRef.current) return
-    showMYCADemoRef.current = true
-    pinHero()
-    window.dispatchEvent(new Event("myca-home-demo-reset"))
-    setHasMountedMYCADemo(true)
-    window.requestAnimationFrame(() => {
-      setShowMYCADemo(true)
-      pinHero()
-    })
-  }
-
-  const returnToSearch = () => {
-    if (!showMYCADemoRef.current) return
-    showMYCADemoRef.current = false
-    pinHero()
-    window.dispatchEvent(new Event("myca-home-demo-close"))
-    setShowMYCADemo(false)
-    window.requestAnimationFrame(pinHero)
-    window.setTimeout(() => {
-      if (!showMYCADemoRef.current) setHasMountedMYCADemo(false)
-    }, 80)
-  }
-
-  useEffect(() => {
-    showMYCADemoRef.current = showMYCADemo
-    if (!showMYCADemo) return
-    pinHero()
-    const frame = window.requestAnimationFrame(pinHero)
-    const settle = window.setTimeout(pinHero, 360)
-    return () => {
-      window.cancelAnimationFrame(frame)
-      window.clearTimeout(settle)
-    }
-  }, [showMYCADemo])
 
   return (
     <div className="home-command-page-light min-h-dvh bg-white text-slate-950 dark:bg-black dark:text-white">
       <section
         data-over-video
-        data-myca-active={showMYCADemo ? "true" : "false"}
         className="home-hero-glass-field relative min-h-[calc(100dvh-3rem)] overflow-hidden border-b border-white/10"
       >
         <div className="absolute inset-0">
@@ -244,68 +196,14 @@ export function HomeCommandPage() {
               className="absolute inset-0 h-full w-full object-cover"
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/12 to-black/70" />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/28 via-white/10 to-white/35 dark:from-black/28 dark:via-black/10 dark:to-black/40" />
         </div>
 
-        <div
-          data-home-search-layer
-          inert={showMYCADemo ? true : undefined}
-          className={cn(
-            "relative z-10 mx-auto min-h-[calc(100dvh-3rem)] w-full max-w-7xl",
-            showMYCADemo && "pointer-events-none"
-          )}
-        >
-          <motion.div
-            className="absolute inset-0 flex items-center justify-center px-4 py-20 sm:px-6 lg:px-8"
-            initial={false}
-            animate={showMYCADemo ? { opacity: 0, y: -48, scale: 0.96 } : { opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.46, ease: [0.22, 0.61, 0.36, 1] }}
-            aria-hidden={showMYCADemo}
-          >
-            <div className="mx-auto w-full max-w-3xl">
-              <HeroSearch
-                showBackground={false}
-                embedded
-                className="w-full"
-                onOpenMYCADemo={openMYCADemo}
-              />
-            </div>
-          </motion.div>
+        <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-3rem)] w-full max-w-6xl flex-col px-4 pb-6 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6">
+          <div className="flex flex-1 items-center py-4">
+            <NlmFormspaceHero className="mx-auto w-full max-w-5xl" />
+          </div>
         </div>
-
-        {hasMountedMYCADemo ? (
-          <motion.div
-            key="myca-demo"
-            data-home-myca-layer
-            className={cn("absolute inset-0 z-20", !showMYCADemo && "pointer-events-none")}
-            initial={false}
-            animate={showMYCADemo ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 32, scale: 0.985 }}
-            transition={{ duration: 0.58, ease: [0.22, 0.61, 0.36, 1] }}
-            aria-hidden={!showMYCADemo}
-            inert={!showMYCADemo ? true : undefined}
-          >
-            <HomeMYCAExperience active={showMYCADemo} />
-            {showMYCADemo ? (
-              <div className="natureos-glass-page myco-home-return-search-glass absolute bottom-8 right-4 z-30 sm:right-7 lg:bottom-16 lg:right-10">
-                <div className="petri-codepen-button-demo petri-codepen-button-demo-reset myco-hero-petri-icon myco-home-return-search-button">
-                  <div className="button-wrap">
-                    <button
-                      type="button"
-                      aria-label="Return to search panels"
-                      title="Search"
-                      onClick={returnToSearch}
-                    >
-                      <span>
-                        <Search className="h-[1em] w-[1em]" />
-                      </span>
-                    </button>
-                    <div className="button-shadow" />
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </motion.div>
-        ) : null}
       </section>
 
       <section className="border-b border-slate-200 bg-white px-4 py-6 sm:px-6 lg:px-8 dark:border-white/10 dark:bg-black">

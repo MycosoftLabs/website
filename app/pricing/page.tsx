@@ -67,7 +67,7 @@ const PLANS = [
     popular: true,
     features: [
       { name: 'Everything in Basic', included: true },
-      { name: 'MYCA AI Assistant', included: true },
+      { name: 'MYCA SI Assistant', included: true },
       { name: 'Data export', included: true },
       { name: 'API access', limit: '10K/mo', included: true },
       { name: 'CREP Dashboard', included: true },
@@ -108,7 +108,7 @@ const CAPABILITIES = [
   },
   {
     icon: Brain,
-    title: 'Dual AI system',
+    title: 'Dual SI system',
     description: 'Human-fed and nature-fed data with grounded world-state intelligence',
   },
   {

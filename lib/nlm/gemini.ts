@@ -5,7 +5,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
 export async function getMutationAdvice(modelConfig: any, metrics: any) {
   const prompt = `
-    You are an AI research assistant for the Nature Learning Model (NLM).
+    You are an SI research assistant for the Nature Learning Model (NLM).
     NLM is a grounded sensory world model that learns from physical reality (wavelengths, waveforms, voltages, etc.).
 
     Current Model Configuration:
@@ -89,7 +89,7 @@ export async function analyzeAcousticPattern(acousticData: any) {
 
 export async function getModelAdvice(model: any, sensors: any[]) {
   const prompt = `
-    You are an AI research assistant for the Nature Learning Model (NLM).
+    You are an SI research assistant for the Nature Learning Model (NLM).
     NLM is a grounded sensory world model that learns from physical reality.
 
     Current Model:

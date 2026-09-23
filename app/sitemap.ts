@@ -22,6 +22,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/myca`, lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
     { url: `${baseUrl}/ai/avani`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${baseUrl}/myca/nlm`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/ai/formspace`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/ai/formspace/downloads`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${baseUrl}/myca/downloads`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${baseUrl}/myca/nlm/downloads`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${baseUrl}/docs/ai/formspace`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
 
     // Devices
     { url: `${baseUrl}/devices`, lastModified: now, changeFrequency: 'weekly', priority: 0.9 },

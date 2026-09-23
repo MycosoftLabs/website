@@ -473,7 +473,7 @@ export function AgaricDetails() {
                 It links Mushroom 1, SporeBase, MycoNode, Hyphae 1, Psathyrella, NatureOS, MINDEX, MYCA, and FUSARIUM into a mobile aerial layer.
               </p>
               <p className="text-xl text-slate-700 dark:text-white/80 leading-relaxed">
-                Missions are fully automated and operated by AI instead of handheld controllers. MYCA and the MAS at MYCOSOFT plan,
+                Missions are fully automated and operated by SI instead of handheld controllers. MYCA and the MAS at MYCOSOFT plan,
                 deploy, monitor, maintain, and adapt AGARIC missions as part of the broader Mycosoft intelligence network.
               </p>
 

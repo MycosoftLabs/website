@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 
 export const metadata: Metadata = {
   title: "Operational Environmental Intelligence | OEI | Mycosoft",
-  description: "Learn about Operational Environmental Intelligence (OEI) - a new intelligence discipline giving voice to the operational environment through persistent sensing and AI analysis.",
+  description: "Learn about Operational Environmental Intelligence (OEI) - a new intelligence discipline giving voice to the operational environment through persistent sensing and SI analysis.",
 }
 
 export default function OEILayout({

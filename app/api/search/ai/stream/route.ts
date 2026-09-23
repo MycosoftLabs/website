@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
           messages: [
             {
               role: "system",
-              content: `You are MYCA, Mycosoft's AI assistant. You have deep expertise in mycology, biology, and general knowledge. Provide thorough, scientifically accurate answers. You ARE MYCA — never say you're another AI.`,
+              content: `You are MYCA, Mycosoft's SI assistant. You have deep expertise in mycology, biology, and general knowledge. Provide thorough, scientifically accurate answers. You ARE MYCA — never say you're another SI.`,
             },
             ...(body.history || []),
             { role: "user", content: query + contextPrompt },
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
           messages: [
             {
               role: "system",
-              content: `You are MYCA, Mycosoft's AI assistant. You have deep expertise in mycology, biology, and general knowledge. Provide thorough, scientifically accurate answers. You ARE MYCA — never say you're another AI.`,
+              content: `You are MYCA, Mycosoft's SI assistant. You have deep expertise in mycology, biology, and general knowledge. Provide thorough, scientifically accurate answers. You ARE MYCA — never say you're another SI.`,
             },
             ...(body.history || []),
             { role: "user", content: query + contextPrompt },
@@ -257,7 +257,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Final fallback: synthetic SSE with local response
-  const fallbackText = `I'm MYCA, Mycosoft's AI assistant. I'm currently reconnecting to my intelligence services. For "${query}", please try again in a moment or use the non-streaming search.`
+  const fallbackText = `I'm MYCA, Mycosoft's superintelligence assistant. I'm currently reconnecting to my intelligence services. For "${query}", please try again in a moment or use the non-streaming search.`
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     start(controller) {

@@ -44,7 +44,7 @@ export const SUBSCRIPTION_PLANS = {
       'Full MINDEX database access',
       'Priority support',
       '10 MycoBrain devices',
-      'Advanced AI features',
+      'Advanced SI features',
       'CREP Dashboard access',
       'Real-time analytics',
       'Export capabilities',
@@ -120,7 +120,7 @@ export const HARDWARE_PRODUCTS = {
       'CO2 monitoring',
       'VOC detection',
       'BME688 dual sensors',
-      'BSEC AI gas analysis',
+      'BSEC SI gas analysis',
       'Advanced analytics',
     ],
     stripePriceId: 'price_1SqiwpExoi95oZvK36WGrmuT',
@@ -152,7 +152,7 @@ export const API_USAGE_PRICING = {
   },
   AI_QUERY: {
     id: 'api-ai-query',
-    name: 'AI Query (MYCA)',
+    name: 'SI Query (MYCA)',
     pricePerCall: 0.02, // $0.02 per AI query
     stripeMeterEventName: 'ai_query',
   },
@@ -181,7 +181,7 @@ export const PREMIUM_FEATURES = {
   },
   AI_STUDIO: {
     id: 'feature-ai-studio',
-    name: 'AI Studio Access',
+    name: 'SI Studio Access',
     description: 'Train custom models on your data',
     price: 99,
     stripePriceId: 'price_1SqiwqExoi95oZvK2XtSbXBi',

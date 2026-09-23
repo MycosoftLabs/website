@@ -9,7 +9,13 @@ import { requireTenant } from '@/lib/launchpad/tenant-context';
 import { appendAuditEvent } from '@/lib/launchpad/audit';
 import { jsonError, readJson } from '@/lib/launchpad/http';
 import { createLaunchpadServiceClient } from '@/lib/launchpad/service-client';
-import { bookingUrlForCredit, calcomStatus, minutesFromSku } from '@/lib/launchpad/advisory/calcom';
+import {
+  bookingUrlForCredit,
+  calcomStatus,
+  fetchCalcomEventTypes,
+  fetchCalcomMe,
+  minutesFromSku,
+} from '@/lib/launchpad/advisory/calcom';
 import { LINKS_BY_SURFACE } from '@/lib/launchpad/official-links';
 
 export const dynamic = 'force-dynamic';
@@ -29,10 +35,17 @@ export async function GET() {
     .eq('tenant_id', gate.ctx.tenantId)
     .order('created_at', { ascending: false });
   const status = calcomStatus();
+  const [me, liveEventTypes] = status.apiKeySet
+    ? await Promise.all([fetchCalcomMe(), fetchCalcomEventTypes()])
+    : [null, []];
   return NextResponse.json({
     credits: credits ?? [],
     bookings: bookings ?? [],
-    calcom: status,
+    calcom: {
+      ...status,
+      accountUsername: me?.username ?? null,
+      liveEventTypes,
+    },
     catalogLookupKeys: [
       'fus_launchpad_advisory_15',
       'fus_launchpad_advisory_30',

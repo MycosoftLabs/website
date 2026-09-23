@@ -1173,7 +1173,7 @@ function BlockDetailPanel({ block, onClose }: { block: ChainBlock; onClose: () =
                     <div className="bg-slate-900/50 rounded-lg p-3 border border-yellow-500/30">
                       <h5 className="text-xs font-medium text-yellow-400 mb-3 flex items-center gap-1">
                         <AlertTriangle className="h-3 w-3" />
-                        AI Cascade Predictions (Preventable)
+                        SI Cascade Predictions (Preventable)
                       </h5>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         {predictions.map((pred, i) => (

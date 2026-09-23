@@ -1000,7 +1000,7 @@ export function DataSection({
               Data
             </h3>
             <p className="mt-1 max-w-4xl text-sm leading-6 text-gray-400">
-              MINDEX database workbench: inspect tables, rows, schema, provenance, and AI interpretation in one place.
+              MINDEX database workbench: inspect tables, rows, schema, provenance, and SI interpretation in one place.
             </p>
           </div>
           <div className="relative min-w-0">

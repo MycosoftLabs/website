@@ -438,12 +438,12 @@ export default function OriginGraphPage() {
                           {noteSaving === p.id ? 'Saving…' : 'Save plan'}
                         </GlassButton>
                         <GlassButton disabled>
-                          <Sparkles className="h-3.5 w-3.5 text-current mr-1.5" /> AI substitute research — backend pending
+                          <Sparkles className="h-3.5 w-3.5 text-current mr-1.5" /> SI substitute research — backend pending
                         </GlassButton>
                       </div>
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-2">
-                      The AI research hook is not wired yet — when the managed AI backend lands, it will draft
+                      The SI research hook is not wired yet — when the managed SI backend lands, it will draft
                       candidate substitutes for your review. It will never mark a part cleared; that decision is yours.
                     </p>
                   </div>

@@ -79,7 +79,7 @@ const typeLabels: Record<EventType, string> = {
   system: "System",
   weather: "Weather",
   alert: "Alert",
-  ai: "AI/MYCA",
+  ai: "SI/MYCA",
   research: "Research",
 };
 

@@ -4,7 +4,7 @@ import { appendAuditEvent } from '@/lib/launchpad/audit';
 import { jsonError, readJson } from '@/lib/launchpad/http';
 
 const DISCLAIMER =
-  'Individuals do not self-apply for a facility clearance. A company cannot sponsor its own FCL. Launchpad cannot obtain or guarantee clearance. Positive FOCI or export-control answers create a counsel-referral task — AI does not produce a legal classification. SF-86 / e-QIP / NBIS material is prohibited.';
+  'Individuals do not self-apply for a facility clearance. A company cannot sponsor its own FCL. Launchpad cannot obtain or guarantee clearance. Positive FOCI or export-control answers create a counsel-referral task — SI does not produce a legal classification. SF-86 / e-QIP / NBIS material is prohibited.';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,7 +71,7 @@ export async function PATCH(request: NextRequest) {
     await ctx.supabase.from('launchpad_tasks').insert({
       tenant_id: ctx.tenantId,
       title: foci ? 'FOCI counsel referral' : 'Export-control counsel referral',
-      detail: 'Positive screening answer. AI does not classify. Route to qualified counsel.',
+      detail: 'Positive screening answer. SI does not classify. Route to qualified counsel.',
       kind: 'counsel_referral',
       created_by: ctx.user.id,
     });
