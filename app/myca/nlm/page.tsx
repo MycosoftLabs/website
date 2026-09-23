@@ -87,7 +87,7 @@ const SIX_LAYERS = [
   { layer: "2", title: "Edge Processing", icon: Cpu, items: ["Denoising & artifact removal", "Spike/event detection", "On-device compression"] },
   { layer: "3", title: "Transport", icon: Network, items: ["Mesh/gateway architecture", "Store-and-forward", "Mycorrhizae Protocol alignment"] },
   { layer: "4", title: "Data Integrity & Indexing", icon: Database, items: ["MINDEX provenance layer", "Dataset lakehouse", "Feature derivation"] },
-  { layer: "5", title: "Model Layer (NLM)", icon: Brain, items: ["NLM-Funga foundation model", "Translation services", "Forecasting & anomaly detection"] },
+  { layer: "5", title: "Model Layer (NLM)", icon: Brain, items: ["NLM-Funga signal-state model", "Translation services", "Forecasting & anomaly detection"] },
   { layer: "6", title: "Application (NatureOS)", icon: Layers, items: ["Dashboards & APIs", "Experiment orchestration", "Stimulation loops"] },
 ]
 
@@ -109,7 +109,7 @@ export default function NLMPage() {
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <Badge variant="outline" className={cn(NLM_GLASS_CHIP, "px-2.5 py-1 text-xs font-medium")}>
-                  <Sparkles className="h-3 w-3 mr-1" /> Foundation Model
+                  <Sparkles className="h-3 w-3 mr-1" /> Signal Model Family
                 </Badge>
                 <Badge variant="outline" className={cn(NLM_GLASS_CHIP, "px-2.5 py-1 text-xs font-medium")}>
                   Training Active
@@ -257,24 +257,26 @@ export default function NLMPage() {
             <CardContent className="pt-6">
               <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
                 <Sparkles className="h-6 w-6 text-zinc-800 dark:text-zinc-200" />
-                What Makes NLM Different from Traditional SI?
+                What Makes NLM Different
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <h3 className="font-bold text-lg flex items-center gap-2"><Brain className="h-5 w-5 text-zinc-700 dark:text-zinc-300" /> Large Language Models (LLM)</h3>
-                  <ul className="space-y-2 text-muted-foreground">
-                    <li className="flex items-start gap-2"><ChevronRight className="h-4 w-4 mt-1 text-zinc-500 shrink-0" /><span>Primary signal: <strong>human text</strong> (plus images/audio)</span></li>
-                    <li className="flex items-start gap-2"><ChevronRight className="h-4 w-4 mt-1 text-zinc-500 shrink-0" /><span>Core objective: predict/produce language tokens</span></li>
-                    <li className="flex items-start gap-2"><ChevronRight className="h-4 w-4 mt-1 text-zinc-500 shrink-0" /><span>Ground truth: human-written corpora and supervised labels</span></li>
-                  </ul>
+              <p className="text-muted-foreground mb-6 max-w-3xl">
+                The Nature Learning Model is a <strong>family of signal-state and scenario learning models</strong>.
+                It learns from calibrated physical measurements—spectral, acoustic, bioelectric, thermal, chemical,
+                and mechanical—via Nature Message Frames, encoders, and temporal state-space backbones. Human-language
+                summaries are optional views of structured state, not the training objective.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <h3 className="font-bold text-lg flex items-center gap-2"><Leaf className="h-5 w-5 text-zinc-700 dark:text-zinc-300" /> Primary signal</h3>
+                  <p className="text-sm text-muted-foreground"><strong>Synchronized nature telemetry</strong> — time series, chemistry, imagery, and multi-channel sensor streams.</p>
                 </div>
-                <div className="space-y-4">
-                  <h3 className="font-bold text-lg flex items-center gap-2"><Leaf className="h-5 w-5 text-zinc-700 dark:text-zinc-300" /> Nature Learning Model (NLM)</h3>
-                  <ul className="space-y-2 text-muted-foreground">
-                    <li className="flex items-start gap-2"><ChevronRight className="h-4 w-4 mt-1 text-zinc-500 shrink-0" /><span>Primary signal: <strong>synchronized nature telemetry</strong> (time series + chemistry + imagery)</span></li>
-                    <li className="flex items-start gap-2"><ChevronRight className="h-4 w-4 mt-1 text-zinc-500 shrink-0" /><span>Core objective: learn latent state + interaction dynamics of ecosystems</span></li>
-                    <li className="flex items-start gap-2"><ChevronRight className="h-4 w-4 mt-1 text-zinc-500 shrink-0" /><span>Ground truth: <strong>causal experiments</strong>, field observations, physical/biological assays</span></li>
-                  </ul>
+                <div className="space-y-2">
+                  <h3 className="font-bold text-lg flex items-center gap-2"><Brain className="h-5 w-5 text-zinc-700 dark:text-zinc-300" /> Core objective</h3>
+                  <p className="text-sm text-muted-foreground">Learn latent environmental state and interaction dynamics of ecosystems under uncertainty.</p>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-bold text-lg flex items-center gap-2"><Beaker className="h-5 w-5 text-zinc-700 dark:text-zinc-300" /> Ground truth</h3>
+                  <p className="text-sm text-muted-foreground"><strong>Causal experiments</strong>, field observations, and physical/biological assays—not prose corpora alone.</p>
                 </div>
               </div>
               <div className={cn(NLM_GLASS_INSET, "mt-6 p-4 flex items-start gap-2")}>

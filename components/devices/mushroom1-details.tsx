@@ -662,8 +662,8 @@ export function Mushroom1Details() {
                 is the system layer that plans, supervises, and adapts the droid&apos;s work.
               </p>
               <p className="mt-4 text-base leading-7 text-slate-700 dark:text-white/72">
-                Mushroom 1 is the first Mycosoft device designed to host a Nature Learning Model, or NLM. Unlike an
-                LLM trained primarily on human text, an NLM learns from environmental signals: bioelectric patterns,
+                Mushroom 1 is the first Mycosoft device designed to host a Nature Learning Model (NLM)—a family of
+                signal-state models that learn from environmental measurements: bioelectric patterns,
                 acoustic activity, thermal states, gases, movement, climate, soil, and FCI interactions with living
                 systems.
               </p>

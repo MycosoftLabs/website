@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 export const metadata: Metadata = {
   title: "NLM² — Nature Learning Model | Mycosoft",
   description:
-    "Nature-native intelligence: NLM learns from synchronized Earth telemetry—fungi first via FCI, then plants and ecosystems. Scientific instrument, not a generic LLM page.",
+    "Nature Learning Model: a family of signal-state and scenario models that learn from synchronized Earth telemetry—fungi first via FCI, then plants and ecosystems. Scientific instrument for calibrated physical measurements.",
   openGraph: {
     title: "NLM² — Nature Learning Model | Mycosoft",
     description:

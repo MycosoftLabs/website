@@ -108,7 +108,7 @@ const THUMB_NODES = [
     title: "Ensemble Controller",
     subtitle: "Orchestration",
     icon: Layers,
-    details: ["227+ agent coordination", "LLM routing", "Tool execution", "A2A protocol"],
+    details: ["227+ agent coordination", "Agent routing", "Tool execution", "A2A protocol"],
     color: "green",
   },
 ]
