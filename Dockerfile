@@ -120,9 +120,10 @@ USER nextjs
 # Expose port
 EXPOSE 3000
 
-# Health check
+# Host-aware healthcheck — bare Host can 308 via canonical redirects; always send
+# a real Host so Docker health stays green on container IP probes.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1
+    CMD wget --no-verbose --tries=1 --spider --header='Host: sandbox.mycosoft.com' http://127.0.0.1:3000/api/health || exit 1
 
 # Start the server
 CMD ["node", "server.js"]
