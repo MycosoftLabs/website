@@ -4,6 +4,7 @@ import {
   listMemory,
 } from "@/lib/formspace/engine"
 import {
+  formspaceErrorResponse,
   formspaceMasBaseUrl,
   proxyFormSpace,
   resolveFormSpaceUser,
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic"
  * GET/POST /api/formspace/memory
  * Prefer MAS 6-layer memory (/api/memory/*); fall back to local FormSpace store.
  */
-export async function GET() {
+async function getMemory() {
   const user = await resolveFormSpaceUser()
   if (!user) {
     return NextResponse.json({
@@ -97,7 +98,7 @@ export async function GET() {
   })
 }
 
-export async function POST(request: NextRequest) {
+async function postMemory(request: NextRequest) {
   const user = await resolveFormSpaceUser()
   if (!user) {
     return NextResponse.json(
@@ -158,4 +159,20 @@ export async function POST(request: NextRequest) {
     nlm_model_id: body.nlm_model_id,
   })
   return NextResponse.json({ ...local, mas_source: false })
+}
+
+export async function GET() {
+  try {
+    return await getMemory()
+  } catch (error) {
+    return formspaceErrorResponse("memory", error, { items: [], saved_charts: [] })
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    return await postMemory(request)
+  } catch (error) {
+    return formspaceErrorResponse("memory", error)
+  }
 }

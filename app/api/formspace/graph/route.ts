@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
-import { computeGraph } from "@/lib/formspace/engine"
-import { proxyFormSpace } from "@/lib/formspace/server"
+import { computeGraph, recordEvidence } from "@/lib/formspace/engine"
+import {
+  formspaceErrorResponse,
+  formspacePrefersMas,
+  proxyFormSpace,
+} from "@/lib/formspace/server"
 
 export const dynamic = "force-dynamic"
 
 /**
  * POST /api/formspace/graph
  *
- * Real FormSpace native SSM graphing (ported from MAS native_ssm).
- * Computes locally first so Graphs never hang on missing MAS /api/formspace.
- * Optionally upgrades from MAS when that engine is deployed.
+ * FormSpace native SSM graphing. Uses MAS /api/formspace/graph when reachable
+ * (evidence is mirrored into the durable website log), otherwise the local
+ * port of the same engine so Graphs never hang or 500.
  */
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}))
@@ -20,35 +24,44 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const preferMas = process.env.FORMSPACE_PREFER_MAS === "1"
-  if (preferMas) {
-    for (const path of ["/api/formspace/graph", "/api/nlm/formspace/graph"]) {
-      try {
-        const res = await proxyFormSpace(path, {
-          method: "POST",
-          body: JSON.stringify(body),
-          timeoutMs: 3_000,
-        })
-        if (res.ok) {
+  try {
+    if (formspacePrefersMas()) {
+      for (const masPath of ["/api/formspace/graph", "/api/nlm/formspace/graph"]) {
+        try {
+          const res = await proxyFormSpace(masPath, {
+            method: "POST",
+            body: JSON.stringify(body),
+            timeoutMs: 4_000,
+          })
+          if (!res.ok) continue
           const data = await res.json().catch(() => null)
           if (data?.ok && Array.isArray(data.points) && data.points.length) {
-            return NextResponse.json({ ...data, mas_source: true, via: path })
+            recordEvidence({
+              kind: "graph",
+              graph_id: data.graph_id,
+              chart_id: String(body.chart_id),
+              origin: data.origin,
+              computed_by: "mas",
+            })
+            return NextResponse.json({ ...data, mas_source: true, via: masPath })
           }
+        } catch {
+          // try next path, then local engine
         }
-      } catch {
-        // try next / local
       }
     }
-  }
 
-  const local = computeGraph({
-    chart_id: String(body.chart_id),
-    series: Array.isArray(body.series) ? body.series : null,
-    use_demo_fixture: body.use_demo_fixture !== false,
-    graph_kind: body.graph_kind,
-    dt: typeof body.dt === "number" ? body.dt : undefined,
-    a: typeof body.a === "number" ? body.a : undefined,
-    b: typeof body.b === "number" ? body.b : undefined,
-  })
-  return NextResponse.json({ ...local, mas_source: false })
+    const local = computeGraph({
+      chart_id: String(body.chart_id),
+      series: Array.isArray(body.series) ? body.series : null,
+      use_demo_fixture: body.use_demo_fixture !== false,
+      graph_kind: body.graph_kind,
+      dt: typeof body.dt === "number" ? body.dt : undefined,
+      a: typeof body.a === "number" ? body.a : undefined,
+      b: typeof body.b === "number" ? body.b : undefined,
+    })
+    return NextResponse.json({ ...local, mas_source: false })
+  } catch (error) {
+    return formspaceErrorResponse("graph", error, { points: [] })
+  }
 }

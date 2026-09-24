@@ -36,6 +36,57 @@ const WORKSPACE_TABS = [
 
 type WorkspaceTabId = (typeof WORKSPACE_TABS)[number]["id"]
 
+interface TabGuideCopy {
+  what: string
+  how: string
+  access: string
+}
+
+const TAB_GUIDE: Record<WorkspaceTabId, TabGuideCopy> = {
+  atlas: {
+    what: "The atlas lists every FormSpace chart. Each chart is a typed map for one kind of signal (for example spectral, acoustic, or soil) with named axes and the NLM models that write coordinates onto it.",
+    how: "Tap a chart to select it and see its axes, linked NLM models, and where its data came from. Then use Replay fixture graph, or open Graphs and Experiments to work with the selected chart.",
+    access: "Everyone can browse the atlas. Signed-in users also see charts they have saved.",
+  },
+  graphs: {
+    what: "Graphs projects a chart's signal series through the FormSpace state engine and draws the resulting trajectory — how the system's state moves step by step.",
+    how: "Select a chart in Atlas, then press Compute graph. Demo charts use a published catalog fixture and are labeled Demo / catalog; they are not live sensor streams.",
+    access: "Available to everyone.",
+  },
+  experiments: {
+    what: "Experiments runs a recovery trial: it nudges one step of the signal and checks whether the state trajectory settles back toward the baseline.",
+    how: "Select a chart, then press Run recovery trial. You will see the baseline and perturbed trajectories and whether the state recovered within the threshold.",
+    access: "Available to everyone. Signed-in runs are also saved to your Memory.",
+  },
+  evidence: {
+    what: "Evidence is the running log of every graph and experiment computed in FormSpace, with its chart, origin, and time — nothing is added by hand.",
+    how: "Run a graph or experiment, then open this tab to see the new entry at the top. Use Refresh to reload the log.",
+    access: "The shared log is readable by everyone.",
+  },
+  memory: {
+    what: "Memory keeps your saved charts and the experiments you ran while signed in, so you can return to them later.",
+    how: "Sign in, name a chart and press Save chart, or run an experiment. Your entries appear here.",
+    access: "Requires sign-in. Without an account you can still use Atlas, Graphs, Experiments, and Evidence.",
+  },
+}
+
+function TabGuide({ tab }: { tab: WorkspaceTabId }) {
+  const guide = TAB_GUIDE[tab]
+  return (
+    <div className="mb-4 rounded-xl border border-black/10 bg-white/40 p-3 text-sm leading-6 text-black/70 sm:p-4 dark:border-white/15 dark:bg-white/[0.04] dark:text-white/75">
+      <p>
+        <span className="font-semibold text-black dark:text-white">What this tab does: </span>
+        {guide.what}
+      </p>
+      <p className="mt-1">
+        <span className="font-semibold text-black dark:text-white">How to use it: </span>
+        {guide.how}
+      </p>
+      <p className="mt-1 text-black/55 dark:text-white/60">{guide.access}</p>
+    </div>
+  )
+}
+
 interface AuthUser {
   id: string
   email?: string | null
@@ -114,6 +165,9 @@ export function FormSpaceWorkspace() {
   const [memoryMessage, setMemoryMessage] = useState<string | null>(null)
   const [isBusy, setIsBusy] = useState(false)
   const [saveName, setSaveName] = useState("")
+  const [evidenceError, setEvidenceError] = useState<string | null>(null)
+  const [memoryError, setMemoryError] = useState<string | null>(null)
+  const [evidenceNonce, setEvidenceNonce] = useState(0)
 
   const selected = charts.find((c) => c.chart_id === selectedId) || charts[0] || null
 
@@ -131,9 +185,8 @@ export function FormSpaceWorkspace() {
       setSelectedId((prev) => prev || atlas.charts?.[0]?.chart_id || null)
       if (health) {
         const parts = [
-          health.mas_reachable === false ? "engine offline" : "engine online",
-          health.nlm_weights_loaded ? "NLM weights loaded" : "NLM weights unloaded",
-          health.bound_to_ollama ? "OLLAMA BOUND (invalid)" : "not Ollama",
+          health.mas_reachable === false ? "local engine" : "MAS engine online",
+          health.nlm_weights_loaded ? "NLM weights loaded" : "NLM weights not loaded",
         ]
         setHealthNote(parts.join(" · "))
       }
@@ -151,13 +204,18 @@ export function FormSpaceWorkspace() {
 
   useEffect(() => {
     if (activeTab !== "evidence") return
+    setEvidenceError(null)
     void fetchFormSpaceEvidence()
       .then((data) => setEvidence(data.items || []))
-      .catch(() => setEvidence([]))
-  }, [activeTab])
+      .catch((err) => {
+        setEvidence([])
+        setEvidenceError(err instanceof Error ? err.message : "Evidence log unavailable")
+      })
+  }, [activeTab, evidenceNonce])
 
   useEffect(() => {
     if (activeTab !== "memory") return
+    setMemoryError(null)
     void fetchFormSpaceMemory()
       .then((data) => {
         setMemoryItems(data.items || [])
@@ -165,9 +223,10 @@ export function FormSpaceWorkspace() {
         setMemoryMessage(data.message || null)
         if (data.user) setUser(data.user)
       })
-      .catch(() => {
+      .catch((err) => {
         setMemoryItems([])
         setSavedCharts([])
+        setMemoryError(err instanceof Error ? err.message : "Memory unavailable")
       })
   }, [activeTab])
 
@@ -299,6 +358,8 @@ export function FormSpaceWorkspace() {
           </p>
         )}
 
+        <TabGuide tab={activeTab} />
+
         {isLoading ? (
           <div className="animate-pulse space-y-3">
             <div className="h-8 rounded-lg bg-black/10 dark:bg-white/10" />
@@ -312,8 +373,7 @@ export function FormSpaceWorkspace() {
               <div>
                 <h2 className="text-base font-semibold text-black dark:text-white">Typed atlas</h2>
                 <p className="text-sm text-black/60 dark:text-white/65">
-                  Catalog charts linked to NLM modality/scenario models. Labeled Demo / catalog —
-                  not live sensor streams.
+                  Catalog charts linked to NLM signal-state and scenario models.
                 </p>
               </div>
               <p className="font-mono text-[10px] uppercase tracking-wider text-black/45 dark:text-white/45">
@@ -404,8 +464,7 @@ export function FormSpaceWorkspace() {
               <div>
                 <h2 className="text-base font-semibold">Graphs</h2>
                 <p className="text-sm text-black/60 dark:text-white/65">
-                  Real series from FormSpace native SSM scan. Demo fixture replay is
-                  provenance-labeled — not fabricated live metrics.
+                  {selected ? `Selected chart: ${selected.name}` : "No chart selected"}
                 </p>
               </div>
               <button
@@ -440,7 +499,10 @@ export function FormSpaceWorkspace() {
                     : ""}
                 </p>
                 <Sparkline values={(graph.points || []).map((p) => p.state)} />
-                <p className="mt-2 text-xs text-black/55 dark:text-white/60">{graph.note}</p>
+                <p className="mt-2 text-xs text-black/55 dark:text-white/60">
+                  State trajectory from the FormSpace state-space engine
+                  {graph.label ? ` · ${graph.label} data, not a live sensor stream` : ""}.
+                </p>
               </div>
             )}
           </div>
@@ -452,8 +514,7 @@ export function FormSpaceWorkspace() {
               <div>
                 <h2 className="text-base font-semibold">Experiments</h2>
                 <p className="text-sm text-black/60 dark:text-white/65">
-                  Perturbation → recovery trial via FormSpace dynamics. Does not invent attractor
-                  claims without measured evidence.
+                  {selected ? `Selected chart: ${selected.name}` : "No chart selected"}
                 </p>
               </div>
               <button
@@ -486,7 +547,10 @@ export function FormSpaceWorkspace() {
                   <p className="text-[10px] uppercase tracking-wider text-black/45">Perturbed</p>
                   <Sparkline values={experiment.perturbed_trajectory || []} />
                 </div>
-                <p className="text-xs text-black/55 dark:text-white/60">{experiment.note}</p>
+                <p className="text-xs text-black/55 dark:text-white/60">
+                  Deterministic recovery trial on the FormSpace state-space engine. This shows how
+                  the model responds to a nudge; it is not a claim about a live site.
+                </p>
               </div>
             )}
           </div>
@@ -494,12 +558,20 @@ export function FormSpaceWorkspace() {
 
         {!isLoading && activeTab === "evidence" && (
           <div className="space-y-4">
-            <h2 className="text-base font-semibold">Evidence</h2>
-            <p className="text-sm text-black/60 dark:text-white/65">
-              Engine evidence log for charts, graphs, and experiments. Merkle roots appear when
-              persisted to MINDEX — empty when none.
-            </p>
-            {!evidence.length ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-base font-semibold">Evidence</h2>
+              <button
+                type="button"
+                onClick={() => setEvidenceNonce((n) => n + 1)}
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-black/15 px-4 text-xs font-semibold dark:border-white/25"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh
+              </button>
+            </div>
+            {evidenceError ? (
+              <EmptyState title="Evidence log unavailable" detail={evidenceError} />
+            ) : !evidence.length ? (
               <EmptyState
                 title="No evidence yet"
                 detail="Run a graph or experiment to append evidence. Nothing is fabricated here."
@@ -530,7 +602,9 @@ export function FormSpaceWorkspace() {
         {!isLoading && activeTab === "memory" && (
           <div className="space-y-4">
             <h2 className="text-base font-semibold">Memory</h2>
-            {authMode !== "logged_in" ? (
+            {memoryError ? (
+              <EmptyState title="Memory unavailable" detail={memoryError} />
+            ) : authMode !== "logged_in" ? (
               <EmptyState
                 title="Sign in for FormSpace memory"
                 detail="Logged-out visitors get the demo catalog. Saved charts, experiment memory, and NLM model links require auth."
