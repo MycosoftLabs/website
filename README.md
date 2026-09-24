@@ -30,7 +30,7 @@ Operational Environmental Intelligence (OEI) and **FUSARIUM** provide integrated
 **FUSARIUM Launchpad** (`/fusarium/launchpad`) is the public contractor-readiness product: registrations, CMMC self-assessment readiness, evidence, opportunity discovery, and proposal operations. It does not certify CMMC or authorize FedRAMP.
 
 ### Earth Simulator (NatureOS)
-Live environmental intelligence globe at **`/natureos/earth-simulator`**. Layers include aircraft (zoom ≥ 3.5), vessels, satellites, fungal/nature observations, infrastructure PMTiles, weather overlays, and MYCA LIVE chat (MAS LLM + fast local map commands). Key BFF routes: `/api/crep/unified` (capped bundle), `/api/stream/entities` (SSE), `/api/earth2/health`. See [Earth Simulator capabilities](https://github.com/MycosoftLabs/website/blob/main/docs/EARTH_SIMULATOR_REFERENCE.md) and MAS doc `EARTH_SIMULATOR_PUBLIC_CAPABILITIES_JUN20_2026.md`.
+Live environmental intelligence globe at **`/natureos/earth-simulator`**. Layers include aircraft (zoom ≥ 3.5), vessels, satellites, fungal/nature observations, infrastructure PMTiles, weather overlays, and MYCA LIVE chat (MAS LLM + fast local map commands). Key BFF routes: `/api/crep/unified` (capped bundle), `/api/stream/entities` (SSE), `/api/earth2/health`. See [Earth Simulator capabilities](https://github.com/MycosoftLabs/website/blob/main/docs/EARTH_SIMULATOR_TECHNICAL_REFERENCE.md).
 
 ---
 
