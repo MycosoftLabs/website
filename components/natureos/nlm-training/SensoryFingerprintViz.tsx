@@ -32,12 +32,6 @@ export function SensoryFingerprintViz({
   const [showFeatures, setShowFeatures] = useState(true);
   const isLive = mycoBrainData.length > 0;
 
-  // Seeded random for purity
-  const seededRandom = (seed: number) => {
-    const x = Math.sin(seed) * 10000;
-    return x - Math.floor(x);
-  };
-
   const spectralData = useMemo(() => {
     if (isLive && mycoBrainData[0]?.spectral_density) {
       return mycoBrainData[0].spectral_density.map((val, i) => ({ freq: i * 10, amplitude: val }));
@@ -62,39 +56,23 @@ export function SensoryFingerprintViz({
     return fp?.data?.series || [];
   }, [fingerprints, mycoBrainData, isLive]);
 
-  // Mock data if real data is missing for demonstration
-  const mockSpectral = useMemo(() => Array.from({ length: 50 }, (_, i) => ({
-    freq: i * 20,
-    amplitude: seededRandom(i) * 100 * Math.exp(-i / 10) + seededRandom(i + 100) * 10,
-    feature: i === 12 || i === 25 ? 80 : null
-  })), []);
-
-  const mockAcoustic = useMemo(() => Array.from({ length: 100 }, (_, i) => ({
-    time: i,
-    db: Math.sin(i / 5) * 20 + seededRandom(i + 200) * 5 + 40,
-    feature: i % 30 === 0 ? 65 : null
-  })), []);
-
-  const mockThermal = useMemo(() => Array.from({ length: 50 }, (_, i) => ({
-    x: i,
-    y: seededRandom(i + 300) * 5 + 25 + Math.sin(i / 10) * 5,
-    feature: i === 25 ? 35 : null
-  })), []);
-
-  const displaySpectral = spectralData.length > 0 ? spectralData : mockSpectral;
-  const displayAcoustic = acousticData.length > 0 ? acousticData : mockAcoustic;
-  const displayThermal = thermalData.length > 0 ? thermalData : mockThermal;
+  // Honesty: no fabricated waveforms when sensors absent
+  const displaySpectral = spectralData
+  const displayAcoustic = acousticData
+  const displayThermal = thermalData
+  const hasAnySignal =
+    displaySpectral.length > 0 || displayAcoustic.length > 0 || displayThermal.length > 0
 
   const metrics = useMemo(() => {
     if (!isLive || !mycoBrainData[0]) {
       return {
-        peakIntensity: '112.4 dBm',
-        bandwidth: '8.2 kHz',
-        rmsPower: '0.642 v',
-        zeroCross: '421 / s',
-        avgTemp: '28.4 °C',
-        maxDelta: '4.2 °C'
-      };
+        peakIntensity: '—',
+        bandwidth: '—',
+        rmsPower: '—',
+        zeroCross: '—',
+        avgTemp: '—',
+        maxDelta: '—',
+      }
     }
     const d = mycoBrainData[0];
 
@@ -127,12 +105,7 @@ export function SensoryFingerprintViz({
 
   const features = useMemo(() => {
     if (!isLive || !mycoBrainData[0]) {
-      return [
-        { label: 'Harmonic Peak', value: '12.4 kHz', confidence: '0.992', desc: 'Primary resonance detected in spectral array.' },
-        { label: 'Thermal Anomaly', value: '34.2 °C', confidence: '0.874', desc: 'Localized heat signature exceeding baseline.' },
-        { label: 'Acoustic Pulse', value: '42.0 ms', confidence: '0.941', desc: 'Transient event captured in temporal stream.' },
-        { label: 'Spectral Entropy', value: '0.824', confidence: '0.928', desc: 'System complexity metric within normal range.' },
-      ];
+      return []
     }
 
     const d = mycoBrainData[0];

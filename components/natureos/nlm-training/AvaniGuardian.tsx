@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { useJudgments } from '@/lib/nlm/firebase-hooks';
-import { db } from '@/lib/nlm/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db, collection, addDoc, serverTimestamp } from '@/lib/nlm/bff-store';
 import { motion } from 'framer-motion';
 import {
   Shield,

@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { usePipelines, useModels, useAllTrainingRuns } from '@/lib/nlm/firebase-hooks';
-import { db } from '@/lib/nlm/firebase';
-import { collection, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import { db, collection, addDoc, serverTimestamp, updateDoc, doc } from '@/lib/nlm/bff-store';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Plus, Settings, Database, Activity, Clock, CheckCircle2, XCircle, Loader2, ChevronRight, BarChart3, TrendingDown, Cpu, FlaskConical, Microscope, Atom, Link, Server, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';

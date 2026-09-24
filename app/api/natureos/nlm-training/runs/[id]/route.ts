@@ -5,6 +5,12 @@ import { requireOwnerOrSuperuserIdentity, resolveVerifiedIdentity } from "@/lib/
 export const dynamic = "force-dynamic"
 
 function normalizeRun(row: any) {
+  const metrics = row.metrics || {}
+  const deviceBindings =
+    metrics.device_bindings ||
+    metrics.deviceBindings ||
+    metrics.ingest_bindings ||
+    []
   return {
     id: row.id,
     modelId: row.model_id,
@@ -12,7 +18,11 @@ function normalizeRun(row: any) {
     pipelineId: row.pipeline_id ?? null,
     status: row.status || "queued",
     lossHistory: row.loss_history || [],
-    metrics: row.metrics || {},
+    metrics,
+    deviceBindings: Array.isArray(deviceBindings) ? deviceBindings : [],
+    deviceIds: Array.isArray(metrics.device_ids) ? metrics.device_ids : [],
+    sensorIds: Array.isArray(metrics.sensor_ids) ? metrics.sensor_ids : [],
+    networkMapHref: "/natureos/devices/network",
     startTime: row.start_time ? { seconds: Math.floor(new Date(row.start_time).getTime() / 1000) } : null,
     endTime: row.end_time ? { seconds: Math.floor(new Date(row.end_time).getTime() / 1000) } : null,
     createdAt: row.created_at ? { seconds: Math.floor(new Date(row.created_at).getTime() / 1000) } : null,

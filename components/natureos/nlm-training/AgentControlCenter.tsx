@@ -37,8 +37,7 @@ import {
 } from 'recharts';
 import { useAuth, useAgents, useAgentTasks, useModels, useAutomationPolicies } from '@/lib/nlm/firebase-hooks';
 import { useMindexData } from '@/lib/nlm/supabase-hooks';
-import { db } from '@/lib/nlm/firebase';
-import { collection, addDoc, serverTimestamp, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { db, collection, addDoc, serverTimestamp, updateDoc, doc, deleteDoc } from '@/lib/nlm/bff-store';
 import { MycaMasPanel } from './MycaMasPanel';
 
 export default function AgentControlCenter({ userId, isAdmin }: { userId: string | undefined, isAdmin?: boolean }) {
@@ -57,38 +56,13 @@ export default function AgentControlCenter({ userId, isAdmin }: { userId: string
   const [activeView, setActiveView] = useState<'registry' | 'tasks' | 'policies' | 'performance' | 'myca'>('registry');
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const newMetrics: Record<string, any> = {};
-      const newHistory = { ...metricHistory };
-
-      agents.forEach(agent => {
-        let stats = { cpu: 0, gpu: 0, mem: 0 };
-        if (agent.status === 'active') {
-          const seed = agent.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-          const time = Math.floor(Date.now() / 2000);
-          stats = {
-            cpu: Math.floor(45 + (Math.sin(time + seed) * 25) + (Math.random() * 5)),
-            gpu: Math.floor(65 + (Math.cos(time + seed) * 30) + (Math.random() * 5)),
-            mem: Math.floor(35 + (Math.sin(time / 2 + seed) * 15) + (Math.random() * 5)),
-          };
-        } else if (agent.status === 'idle') {
-          stats = { cpu: 5, gpu: 0, mem: 12 };
-        }
-
-        newMetrics[agent.id] = stats;
-
-        if (!newHistory[agent.id]) newHistory[agent.id] = [];
-        newHistory[agent.id] = [...newHistory[agent.id], {
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-          ...stats
-        }].slice(-20);
-      });
-
-      setAgentMetrics(newMetrics);
-      setMetricHistory(newHistory);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [agents, metricHistory]);
+    // Honest empty metrics until MAS agent telemetry is wired
+    const metrics: Record<string, { cpu: number | null; gpu: number | null; mem: number | null }> = {};
+    agents.forEach((agent) => {
+      metrics[agent.id] = { cpu: null, gpu: null, mem: null };
+    });
+    setAgentMetrics(metrics);
+  }, [agents]);
 
   const formatLastActive = (timestamp: any) => {
     if (!timestamp) return 'Never';

@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, Thermometer, Droplets, Wind, Sun, Zap } from 'lucide-react';
-import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
+import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { useMycoBrainData } from '@/lib/nlm/supabase-hooks';
 
 interface Signal {
@@ -44,25 +44,28 @@ export function SensorySignalMonitor({ isTraining }: { isTraining: boolean }) {
       const newValues: Record<string, number> = {};
 
       SIGNALS.forEach(s => {
-        let val = s.baseValue;
-
-        // Use real data if available
-        if (latestEntry) {
-          if (s.id === 'temp' && latestEntry.thermal_gradient && latestEntry.thermal_gradient.length) {
-            val = latestEntry.thermal_gradient.reduce((a, b) => a + b, 0) / latestEntry.thermal_gradient.length;
-          } else if (s.id === 'potential' && latestEntry.acoustic_signature && latestEntry.acoustic_signature.length) {
-            // Derive potential from acoustic RMS as a proxy
-            val = -45 + Math.sqrt(latestEntry.acoustic_signature.reduce((a, b) => a + b * b, 0) / latestEntry.acoustic_signature.length) * 10;
-          } else if (s.id === 'voc' && latestEntry.spectral_density && latestEntry.spectral_density.length) {
-            val = Math.max(...latestEntry.spectral_density) / 10;
-          }
+        if (!latestEntry) {
+          return;
         }
-
-        const multiplier = isStressTesting ? 5 : 1;
-        const noise = (Math.random() - 0.5) * s.variance * multiplier;
-        const drift = Math.sin(Date.now() / 5000) * (s.variance / 2);
-        newValues[s.id] = Number((val + noise + drift).toFixed(2));
+        let val: number | null = null;
+        if (s.id === 'temp' && latestEntry.thermal_gradient?.length) {
+          val = latestEntry.thermal_gradient.reduce((a, b) => a + b, 0) / latestEntry.thermal_gradient.length;
+        } else if (s.id === 'potential' && latestEntry.acoustic_signature?.length) {
+          val = -45 + Math.sqrt(latestEntry.acoustic_signature.reduce((a, b) => a + b * b, 0) / latestEntry.acoustic_signature.length) * 10;
+        } else if (s.id === 'voc' && latestEntry.spectral_density?.length) {
+          val = Math.max(...latestEntry.spectral_density) / 10;
+        }
+        if (val != null && Number.isFinite(val)) {
+          newValues[s.id] = Number(val.toFixed(2));
+        }
       });
+
+      const hasAny = Object.values(newValues).some((v) => Number.isFinite(v));
+      if (!hasAny) {
+        setCurrentValues({});
+        setData([]);
+        return;
+      }
 
       setCurrentValues(newValues);
       setData(prev => {
@@ -75,12 +78,12 @@ export function SensorySignalMonitor({ isTraining }: { isTraining: boolean }) {
   }, [isStressTesting, mycoBrainData]);
 
   return (
-    <>
-      <div className="absolute top-8 right-8 z-20">
+    <div className="relative z-10 w-full space-y-4 sm:space-y-5">
+      <div className="flex justify-end">
         <button
           onClick={triggerStressTest}
           disabled={isStressTesting}
-          className={`px-4 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
+          className={`min-h-[44px] px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all touch-manipulation ${
             isStressTesting
               ? 'bg-red-500/20 text-red-400 border border-red-500/50 animate-pulse'
               : 'bg-zinc-800/50 text-zinc-400 border border-zinc-700 hover:bg-zinc-700 hover:text-white'
@@ -89,60 +92,63 @@ export function SensorySignalMonitor({ isTraining }: { isTraining: boolean }) {
           {isStressTesting ? 'Stress Test Active' : 'Trigger Signal Stress Test'}
         </button>
       </div>
-      <div className="absolute inset-x-8 bottom-8 z-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-      {SIGNALS.map((signal) => (
-        <motion.div
-          key={signal.id}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-zinc-950/80 backdrop-blur-md border border-zinc-800 rounded-2xl p-4 space-y-3 group hover:border-zinc-600 transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <div className="p-2 bg-zinc-900 rounded-lg border border-zinc-800 group-hover:border-zinc-700 transition-colors">
-              <signal.icon className="w-4 h-4" style={{ color: signal.color }} />
-            </div>
-            <div className="h-6 w-16 opacity-50">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data}>
-                  <Line
-                    type="monotone"
-                    dataKey={signal.id}
-                    stroke={signal.color}
-                    strokeWidth={1.5}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
 
-          <div className="space-y-0.5">
-            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{signal.name}</p>
-            <div className="flex items-baseline gap-1">
-              <span className="text-lg font-mono font-bold text-white">
-                {currentValues[signal.id] || signal.baseValue}
-              </span>
-              <span className="text-[10px] font-mono text-zinc-600">{signal.unit}</span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+        {SIGNALS.map((signal) => (
+          <motion.div
+            key={signal.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="min-w-0 bg-zinc-950/80 backdrop-blur-md border border-zinc-800 rounded-2xl p-4 sm:p-5 space-y-3 group hover:border-zinc-600 transition-all"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="shrink-0 p-2.5 bg-zinc-900 rounded-lg border border-zinc-800 group-hover:border-zinc-700 transition-colors">
+                <signal.icon className="w-4 h-4" style={{ color: signal.color }} />
+              </div>
+              <div className="h-8 w-20 sm:w-24 opacity-50 shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={data}>
+                    <Line
+                      type="monotone"
+                      dataKey={signal.id}
+                      stroke={signal.color}
+                      strokeWidth={1.5}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-          </div>
 
-          {isTraining && (
-            <div className="h-1 w-full bg-zinc-900 rounded-full overflow-hidden">
-              <motion.div
-                animate={{
-                  width: ['20%', '80%', '40%', '90%', '30%'],
-                  opacity: [0.3, 0.6, 0.3]
-                }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                className="h-full"
-                style={{ backgroundColor: signal.color }}
-              />
+            <div className="space-y-1.5 min-w-0">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-snug break-words">
+                {signal.name}
+              </p>
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                <span className="text-lg sm:text-xl font-mono font-bold text-white tabular-nums">
+                  {currentValues[signal.id] ?? '—'}
+                </span>
+                <span className="text-[10px] font-mono text-zinc-600">{signal.unit}</span>
+              </div>
             </div>
-          )}
-        </motion.div>
-      ))}
+
+            {isTraining && (
+              <div className="h-1 w-full bg-zinc-900 rounded-full overflow-hidden">
+                <motion.div
+                  animate={{
+                    width: ['20%', '80%', '40%', '90%', '30%'],
+                    opacity: [0.3, 0.6, 0.3]
+                  }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  className="h-full"
+                  style={{ backgroundColor: signal.color }}
+                />
+              </div>
+            )}
+          </motion.div>
+        ))}
+      </div>
     </div>
-    </>
   );
 }

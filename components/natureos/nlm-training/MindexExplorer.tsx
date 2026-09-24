@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useAllFrames, useAuth } from '@/lib/nlm/firebase-hooks';
 import { useMindexData, MindexEntry } from '@/lib/nlm/supabase-hooks';
-import { db } from '@/lib/nlm/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db, collection, addDoc, serverTimestamp } from '@/lib/nlm/bff-store';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Database,
