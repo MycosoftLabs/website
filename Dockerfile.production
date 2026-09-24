@@ -126,7 +126,8 @@ USER nextjs
 
 EXPOSE 3000
 
+# Host-aware — avoid bare-Host 308 traps on container-local probes.
 HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=5 \
-    CMD curl -f http://127.0.0.1:3000/api/health || exit 1
+    CMD curl -f -H 'Host: sandbox.mycosoft.com' http://127.0.0.1:3000/api/health || exit 1
 
 CMD ["node", "server.js"]
