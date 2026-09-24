@@ -1,13 +1,14 @@
 "use client"
 
-import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import {
   FORMSPACE_GLASS_CYCLE_FRAMES,
   ProductGlassIconCycle,
 } from "@/components/brand/product-glass-icon-cycle"
 import { FormSpaceDocsPanel } from "@/components/formspace/FormSpaceDocsPanel"
+import { FormSpaceIntro } from "@/components/formspace/FormSpaceIntro"
 import { FormSpaceWorkspace } from "@/components/formspace/FormSpaceWorkspace"
+import { GlassButton } from "@/components/ui/glass-button"
 import type { FormSpacePanelSections, FormSpacePaperMetadata } from "@/lib/formspace-paper"
 import { cn } from "@/lib/utils"
 
@@ -55,32 +56,25 @@ export function FormSpaceApplication({
                 {metadata.subtitle}
               </p>
               <p className="mt-2 text-xs text-black/50 dark:text-white/55">
-                Nature Learning Model writes coordinates · FormSpace charts organization · Not an LLM
+                Nature Learning Model writes coordinates · FormSpace charts organization
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Link
-                href="/docs/ai/formspace"
-                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-black/15 bg-white/40 px-4 text-sm backdrop-blur-md dark:border-white/30 dark:bg-white/10"
-              >
+              <GlassButton href="/docs/ai/formspace" className="min-h-[44px]">
                 White paper
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-              <Link
-                href="/ai/formspace/downloads"
-                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-black/15 bg-white/25 px-4 text-sm backdrop-blur-md dark:border-white/30 dark:bg-white/10"
-              >
+                <ArrowRight className="ml-2 inline h-4 w-4" />
+              </GlassButton>
+              <GlassButton href="/ai/formspace/downloads" className="min-h-[44px]">
                 Downloads
-              </Link>
-              <Link
-                href="/myca/nlm"
-                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-black/15 bg-white/25 px-4 text-sm backdrop-blur-md dark:border-white/30 dark:bg-white/10"
-              >
+              </GlassButton>
+              <GlassButton href="/myca/nlm" className="min-h-[44px]">
                 NLM
-              </Link>
+              </GlassButton>
             </div>
           </div>
+
+          <FormSpaceIntro />
         </div>
       </section>
 

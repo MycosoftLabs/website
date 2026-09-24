@@ -4,6 +4,7 @@
  */
 
 import { cookies } from "next/headers"
+import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 import {
@@ -43,6 +44,36 @@ export async function resolveFormSpaceUser(): Promise<FormSpaceAuthUser | null> 
 
 export function formspaceMasBaseUrl(): string {
   return resolveMasServerBaseUrl().replace(/\/$/, "")
+}
+
+/** MAS FormSpace is preferred by default; set FORMSPACE_PREFER_MAS=0 to force the local engine. */
+export function formspacePrefersMas(): boolean {
+  return process.env.FORMSPACE_PREFER_MAS !== "0"
+}
+
+/**
+ * Uniform JSON failure for FormSpace BFF routes. The UI renders `message`
+ * as an error state instead of receiving an empty-body 500.
+ */
+export function formspaceErrorResponse(
+  route: string,
+  error: unknown,
+  extra: Record<string, unknown> = {},
+  status = 503,
+) {
+  const detail = error instanceof Error ? error.message : String(error)
+  console.error(`[formspace:${route}]`, detail)
+  return NextResponse.json(
+    {
+      ok: false,
+      status: "engine_error",
+      route,
+      message: `FormSpace ${route} is temporarily unavailable. Try again shortly.`,
+      detail,
+      ...extra,
+    },
+    { status },
+  )
 }
 
 export async function proxyFormSpace(

@@ -122,6 +122,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
+# Writable runtime state (FormSpace evidence/memory). /app is root-owned and the
+# server runs as nextjs; mount a host volume here for persistence across swaps.
+RUN mkdir -p /app/.data/formspace && chown -R nextjs:nodejs /app/.data
+ENV FORMSPACE_DATA_DIR=/app/.data/formspace
+
 USER nextjs
 
 EXPOSE 3000
