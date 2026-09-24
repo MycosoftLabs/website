@@ -5,14 +5,11 @@ import { useTrainingRuns, useMutations, useFrames, useModelVersions, useJudgment
 import { useMindexData } from '@/lib/nlm/supabase-hooks';
 import { MerkleLineageExplorer } from './MerkleLineageExplorer';
 import * as d3 from 'd3';
-import {
-  updateDoc,
+import { db, updateDoc,
   doc,
   collection,
   addDoc,
-  serverTimestamp
-} from 'firebase/firestore';
-import { db } from '@/lib/nlm/firebase';
+  serverTimestamp } from '@/lib/nlm/bff-store';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Brain, Cpu, Database, GitBranch, GitCommit, GitFork, History,
@@ -123,43 +120,7 @@ export function ModelDetail({ model: initialModel, onBack, userId, isAdmin }: { 
     setSensors(prev => prev.map(s => s.id === sensorId ? { ...s, threshold } : s));
   };
 
-  // Simulate sensor activity
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSensors(prev => {
-        const newSensors = prev.map(s => {
-          const nextCurrent = Math.max(0, Math.min(1, s.current + (Math.random() * 0.1 - 0.05)));
-          const status = nextCurrent > s.threshold ? 'active' : 'stable';
-
-          // Trigger action if status changed to active
-          if (status === 'active' && s.status === 'stable') {
-            const actions = [
-              'Weight Adjustment',
-              'Layer Normalization',
-              'Gradient Clipping',
-              'Learning Rate Decay',
-              'Entropy Regularization',
-              'Architecture Pruning'
-            ];
-            const impacts = ['Low', 'Medium', 'High'];
-            const newAction = {
-              id: Date.now() + Math.random(),
-              sensor: s.name,
-              action: actions[Math.floor(Math.random() * actions.length)],
-              impact: impacts[Math.floor(Math.random() * impacts.length)],
-              timestamp: new Date()
-            };
-            setSensorActions(prevActions => [newAction, ...prevActions].slice(0, 10));
-          }
-
-          return { ...s, current: nextCurrent, status };
-        });
-        return newSensors;
-      });
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
+  // Sensors: show configured thresholds only — no fabricated activity
   useEffect(() => {
     if (model.config?.sensors) {
       setSensors(model.config.sensors);
@@ -172,19 +133,12 @@ export function ModelDetail({ model: initialModel, onBack, userId, isAdmin }: { 
     return Math.min(100, last.accuracy * 100);
   }, [trainingData]);
 
-  // Simulated AVANI Score
-  const avaniScore = model.avaniScore || 0.92;
-  const architectureId = model.architectureId || 'v3.1-mamba-graph';
+  // AVANI score only when present on model — never invent
+  const avaniScore = typeof model.avaniScore === 'number' ? model.avaniScore : null;
+  const architectureId = model.architectureId || model.config?.architecture || 'v3.1-mamba-graph';
 
   const mindexStreamData = useMemo(() => {
-    if (!mindexData || mindexData.length === 0) return [
-      { time: '10:00', val: 120 },
-      { time: '10:05', val: 150 },
-      { time: '10:10', val: 130 },
-      { time: '10:15', val: 180 },
-      { time: '10:20', val: 160 },
-      { time: '10:25', val: 210 },
-    ];
+    if (!mindexData || mindexData.length === 0) return [];
 
     // Group mindex data by time (e.g., 5-minute intervals) for the last hour
     const now = new Date();
@@ -222,7 +176,7 @@ export function ModelDetail({ model: initialModel, onBack, userId, isAdmin }: { 
     }
   };
 
-  // Use real training data from the latest run if available, otherwise simulate
+  // Real training metrics from runs only — never fabricate loss curves
   useEffect(() => {
     if (runs && runs.length > 0) {
       const latestRun = runs[0];
@@ -230,28 +184,17 @@ export function ModelDetail({ model: initialModel, onBack, userId, isAdmin }: { 
         setTrainingData(latestRun.lossHistory.map((h: any) => ({
           step: h.step,
           loss: h.loss,
-          accuracy: h.accuracy || (1 - h.loss / 2) // Fallback accuracy if not present
-        })));
+          accuracy: h.accuracy ?? null,
+        })).filter((h: any) => typeof h.loss === 'number'));
+        return;
+      }
+      if (latestRun.metrics?.history) {
+        setTrainingData(latestRun.metrics.history);
         return;
       }
     }
-
-    if (!isTraining) return;
-
-    const interval = setInterval(() => {
-      setTrainingData(prev => {
-        const last = prev[prev.length - 1] || { step: 0, loss: 0.8, accuracy: 0.2 };
-        const nextStep = last.step + 1;
-        const nextLoss = Math.max(0.05, last.loss - (Math.random() * 0.02) + (Math.random() * 0.01));
-        const nextAccuracy = Math.min(0.99, last.accuracy + (Math.random() * 0.015));
-
-        const newData = [...prev, { step: nextStep, loss: nextLoss, accuracy: nextAccuracy }];
-        return newData.slice(-50); // Keep last 50 points
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isTraining, runs]);
+    setTrainingData([]);
+  }, [runs]);
 
   const handleToggleTraining = async () => {
     const newStatus = model.status === 'training' ? 'idle' : 'training';
@@ -288,9 +231,9 @@ export function ModelDetail({ model: initialModel, onBack, userId, isAdmin }: { 
   };
 
   const handleMutate = async () => {
-    const mutationType = selectedStrategy.includes('Default') ?
-      ['crossover', 'noise', 'pruning', 'expansion'][Math.floor(Math.random() * 4)] :
-      selectedStrategy.split(' ')[0].toLowerCase();
+    const mutationType = selectedStrategy.includes('Default')
+      ? 'pruning'
+      : selectedStrategy.split(' ')[0].toLowerCase();
 
     const newMutation = {
       type: mutationType,
@@ -387,24 +330,27 @@ export function ModelDetail({ model: initialModel, onBack, userId, isAdmin }: { 
   };
 
   const handleCommitFrame = async () => {
-    const frameRoot = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-    const parentRoot = frames.length > 0 ? frames[0].frame_root : '0'.repeat(64);
-
+    // Request a Merkle-attested frame from MAS/MINDEX — never invent roots client-side
     try {
-      await addDoc(collection(db, 'frames'), {
-        modelId: model.id,
-        ownerId: userId,
-        frame_root: frameRoot,
-        parent_frame_root: parentRoot,
-        self_root: Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
-        world_root: Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
-        event_root: Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
-        timestamp: serverTimestamp(),
-        uncertainty: Math.random() * 0.1,
-        source_device: 'NLM-CORE-01'
+      const res = await fetch('/api/natureos/nlm-training/mindex', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'frame_commit',
+          modelId: model.id,
+          ownerId: userId,
+          parent_frame_root: frames.length > 0 ? frames[0].frame_root : null,
+          source_device: 'awaiting-ingest',
+        }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Frame commit unavailable (${res.status})`);
+      }
+      window.dispatchEvent(new Event('nlm-models-refresh'));
     } catch (error) {
-      console.error("Error committing frame:", error);
+      console.error('Error committing frame:', error);
+      alert('Frame commit requires live MINDEX/MAS Merkle path. No synthetic roots created.');
     }
   };
 
@@ -580,21 +526,21 @@ export function ModelDetail({ model: initialModel, onBack, userId, isAdmin }: { 
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-8"
               >
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                  {/* Sensory Visualization */}
-                  <div className="bg-zinc-900/40 border border-zinc-800 rounded-[32px] p-8 min-h-[400px] relative overflow-hidden flex flex-col">
-                    <div className="z-10 mb-6">
-                      <h3 className="text-xl font-bold text-white">Sensory Grounding</h3>
-                      <p className="text-zinc-500 text-sm">Real-time processing of physical reality signals.</p>
+                <div className="grid grid-cols-1 gap-8">
+                  {/* Sensory Visualization — full width for readable signal cards */}
+                  <div className="bg-zinc-900/40 border border-zinc-800 rounded-[32px] p-4 sm:p-6 md:p-8 min-h-[400px] relative overflow-hidden flex flex-col gap-5 sm:gap-6">
+                    <div className="relative z-10 space-y-1.5">
+                      <h3 className="text-lg sm:text-xl font-bold text-white">Sensory Grounding</h3>
+                      <p className="text-zinc-500 text-sm leading-relaxed">Real-time processing of physical reality signals.</p>
                     </div>
-                    <div className="flex-1 relative">
+                    <div className="relative w-full min-h-[180px] sm:min-h-[220px] md:min-h-[260px] shrink-0 rounded-2xl overflow-hidden">
                       <NatureVisualization isTraining={isTraining} />
-                      <SensorySignalMonitor isTraining={isTraining} />
                     </div>
+                    <SensorySignalMonitor isTraining={isTraining} />
                   </div>
 
                   {/* Gemini Assistant Panel */}
-                  <div className="bg-zinc-900/40 border border-zinc-800 rounded-[32px] p-8 space-y-6 relative overflow-hidden flex flex-col">
+                  <div className="bg-zinc-900/40 border border-zinc-800 rounded-[32px] p-4 sm:p-6 md:p-8 space-y-6 relative overflow-hidden flex flex-col">
                     <div className="absolute top-0 right-0 p-8 opacity-10">
                       <Sparkles className="w-24 h-24 text-white" />
                     </div>

@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { useMutationRecipes } from '@/lib/nlm/firebase-hooks';
-import { db } from '@/lib/nlm/firebase';
-import { collection, addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
+import { db, collection, addDoc, serverTimestamp, deleteDoc, doc } from '@/lib/nlm/bff-store';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Zap,

@@ -231,25 +231,19 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
               <h3 className="text-lg font-semibold text-white">API Configuration</h3>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm text-zinc-500">Gemini API Key</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={process.env.NEXT_PUBLIC_GEMINI_API_KEY ? '•'.repeat(32) : ''}
-                      placeholder={process.env.NEXT_PUBLIC_GEMINI_API_KEY ? undefined : 'Not configured'}
-                      readOnly
-                      className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-400 font-mono text-sm"
-                    />
-                    <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-zinc-800 text-zinc-600 border border-zinc-700'}`}>
-                      {process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'SET' : 'NOT SET'}
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-zinc-500">Firebase Project</label>
+                  <label className="text-sm text-zinc-500">Product plane</label>
                   <input
                     type="text"
-                    value={process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'Not configured'}
+                    value="Supabase + MAS + MINDEX (Firebase disabled)"
+                    readOnly
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-400 font-mono text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm text-zinc-500">Model kind</label>
+                  <input
+                    type="text"
+                    value="Nature Learning Model (signal-state) — not LLM / Ollama"
                     readOnly
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-400 font-mono text-sm"
                   />
@@ -362,10 +356,21 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="space-y-1">
               <h2 className="text-4xl font-bold tracking-tight text-white">Models</h2>
-              <p className="text-zinc-500 text-lg">Manage and monitor your Nature Learning Models.</p>
+              <p className="text-zinc-500 text-lg">
+                {userId
+                  ? 'Manage and monitor your Nature Learning Models (signal-state — not an LLM).'
+                  : 'Demo catalog — seeded scientific base models. Sign in to train, save, and ingest.'}
+              </p>
+              {!userId && (
+                <p className="font-mono text-[10px] uppercase tracking-widest text-amber-500/80">
+                  Catalog / demo · not live sensor streams
+                </p>
+              )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {userId && (
+                <>
               <Button
                 onClick={seedArchitectureVariant}
                 disabled={isSeedingVariant}
@@ -380,8 +385,10 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
                 className="rounded-2xl h-12 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800"
               >
                 <Database className={`w-4 h-4 mr-2 ${isSeeding ? 'animate-spin' : ''}`} />
-                {isSeeding ? 'Seeding...' : 'Seed Base Models'}
+                {isSeeding ? 'Seeding...' : 'Seed Full Catalog'}
               </Button>
+                </>
+              )}
               <div className="relative group">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-white transition-colors" />
                 <input
@@ -406,6 +413,7 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
                 </button>
               </div>
 
+              {userId ? (
               <Button
                 onClick={() => setShowCreate(true)}
                 className="bg-white text-black hover:bg-zinc-200 rounded-xl font-semibold shadow-lg shadow-white/5"
@@ -413,6 +421,14 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
                 <Plus className="w-4 h-4 mr-2" />
                 New Model
               </Button>
+              ) : (
+                <a
+                  href="/login"
+                  className="inline-flex min-h-[44px] items-center rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black shadow-lg shadow-white/5 hover:bg-zinc-200"
+                >
+                  Sign in to train
+                </a>
+              )}
             </div>
           </div>
 

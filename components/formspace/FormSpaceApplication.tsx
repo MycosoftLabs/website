@@ -54,6 +54,9 @@ export function FormSpaceApplication({
               <p className="mt-2 max-w-2xl text-sm leading-6 text-black/70 sm:text-base dark:text-white/80">
                 {metadata.subtitle}
               </p>
+              <p className="mt-2 text-xs text-black/50 dark:text-white/55">
+                Nature Learning Model writes coordinates · FormSpace charts organization · Not an LLM
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-2">

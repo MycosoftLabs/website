@@ -6,6 +6,7 @@ import {
   resolveVerifiedIdentity,
 } from "@/lib/auth/verified-identity"
 import { fetchMasNlmConsole, liveNlmModelCard } from "@/lib/nlm/mas-nlm-live"
+import { getFullDemoCatalog } from "@/lib/nlm/canonical-seeds"
 
 export const dynamic = "force-dynamic"
 
@@ -19,18 +20,35 @@ function normalizeModel(row: any) {
     config: row.config || {},
     version: row.version || "1.0",
     accuracy: row.accuracy ?? null,
-    createdAt: row.created_at ? { seconds: Math.floor(new Date(row.created_at).getTime() / 1000) } : null,
-    updatedAt: row.updated_at ? { seconds: Math.floor(new Date(row.updated_at).getTime() / 1000) } : null,
+    createdAt: row.created_at
+      ? { seconds: Math.floor(new Date(row.created_at).getTime() / 1000) }
+      : null,
+    updatedAt: row.updated_at
+      ? { seconds: Math.floor(new Date(row.updated_at).getTime() / 1000) }
+      : null,
+    isCatalog: Boolean(row.config?.checkpoint_status === "catalog_only" || row.isCatalog),
+    checkpointStatus: row.config?.checkpoint_status || row.checkpointStatus || null,
   }
 }
 
+/**
+ * GET models:
+ * - Always include canonical catalog (logged-out demo)
+ * - Authenticated: merge user/admin Supabase models + optional live MAS card
+ */
 export async function GET() {
+  const catalog = getFullDemoCatalog()
+  const models: any[] = [...catalog]
+  const seen = new Set(models.map((m) => m.id))
+
   const consolePayload = await fetchMasNlmConsole()
   const live = liveNlmModelCard(consolePayload?.nlm)
-  const models: any[] = live ? [live] : []
+  if (live && !seen.has(live.id)) {
+    models.unshift(live)
+    seen.add(live.id)
+  }
 
   const identity = await resolveVerifiedIdentity()
-  // NLM UI uses super_admin/admin; include owner/superuser and email-elevated roles
   if (
     identity.isAuthenticated &&
     (identity.isSuperuser || isOwnerOrSuperuserRole(identity.userRole))
@@ -44,19 +62,25 @@ export async function GET() {
         .limit(200)
       for (const row of data || []) {
         const normalized = normalizeModel(row)
-        if (normalized.id !== "nlm-live") models.push(normalized)
+        if (!seen.has(normalized.id)) {
+          models.push(normalized)
+          seen.add(normalized.id)
+        }
       }
     } catch {
-      // Live MAS card is enough; empty supabase is not a MAS outage.
+      // Catalog alone is enough for demo
     }
   }
 
   return NextResponse.json({
     models,
-    source: live ? "mas-nlm" : "empty",
+    source: live ? "catalog+mas-nlm" : "catalog",
     bound_to_ollama: false,
     forecast_qualified: false,
-    training_jobs_available: false,
+    training_jobs_available: identity.isAuthenticated,
+    catalog_count: catalog.length,
+    auth: identity.isAuthenticated ? "authenticated" : "anonymous",
+    model_kind: "nature_learning_model",
   })
 }
 

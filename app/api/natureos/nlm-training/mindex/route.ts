@@ -77,3 +77,77 @@ export async function GET() {
 
   return withSource([], 'empty-from-source');
 }
+
+/**
+ * POST frame commit / NMF proxy — forwards to MINDEX when available.
+ * Never invents Merkle roots client-side.
+ */
+export async function POST(request: Request) {
+  let body: Record<string, unknown> = {}
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  const type = String(body.type || 'frame')
+  const masBase =
+    process.env.MAS_API_URL ||
+    process.env.NEXT_PUBLIC_MAS_API_URL ||
+    'http://192.168.0.188:8001'
+
+  // Prefer MAS Merkle attestation endpoint
+  try {
+    const res = await fetch(`${masBase.replace(/\/$/, '')}/api/nlm/training/attest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(8000),
+    })
+    if (res.ok) {
+      return NextResponse.json(await res.json(), { status: 201 })
+    }
+  } catch {
+    // fall through
+  }
+
+  if (MINDEX_BASE_URL && type === 'frame_commit') {
+    try {
+      const headers = {
+        ...mindexServiceHeaders(),
+        'Content-Type': 'application/json',
+      }
+      const res = await fetch(`${MINDEX_BASE_URL.replace(/\/$/, '')}/nlm/nmf`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          packet: body,
+          source_id: String(body.modelId || body.source_device || 'nlm-ui'),
+          anomaly_score: 0,
+        }),
+        signal: AbortSignal.timeout(8000),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        return NextResponse.json(
+          {
+            ...data,
+            note: 'Persisted NMF to MINDEX; Merkle attestation pending if MAS attest offline',
+          },
+          { status: 201 }
+        )
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  return NextResponse.json(
+    {
+      error: 'Frame commit unavailable',
+      detail: 'MAS attest and MINDEX NMF both unreachable. No synthetic Merkle root created.',
+      type,
+    },
+    { status: 503 }
+  )
+}

@@ -5,6 +5,12 @@ import { requireOwnerOrSuperuserIdentity, resolveVerifiedIdentity } from "@/lib/
 export const dynamic = "force-dynamic"
 
 function normalizeRun(row: any) {
+  const metrics = row.metrics || {}
+  const deviceBindings =
+    metrics.device_bindings ||
+    metrics.deviceBindings ||
+    metrics.ingest_bindings ||
+    []
   return {
     id: row.id,
     modelId: row.model_id,
@@ -12,7 +18,11 @@ function normalizeRun(row: any) {
     pipelineId: row.pipeline_id ?? null,
     status: row.status || "queued",
     lossHistory: row.loss_history || [],
-    metrics: row.metrics || {},
+    metrics,
+    deviceBindings: Array.isArray(deviceBindings) ? deviceBindings : [],
+    deviceIds: Array.isArray(metrics.device_ids) ? metrics.device_ids : [],
+    sensorIds: Array.isArray(metrics.sensor_ids) ? metrics.sensor_ids : [],
+    networkMapHref: "/natureos/devices/network",
     startTime: row.start_time ? { seconds: Math.floor(new Date(row.start_time).getTime() / 1000) } : null,
     endTime: row.end_time ? { seconds: Math.floor(new Date(row.end_time).getTime() / 1000) } : null,
     createdAt: row.created_at ? { seconds: Math.floor(new Date(row.created_at).getTime() / 1000) } : null,
@@ -51,6 +61,36 @@ export async function POST(request: Request) {
   const body = await request.json()
   if (!body.modelId) return NextResponse.json({ error: "modelId is required" }, { status: 400 })
 
+  const bindings = Array.isArray(body.deviceBindings)
+    ? body.deviceBindings
+    : Array.isArray(body.bindings)
+      ? body.bindings
+      : []
+  const deviceIds = Array.from(
+    new Set(
+      [
+        ...(Array.isArray(body.deviceIds) ? body.deviceIds : []),
+        ...bindings.map((b: any) => b?.device_id || b?.deviceId).filter(Boolean),
+      ].map(String)
+    )
+  )
+  const sensorIds = Array.from(
+    new Set(
+      [
+        ...(Array.isArray(body.sensorIds) ? body.sensorIds : []),
+        ...bindings.map((b: any) => b?.sensor_id || b?.sensorId).filter(Boolean),
+      ].map(String)
+    )
+  )
+
+  const metrics = {
+    ...(body.metrics || {}),
+    device_bindings: bindings,
+    device_ids: deviceIds,
+    sensor_ids: sensorIds,
+    network_map_href: "/natureos/devices/network",
+  }
+
   const now = new Date().toISOString()
   const supabase = await createAdminClient()
   const { data, error } = await supabase
@@ -61,7 +101,7 @@ export async function POST(request: Request) {
       pipeline_id: body.pipelineId || null,
       status: body.status || "queued",
       loss_history: body.lossHistory || [],
-      metrics: body.metrics || {},
+      metrics,
       start_time: body.startTime || now,
       end_time: body.endTime || null,
       created_at: now,

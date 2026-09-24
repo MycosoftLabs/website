@@ -192,11 +192,44 @@ export function TrainingRunDetail({ runId, onClose }: { runId: string, onClose: 
             />
             <MetricCard
               label="Throughput"
-              value={run.metrics?.throughput ? `${run.metrics.throughput} t/s` : '12.4k t/s'}
+              value={run.metrics?.throughput ? `${run.metrics.throughput} t/s` : 'N/A'}
               icon={Gauge}
               color="text-blue-400"
               description="Tokens per second"
             />
+          </div>
+
+          <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-6 space-y-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                <Database className="w-4 h-4" />
+                Device &amp; sensor bindings
+              </h4>
+              <a
+                href={run.networkMapHref || '/natureos/devices/network'}
+                className="text-[11px] font-mono uppercase text-emerald-400 hover:text-emerald-300 min-h-[44px] inline-flex items-center"
+              >
+                Open device network map
+              </a>
+            </div>
+            {(!run.deviceBindings || run.deviceBindings.length === 0) && (
+              <p className="text-sm text-zinc-500">
+                No device_id / sensor_id bound to this run. Bind sensors from NLM Ingest (live devices panel).
+              </p>
+            )}
+            {Array.isArray(run.deviceBindings) && run.deviceBindings.length > 0 && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {run.deviceBindings.map((b: any, i: number) => (
+                  <div
+                    key={`${b.device_id}-${b.sensor_id}-${i}`}
+                    className="rounded-xl border border-zinc-800 bg-black/30 p-3 font-mono text-[11px] space-y-1"
+                  >
+                    <p className="text-zinc-300">device_id: {b.device_id || b.deviceId}</p>
+                    <p className="text-emerald-400/90">sensor_id: {b.sensor_id || b.sensorId}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -309,17 +342,16 @@ export function TrainingRunDetail({ runId, onClose }: { runId: string, onClose: 
           </div>
 
           {/* Sensory Grounding Monitor */}
-          <div className="bg-zinc-900/40 border border-zinc-800 rounded-[32px] p-8 min-h-[300px] relative overflow-hidden">
-            <div className="absolute top-8 left-8 z-10">
-              <h4 className="text-lg font-bold text-white flex items-center gap-2">
-                <Zap className="w-5 h-5 text-emerald-400" />
+          <div className="bg-zinc-900/40 border border-zinc-800 rounded-[32px] p-4 sm:p-6 md:p-8 min-h-[300px] relative overflow-hidden flex flex-col gap-5 sm:gap-6">
+            <div className="relative z-10 space-y-1.5">
+              <h4 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                <Zap className="w-5 h-5 text-emerald-400 shrink-0" />
                 Sensory Grounding Monitor
               </h4>
-              <p className="text-zinc-500 text-sm">Real-time processing of physical reality signals.</p>
+              <p className="text-zinc-500 text-sm leading-relaxed">Real-time processing of physical reality signals.</p>
             </div>
-            <div className="h-full w-full flex items-center justify-center opacity-20 pointer-events-none">
-               {/* Background visual placeholder */}
-               <div className="w-full h-full bg-radial-gradient from-emerald-500/10 to-transparent" />
+            <div className="relative w-full min-h-[120px] sm:min-h-[160px] rounded-2xl overflow-hidden opacity-30 pointer-events-none">
+              <div className="absolute inset-0 bg-radial-gradient from-emerald-500/10 to-transparent" />
             </div>
             <SensorySignalMonitor isTraining={run.status === 'running'} />
           </div>

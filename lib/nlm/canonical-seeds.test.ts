@@ -3,9 +3,12 @@ import {
   CANONICAL_ARCHITECTURE_VARIANTS,
   CANONICAL_BASE_MODELS,
   CANONICAL_BASE_MODEL_NAMES,
+  CANONICAL_CATALOG,
+  CANONICAL_CATALOG_IDS,
+  getFullDemoCatalog,
 } from "./canonical-seeds"
 
-describe("canonical NLM AI Studio seeds", () => {
+describe("canonical NLM catalog seeds", () => {
   it("restores the single Base-NLM-v1 / v1-standard architecture variant", () => {
     expect(CANONICAL_ARCHITECTURE_VARIANTS).toHaveLength(1)
     expect(CANONICAL_ARCHITECTURE_VARIANTS[0]).toMatchObject({
@@ -25,7 +28,7 @@ describe("canonical NLM AI Studio seeds", () => {
     )
   })
 
-  it("restores all 10 AI Studio base models pointing at v1-standard", () => {
+  it("restores all 10 legacy AI Studio base models pointing at v1-standard", () => {
     expect(CANONICAL_BASE_MODELS).toHaveLength(10)
     expect(CANONICAL_BASE_MODEL_NAMES).toEqual([
       "Flora-Base-NLM",
@@ -43,5 +46,23 @@ describe("canonical NLM AI Studio seeds", () => {
       expect(model.config.variantId).toBe("v1-standard")
       expect(model.config.architecture).toBe("v3.1-mamba-graph")
     }
+  })
+
+  it("includes §5 modality + scenario catalog entries", () => {
+    expect(CANONICAL_CATALOG.length).toBeGreaterThanOrEqual(30)
+    expect(CANONICAL_CATALOG_IDS).toEqual(
+      expect.arrayContaining([
+        "nlm-spectral-base-v1",
+        "nlm-acoustic-hydro-v1",
+        "nlm-scen-mycelium-growth-v1",
+        "nlm-scen-bee-acoustic-v1",
+        "nlm-scen-dolphin-acoustic-v1",
+        "nlm-scen-propeller-uav-v1",
+        "nlm-scen-fire-thermal-v1",
+        "nlm-scen-lightning-v1",
+      ])
+    )
+    const demo = getFullDemoCatalog()
+    expect(demo.every((m) => m.isCatalog && m.accuracy === null)).toBe(true)
   })
 })

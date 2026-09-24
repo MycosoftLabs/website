@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/server"
-import { requireOwnerOrSuperuserIdentity, resolveVerifiedIdentity } from "@/lib/auth/verified-identity"
+import {
+  isOwnerOrSuperuserRole,
+  requireOwnerOrSuperuserIdentity,
+  resolveVerifiedIdentity,
+} from "@/lib/auth/verified-identity"
+import { CANONICAL_ARCHITECTURE_VARIANTS } from "@/lib/nlm/canonical-seeds"
 
 export const dynamic = "force-dynamic"
 
@@ -14,7 +19,6 @@ function normalizeVariant(row: any) {
     streams: row.streams || {},
     core: {
       ...(row.core || {}),
-      // VariantLab reads backbone/attention/temporal; map from AI Studio core.type
       backbone: row.core?.backbone || row.core?.type || "mamba-graph-hybrid",
       attention: row.core?.attention || "Sparse-Merkle",
       temporal: row.core?.temporal || "SSM/Mamba",
@@ -22,32 +26,70 @@ function normalizeVariant(row: any) {
     preconditioners: row.preconditioners || [],
     metrics: {
       ...(row.metrics || {}),
-      // VariantLab expects accuracy/latency/avaniScore; map seed targets when live metrics absent
-      accuracy:
-        row.metrics?.accuracy ?? row.metrics?.target_accuracy ?? null,
+      accuracy: row.metrics?.accuracy ?? row.metrics?.target_accuracy ?? null,
       latency:
         row.metrics?.latency ??
-        (row.metrics?.max_latency_ms != null
-          ? `${row.metrics.max_latency_ms}ms`
-          : null),
+        (row.metrics?.max_latency_ms != null ? `${row.metrics.max_latency_ms}ms` : null),
       avaniScore: row.metrics?.avaniScore ?? null,
     },
     timestamp: {
       seconds: Math.floor(createdMs / 1000),
       iso: created || null,
     },
+    isCatalog: Boolean(row.isCatalog),
   }
 }
 
+function catalogVariants() {
+  return CANONICAL_ARCHITECTURE_VARIANTS.map((v) =>
+    normalizeVariant({
+      id: v.id,
+      name: v.name,
+      owner_id: null,
+      streams: v.streams,
+      core: v.core,
+      preconditioners: v.preconditioners,
+      metrics: v.metrics,
+      created_at: null,
+      isCatalog: true,
+    })
+  )
+}
+
+/** Public catalog variants for logged-out; authenticated merge Supabase. */
 export async function GET() {
+  const variants = catalogVariants()
+  const seen = new Set(variants.map((v) => v.id))
+
   const identity = await resolveVerifiedIdentity()
-  const authError = requireOwnerOrSuperuserIdentity(identity)
-  if (authError) return authError
-  const supabase = await createAdminClient()
-  let query = supabase.from("nlm_variants").select("*").order("created_at", { ascending: false }).limit(200)
-  const { data, error } = await query
-  if (error) return NextResponse.json({ variants: [], error: error.message }, { status: 500 })
-  return NextResponse.json({ variants: (data || []).map(normalizeVariant), source: "supabase" })
+  if (
+    identity.isAuthenticated &&
+    (identity.isSuperuser || isOwnerOrSuperuserRole(identity.userRole))
+  ) {
+    try {
+      const supabase = await createAdminClient()
+      const { data } = await supabase
+        .from("nlm_variants")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200)
+      for (const row of data || []) {
+        const n = normalizeVariant(row)
+        if (!seen.has(n.id)) {
+          variants.push(n)
+          seen.add(n.id)
+        }
+      }
+    } catch {
+      // catalog-only ok
+    }
+  }
+
+  return NextResponse.json({
+    variants,
+    source: "catalog",
+    auth: identity.isAuthenticated ? "authenticated" : "anonymous",
+  })
 }
 
 export async function POST(request: Request) {

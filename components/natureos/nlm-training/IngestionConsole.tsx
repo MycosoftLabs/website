@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMycoBrainData } from '@/lib/nlm/supabase-hooks';
-import { useAllFrames } from '@/lib/nlm/firebase-hooks';
+import { useAllFrames, useLiveIngest } from '@/lib/nlm/api-hooks';
 import {
   Zap,
   Activity,
@@ -22,6 +22,8 @@ import {
   Clock,
   Server,
   RefreshCw,
+  ExternalLink,
+  Link2,
 } from 'lucide-react';
 
 const SENSORS = [
@@ -64,28 +66,29 @@ function signalScore(values: number[], base: number, scale: number) {
 export function IngestionConsole() {
   const { data: mycoBrainData } = useMycoBrainData();
   const { frames } = useAllFrames();
+  const { devices, sensors, loading: devicesLoading, source: ingestSource, networkMapHref, note: ingestNote } = useLiveIngest();
+  const [selectedBindings, setSelectedBindings] = useState<Array<{ device_id: string; sensor_id: string }>>([]);
+  const [bindStatus, setBindStatus] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState(0);
   const [isIngesting, setIsIngesting] = useState(true);
   const [mindexHealth, setMindexHealth] = useState<MindexHealthData | null>(null);
   const [mindexLoading, setMindexLoading] = useState(true);
   const [transformLatencies, setTransformLatencies] = useState<Record<string, number>>({
-    fft: 1.5, wavelet: 2.7, pca: 3.9, norm: 5.1,
+    fft: 0, wavelet: 0, pca: 0, norm: 0,
   });
   const [signalIntegrity, setSignalIntegrity] = useState<Record<string, number>>({
     spectral: 0, acoustic: 0, bioelectric: 0, chemical: 0, thermal: 0, mindex: 0,
   });
 
-  // Real ingestion rate: derived from frames per minute from Firebase
+  // Real ingestion rate from frames only — zero when empty
   const ingestionRate = useMemo(() => {
     if (frames.length === 0) return 0;
-    // Count frames created in last 60 seconds
     const now = Date.now();
     const recentFrames = frames.filter(f => {
-      const ts = f.timestamp?.seconds ? f.timestamp.seconds * 1000 : 0;
+      const ts = f.timestamp?.seconds ? f.timestamp.seconds * 1000 : (f.timestamp ? new Date(f.timestamp).getTime() : 0);
       return ts > now - 60000;
     });
-    // Express as FPS equivalent
-    return Math.max(recentFrames.length * 2, frames.length > 0 ? 12 : 0);
+    return recentFrames.length;
   }, [frames]);
 
   // Real frame root from Firebase (latest frame)
@@ -226,6 +229,137 @@ export function IngestionConsole() {
             {isIngesting ? 'PAUSE INGESTION' : 'RESUME INGESTION'}
           </button>
         </div>
+      </div>
+
+      {/* Live devices — real MycoBrain/MAS + field map; empty samples when offline */}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">Live devices &amp; sensors</h3>
+            {ingestNote ? <p className="text-[11px] text-zinc-600 mt-1 max-w-2xl">{ingestNote}</p> : null}
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="font-mono text-[10px] uppercase text-zinc-600">
+              {devicesLoading ? '…' : ingestSource === 'live' ? `${devices.length} devices · ${sensors.length} sensors` : 'no-data'}
+            </span>
+            <a
+              href={networkMapHref}
+              className="inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-lg border border-zinc-700 text-[11px] font-mono uppercase text-emerald-400 hover:bg-emerald-500/10"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Device network map
+            </a>
+            {selectedBindings.length > 0 && (
+              <button
+                type="button"
+                onClick={async () => {
+                  setBindStatus('binding…')
+                  try {
+                    const res = await fetch('/api/natureos/nlm-training/ingest/bind', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ bindings: selectedBindings }),
+                    })
+                    const data = await res.json().catch(() => ({}))
+                    if (!res.ok) {
+                      setBindStatus(data.error || `Bind failed (${res.status})`)
+                      return
+                    }
+                    setBindStatus(`Bound ${data.bindings?.length || 0} sensor(s) for training`)
+                  } catch {
+                    setBindStatus('Bind request failed')
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-[11px] font-mono uppercase text-emerald-300"
+              >
+                <Link2 className="w-3.5 h-3.5" />
+                Bind {selectedBindings.length} to training
+              </button>
+            )}
+          </div>
+        </div>
+        {bindStatus && <p className="text-[11px] font-mono text-zinc-400">{bindStatus}</p>}
+        {!devicesLoading && devices.length === 0 && (
+          <p className="text-sm text-zinc-500">
+            No MycoBrain / registered sensors online. Architecture below remains visible; waveforms stay empty until devices report.
+          </p>
+        )}
+        {devices.length > 0 && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {devices.map((d) => (
+              <div key={d.device_id} className="rounded-xl border border-zinc-800 bg-black/30 p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-white">{d.display_name}</p>
+                    <p className="font-mono text-[10px] text-zinc-500">
+                      device_id: {d.device_id}{d.role ? ` · ${d.role}` : ''}
+                      {d.mdp_device_id ? ` · mdp:${d.mdp_device_id}` : ''}
+                    </p>
+                  </div>
+                  <a
+                    href={d.network_href || networkMapHref}
+                    className="text-[10px] font-mono uppercase text-emerald-500/80 hover:text-emerald-400 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
+                    title="Open on device network map"
+                  >
+                    Map
+                  </a>
+                </div>
+                <p className="font-mono text-[10px] text-zinc-600">
+                  Status: {d.status} · Last: {d.last_sample_age_sec != null ? `${d.last_sample_age_sec}s ago` : 'unknown'}
+                </p>
+                <div className="space-y-1.5 pt-1 border-t border-zinc-800/80">
+                  <p className="text-[10px] uppercase tracking-widest text-zinc-500">Sensors</p>
+                  {(d.sensors?.length ? d.sensors : (d.sensor_channels || []).map((id: string) => ({
+                    sensor_id: id,
+                    status: 'declared',
+                    sample: null,
+                  }))).map((s: any) => {
+                    const key = `${d.device_id}::${s.sensor_id}`
+                    const selected = selectedBindings.some(
+                      (b) => b.device_id === d.device_id && b.sensor_id === s.sensor_id
+                    )
+                    return (
+                      <label
+                        key={key}
+                        className="flex items-center gap-2 min-h-[44px] px-2 rounded-lg border border-zinc-800/60 hover:bg-zinc-900/60 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          className="accent-emerald-500"
+                          checked={selected}
+                          onChange={() => {
+                            setSelectedBindings((prev) => {
+                              if (selected) {
+                                return prev.filter(
+                                  (b) => !(b.device_id === d.device_id && b.sensor_id === s.sensor_id)
+                                )
+                              }
+                              return [...prev, { device_id: d.device_id, sensor_id: s.sensor_id }]
+                            })
+                          }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono text-[11px] text-zinc-200 truncate">
+                            sensor_id: {s.sensor_id}
+                          </p>
+                          <p className="font-mono text-[10px] text-zinc-600">
+                            {s.modality || '—'} · {s.status}
+                            {s.sample != null
+                              ? ` · sample ${typeof s.sample === 'number' ? s.sample : 'obj'}`
+                              : ' · no-data'}
+                          </p>
+                        </div>
+                      </label>
+                    )
+                  })}
+                  {!(d.sensors?.length || d.sensor_channels?.length) && (
+                    <p className="text-[11px] text-zinc-600">No sensors declared — gateway waiting for MDP device.</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Pipeline Visualization */}
